@@ -1,3 +1,18 @@
 order_id,supplier,order_date,currency,merchandise,shipping,tax,other_fees,total_paid,delivery_status,notes
 101999423,DigiKey,2026-10-02,INR,8468.61,0,0,4163.00,12631.61,received,"Physically received 2026-10-08; import fees include customs duty, import IGST, and FedEx charges"
 102463391,DigiKey,2026-10-24,INR,7497.68,0,0,0,7497.68,shipped,Shipped 2026-10-26 via DHL; KYC approved; import fees pending and not included
+376705,Robocraze,2026-10-02,INR,306.00,125.00,0,0,431.00,received,"Physically received; delivered 2026-10-05. Displayed tax of INR 66 is treated as included, not additional."
+213622,Evelta Electronics,2026-10-19,INR,2986.00,45.00,545.58,0,3576.58,received,Received and COD paid 2026-10-27
+114608,7Semi,2026-10-24,INR,6336.00,192.00,0.00,0.00,6528.00,received,Received 2026-10-27
+36575,Makestore.in,2026-10-19,INR,,,,,1248.08,received,"Received 2026-10-27; merchandise, shipping, tax, other fees, and item prices unknown"
+71341,Fab.to.Lab,2026-10-15,INR,5190.45,200.00,970.28,0.00,6360.73,partially_received,"Insured shipping; breadboard and both jumper-wire sets received; Pinecil V2 receipt unconfirmed; separate Pinecil parcel dispatched 2026-10-26"
+6090,The Inventory,2026-10-26,INR,16990.00,0.00,0.00,0.00,16990.00,shipped,Shipped 2026-10-27; GST of INR 2591.69 is included in merchandise price and not added separately
+3742207,Robu.in,2026-10-05,INR,1933.00,,,,,received,Exact delivery date unknown; shipping and tax breakdown unknown; final amount paid not independently verified
+406-8146193-9854765,Amazon India,2026-10-05,INR,2018.00,200.00,,-197.30,2020.70,received,"Products delivered 2026-10-08 to 2026-10-09; additional fee INR 2.70 and promotional discount INR -200.00 are netted in other_fees; tax breakdown unknown"
+406-6340542-7546753,Amazon India,2026-10-05,INR,1274.00,80.00,,-78.25,1275.75,received,"Products delivered 2026-10-08 to 2026-10-09; additional fee INR 1.75 and promotional discount INR -80.00 are netted in other_fees; tax breakdown unknown"
+406-5143712-8251526,Amazon India,2026-10-05,INR,84.00,89.00,,0.25,173.25,received,Delivered 2026-10-13; other_fees is marketplace fee
+406-0144029-4393173,Amazon India,2026-10-05,INR,223.00,0.00,,0.30,223.30,received,Delivered 2026-10-10; other_fees is marketplace fee
+406-4506769-5646732,Amazon India,2026-10-17,INR,299.00,59.00,,0.20,358.20,received,Delivered 2026-10-19; other_fees is marketplace fee
+406-3618422-6461960,Amazon India,2026-10-17,INR,7968.00,79.00,,4.80,8051.80,received,Delivered 2026-10-19; other_fees is marketplace fee
+406-6848882-4416357,Amazon India,2026-10-17,INR,39.00,0.00,,0.00,39.00,received,Headset inspection service completed 2026-10-19
+GUMROAD-2026-10-26-TENOR,Gumroad,2026-10-26,USD,29.74,0.00,,,29.74,received,Digital download completed; order_id is a local inventory identifier and not a Gumroad transaction ID; tax and fee breakdown unknown
