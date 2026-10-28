@@ -5,3 +5,5 @@ This is the permanent record of hardware and other project purchases for Feral F
 This inventory is public. Never include personal information, payment details, tracking numbers, or sensitive documents.
 
 Add future orders incrementally from their order confirmations or invoices.
+
+See the [supplier guide](suppliers.md) for checkout and delivery experiences.
