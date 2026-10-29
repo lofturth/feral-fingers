@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Feral Fingers motion starter</title>
+  </head>
+  <body>
+    <main>
+      <h1>Feral Fingers · motion starter</h1>
+      <p id="connection" role="status">Connecting to relay…</p>
+      <section id="phone" hidden>
+        <button id="enable">Enable motion sensors</button>
+        <p id="permission">Motion permission not requested</p>
+        <p id="sending">Waiting for samples…</p>
+        <p>Keep this page visible while moving the phone.</p>
+      </section>
+      <section id="mac" hidden>
+        <p id="sample-status">Waiting for phone…</p>
+        <p>Open <code id="phone-url"></code> in iPhone Safari.</p>
+        <table><thead><tr><th>Sensor</th><th>Latest value</th></tr></thead><tbody id="values"></tbody></table>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

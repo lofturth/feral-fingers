@@ -1,0 +1,17 @@
+{
+  "name": "feral-motion-starter",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "vite --host 0.0.0.0",
+    "relay": "node server/relay.js",
+    "build": "vite build",
+    "test": "node --test server/relay.test.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "vite": "^6.3.0"
+  }
+}
