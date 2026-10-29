@@ -19,7 +19,7 @@ npm run relay
 
 Open `https://<Mac-hostname>.local:5184/` on the Mac and `https://<Mac-hostname>.local:5184/?phone=1` in iPhone Safari. Tap **Enable motion sensors** on the phone. Both devices must be on a reachable local network. The web server uses port 5184; the relay listens only on Mac loopback port 8784, through the web server's WebSocket proxy. These ports are separate from piano-trainer's 5173/8765. Refresh pages manually after edits; Vite HMR is disabled.
 
-The phone sends raw, nullable orientation and motion values and its own browser event timestamps. Phone timestamps are not synchronized to the Mac clock. The Mac shows live values, connection state, and the age of the last sample. Only one phone controller may connect at once. No samples or history are stored.
+The phone sends raw, nullable orientation and motion values and its own browser event timestamps. Phone timestamps are not synchronized to the Mac clock. The Mac shows live values, connection state, the age of the last sample, five-second scrolling graphs, received samples per second, and phone event interval statistics. Each sensor group has a shared, fixed vertical scale centered on zero; changing it does not clear the graph history. Graphs and numeric values update with the display's animation frames without limiting sensor sends. Only one phone controller may connect at once. No samples are persisted.
 
 ## Check
 

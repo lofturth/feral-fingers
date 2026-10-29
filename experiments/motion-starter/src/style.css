@@ -3,7 +3,18 @@ body { margin: 0; padding: 1.25rem; }
 main { max-width: 700px; margin: auto; }
 h1 { font-size: 1.5rem; }
 button { padding: .75rem 1rem; font: inherit; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: .45rem; border-bottom: 1px solid #555; text-align: left; }
-td { font-variant-numeric: tabular-nums; }
+section h2 { font-size: 1.15rem; margin: 1.5rem 0 .5rem; }
+.scale-control { display: inline-flex; align-items: center; gap: .4rem; font-size: .9rem; }
+.scale-control select { font: inherit; padding: .2rem; max-width: 100%; }
+.sensor { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; grid-template-rows: auto auto 1fr; align-items: start; gap: .25rem .75rem; padding: .5rem 0; border-bottom: 1px solid #444; }
+.sensor img { grid-row: 1 / 4; width: 96px; height: 96px; object-fit: contain; border-radius: 4px; }
+.sensor strong { font-variant-numeric: tabular-nums; }
+.sensor small { grid-column: 2 / -1; color: #bbb; }
+.sensor canvas { grid-column: 2 / -1; width: 100%; height: 54px; display: block; background: #202237; }
+.sensor.missing canvas { opacity: .35; }
+.illustration-note, .coordinate-legend { font-size: .9rem; color: #bbb; }
+@media (max-width: 480px) {
+  .sensor { grid-template-columns: 72px minmax(0, 1fr) auto; }
+  .sensor img { width: 72px; height: 72px; }
+}
 code { overflow-wrap: anywhere; }

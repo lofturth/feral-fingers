@@ -18,7 +18,11 @@
       <section id="mac" hidden>
         <p id="sample-status">Waiting for phone…</p>
         <p>Open <code id="phone-url"></code> in iPhone Safari.</p>
-        <table><thead><tr><th>Sensor</th><th>Latest value</th></tr></thead><tbody id="values"></tbody></table>
+        <p id="rate">Received samples: waiting…</p>
+        <p id="interval">Phone sample intervals: waiting…</p>
+        <p class="coordinate-legend"><strong>Phone axes:</strong> +X points right across the screen, +Y toward the top, and +Z outward, perpendicular to the screen. They stay fixed to the phone’s standard screen orientation and move with it. Orientation angles instead describe the phone relative to a reference frame, which may be relative or Earth based.</p>
+        <p class="illustration-note">Illustrations are visual aids; their arrows and coordinate conventions have not been verified.</p>
+        <div id="graphs"></div>
       </section>
     </main>
     <script type="module" src="/src/main.js"></script>
