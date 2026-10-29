@@ -1,0 +1,13 @@
+body { margin: 0; background: #171a20; color: #edf2f4; font: 16px system-ui, sans-serif; }
+main { max-width: 860px; padding: 1.5rem; margin: auto; }
+h1 { margin-bottom: .5rem; }
+p { line-height: 1.4; }
+.note, .axis { color: #bdc7ce; }
+.measurement { margin: 1.5rem 0 2rem; padding: 1rem; background: #222831; border-radius: .5rem; }
+h2 { margin: 0; font-size: 1.1rem; }
+.reading { display: flex; align-items: baseline; gap: .3rem; margin: .5rem 0; }
+.reading output { font-size: 2.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+label { display: block; margin: .6rem 0; }
+select { background: #111820; color: inherit; padding: .3rem; }
+canvas { display: block; width: 100%; height: 170px; background: #171e26; }
+.axis { display: flex; justify-content: space-between; font-size: .8rem; }

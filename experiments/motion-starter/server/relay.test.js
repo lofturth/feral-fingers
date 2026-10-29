@@ -47,3 +47,35 @@ test('forwards nullable and omitted sensor fields, then reports disconnect', asy
   phone.close()
   await disconnected
 })
+
+test('routes pitch-center feedback only to the active controller', async t => {
+  const server = startRelay(0)
+  t.after(async () => {
+    for (const socket of server.clients) socket.terminate()
+    await new Promise(resolve => server.close(resolve))
+  })
+  await once(server, 'listening')
+  const url = `ws://127.0.0.1:${server.address().port}/motion-relay`
+  async function connect(role) {
+    const socket = new WebSocket(url)
+    await once(socket, 'open')
+    const status = receive(socket, message => message.type === 'status')
+    socket.send(JSON.stringify({ role }))
+    await status
+    return socket
+  }
+  const receiver = await connect('receiver')
+  const otherReceiver = await connect('receiver')
+  const phone = await connect('controller')
+  const command = receive(phone, message => message.type === 'pitchCenterHaptic')
+  let otherSawCommand = false
+  otherReceiver.on('message', data => {
+    if (JSON.parse(data.toString()).type === 'pitchCenterHaptic') otherSawCommand = true
+  })
+  receiver.send(JSON.stringify({ type: 'pitchCenterHaptic' }))
+  assert.deepEqual(await command, { type: 'pitchCenterHaptic' })
+  assert.equal(otherSawCommand, false)
+  receiver.send(JSON.stringify({ type: 'pitchCenterHaptic', extra: true }))
+  await new Promise(resolve => setTimeout(resolve, 40))
+  assert.equal(otherSawCommand, false)
+})

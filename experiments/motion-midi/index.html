@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Motion MIDI · CC1</title></head>
+<body>
+  <main>
+    <h1>Motion dashboard</h1>
+    <p>Connection: <span id="connection">Connecting…</span></p>
+    <section aria-label="MIDI Output">
+      <h2>MIDI Output</h2>
+      <div class="midi-output-grid">
+        <div class="output-chart">
+          <h3>CC1 — Mod Wheel</h3>
+          <p>Last sent: <output id="last-sent">—</output> · <span id="graph-status">Waiting for MIDI output</span></p>
+          <canvas id="cc1-graph" role="img" aria-label="Sent CC1 over the latest five seconds, from 1 to 127"></canvas>
+          <div class="axis-labels"><span>−5 s</span><span>Now</span></div>
+        </div>
+        <div class="output-chart">
+          <h3>Pitch Bend</h3>
+          <p>Last sent: <output id="pitch-cents">—</output> cents · <span id="pitch-status">Pitch bend disabled</span></p>
+          <canvas id="pitch-graph" role="img" aria-label="Sent pitch bend in cents over the latest five seconds, from minus 200 to plus 200"></canvas>
+          <div class="axis-labels"><span>−5 s</span><span>Now</span></div>
+        </div>
+      </div>
+      <p class="hint">Pitch bend cents assume a ±2-semitone synthesizer range.</p>
+    </section>
+    <section aria-label="Gravity alignment and MIDI CC1">
+    <h2>Gravity Alignment / MIDI CC1</h2>
+    <p>Orientation tilt: face-up or face-down maximum · screen vertical minimum</p>
+    <button id="enable">Enable MIDI</button>
+    <label>MIDI output <select id="output" disabled><option value="">No output selected</option></select></label>
+    <p>Sensor data: <span id="sensor">Waiting…</span></p>
+    <p>Alignment: <output id="alignment">—</output></p>
+    <p>CC1: <output id="cc1">—</output></p>
+    <meter id="meter" min="1" max="127" value="1"></meter>
+    <div class="curve-controls">
+      <label>Response Curve <input id="response-curve" type="range" min="0.25" max="2" step="0.05" value="0.5"> <output id="curve-exponent">0.50</output></label>
+      <div class="curve-presets" aria-label="Response curve presets">
+        <button type="button" data-exponent="0.5">Square root</button>
+        <button type="button" data-exponent="1">Linear</button>
+        <button type="button" data-exponent="2">Square</button>
+      </div>
+      <canvas id="curve-preview" role="img" aria-label="Response curve preview, input alignment zero to one and output zero to one"></canvas>
+      <div class="axis-labels curve-axis"><span>Input 0</span><span>Alignment</span><span>Input 1</span></div>
+    </div>
+    <p id="midi-status">MIDI is disabled</p>
+    <div aria-label="Gravity alignment history">
+      <h3>Calculated alignment · last 5 seconds</h3>
+      <canvas id="alignment-graph" role="img" aria-label="Calculated gravity alignment over the latest five seconds, from zero to one"></canvas>
+      <div class="axis-labels"><span>−5 s</span><span>Now</span></div>
+    </div>
+    </section>
+    <section aria-label="Forearm movement">
+      <h2>Forearm movement</h2>
+      <p>Phone top toward fingertips · straight wrist · elbow approximately fixed</p>
+      <p>Orientation: <span id="arm-sensor">Waiting for phone</span></p>
+      <p>Raw elevation; filtered velocity and acceleration.</p>
+      <div class="arm-measurement"><h3>Forearm elevation</h3><div class="arm-reading"><output id="arm-angle">—</output><span>°</span></div><canvas id="arm-angle-graph" aria-label="Elevation in degrees, latest five seconds"></canvas><div class="axis-labels"><span>−5 s</span><span>Time</span><span>Now</span></div></div>
+      <div class="arm-measurement"><h3>Elevation velocity</h3><div class="arm-reading"><output id="arm-velocity">—</output><span>°/s</span></div><label>Fixed scale <select id="arm-velocity-scale"><option value="180">±180 °/s</option><option value="360">±360 °/s</option><option value="720">±720 °/s</option></select></label><canvas id="arm-velocity-graph" aria-label="Elevation velocity in degrees per second, latest five seconds"></canvas><div class="axis-labels"><span>−5 s</span><span>Time</span><span>Now</span></div></div>
+      <div class="arm-measurement"><h3>Elevation acceleration</h3><div class="arm-reading"><output id="arm-acceleration">—</output><span>°/s²</span></div><label>Fixed scale <select id="arm-acceleration-scale"><option value="1000">±1000 °/s²</option><option value="2000">±2000 °/s²</option><option value="4000">±4000 °/s²</option></select></label><canvas id="arm-acceleration-graph" aria-label="Elevation acceleration in degrees per second squared, latest five seconds"></canvas><div class="axis-labels"><span>−5 s</span><span>Time</span><span>Now</span></div></div>
+    </section>
+    <section aria-label="Pitch Bend">
+      <h2>Pitch Bend</h2>
+      <label><input id="pitch-enabled" type="checkbox"> Enable pitch bend</label>
+      <label><input id="pitch-haptic" type="checkbox"> Pitch-center haptic</label>
+      <p class="hint">Haptic events generated: <output id="haptic-generated">0</output> · handed to WebSocket: <output id="haptic-handed-off">0</output></p>
+      <label>Source <select id="pitch-source"><option value="angle">Angle</option><option value="velocity">Velocity</option><option value="acceleration">Acceleration</option></select></label>
+      <label>Sensitivity <input id="pitch-sensitivity" type="range" min="0" max="10" step="0.1" value="2"> <output id="pitch-sensitivity-value">2.00 cents/°</output></label>
+      <button id="pitch-neutral" disabled>Set current angle as neutral</button> <span>Neutral: <output id="pitch-neutral-value">0.0°</output></span>
+      <p>Selected measurement: <output id="pitch-measurement">—</output></p>
+    </section>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

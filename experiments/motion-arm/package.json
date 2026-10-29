@@ -1,0 +1,13 @@
+{
+  "name": "feral-motion-arm",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "vite": "^6.3.0"
+  }
+}

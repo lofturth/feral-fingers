@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Motion Arm</title></head>
+<body>
+<main>
+  <h1>Motion Arm</h1>
+  <p>Phone top toward fingertips · straight wrist · elbow approximately fixed</p>
+  <p>Connection: <span id="connection">Connecting…</span></p>
+  <p>Orientation: <span id="sensor">Waiting for phone</span></p>
+  <p class="note">Raw elevation uses the phone's +Y axis. Velocity and acceleration use filtered derivatives.</p>
+  <section class="measurement"><h2>Forearm elevation</h2><div class="reading"><output id="angle">—</output><span>°</span></div><canvas id="angle-graph" aria-label="Elevation in degrees, latest five seconds"></canvas><div class="axis"><span>−5 s</span><span>Time</span><span>Now</span></div></section>
+  <section class="measurement"><h2>Elevation velocity</h2><div class="reading"><output id="velocity">—</output><span>°/s</span></div><label>Fixed scale <select id="velocity-scale"><option value="180">±180 °/s</option><option value="360">±360 °/s</option><option value="720">±720 °/s</option></select></label><canvas id="velocity-graph" aria-label="Elevation angular velocity in degrees per second, latest five seconds"></canvas><div class="axis"><span>−5 s</span><span>Time</span><span>Now</span></div></section>
+  <section class="measurement"><h2>Elevation acceleration</h2><div class="reading"><output id="acceleration">—</output><span>°/s²</span></div><label>Fixed scale <select id="acceleration-scale"><option value="1000">±1000 °/s²</option><option value="2000">±2000 °/s²</option><option value="4000">±4000 °/s²</option></select></label><canvas id="acceleration-graph" aria-label="Elevation angular acceleration in degrees per second squared, latest five seconds"></canvas><div class="axis"><span>−5 s</span><span>Time</span><span>Now</span></div></section>
+</main>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

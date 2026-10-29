@@ -54,7 +54,12 @@ export function startRelay(port = 8784, host = '127.0.0.1') {
         status()
         return
       }
-      if (socket !== phone) return
+      if (socket !== phone) {
+        if (role === 'receiver' && value.type === 'pitchCenterHaptic' && Object.keys(value).length === 1 && phone) {
+          send(phone, { type: 'pitchCenterHaptic' })
+        }
+        return
+      }
       if (value.type === 'heartbeat') { lastSeen = performance.now(); return }
       if (!validSample(value)) return socket.close(1008, 'Invalid motion sample')
       lastSeen = performance.now()
