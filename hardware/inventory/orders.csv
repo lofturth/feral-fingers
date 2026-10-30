@@ -6,7 +6,7 @@ order_id,supplier,order_date,currency,merchandise,shipping,tax,other_fees,total_
 114608,7Semi,2026-10-24,INR,6336.00,192.00,0.00,0.00,6528.00,received,Received 2026-10-27
 36575,Makestore.in,2026-10-19,INR,,,,,1248.08,received,"Received 2026-10-27; merchandise, shipping, tax, other fees, and item prices unknown"
 71341,Fab.to.Lab,2026-10-15,INR,5190.45,200.00,970.28,0.00,6360.73,partially_received,"Insured shipping; breadboard and both jumper-wire sets received; Pinecil V2 receipt unconfirmed; separate Pinecil parcel dispatched 2026-10-26"
-6090,The Inventory,2026-10-26,INR,16990.00,0.00,0.00,0.00,16990.00,shipped,Shipped 2026-10-27; GST of INR 2591.69 is included in merchandise price and not added separately
+6090,The Inventory,2026-10-26,INR,16990.00,0.00,0.00,0.00,16990.00,received,Received 2026-10-30; invoice dated 2026-10-27 and marked Paid; GST of INR 2591.64 is included in merchandise price and not added separately
 3742207,Robu.in,2026-10-05,INR,1933.00,,,,,received,Exact delivery date unknown; shipping and tax breakdown unknown; final amount paid not independently verified
 406-8146193-9854765,Amazon India,2026-10-05,INR,2018.00,200.00,,-197.30,2020.70,received,"Products delivered 2026-10-08 to 2026-10-09; additional fee INR 2.70 and promotional discount INR -200.00 are netted in other_fees; tax breakdown unknown"
 406-6340542-7546753,Amazon India,2026-10-05,INR,1274.00,80.00,,-78.25,1275.75,received,"Products delivered 2026-10-08 to 2026-10-09; additional fee INR 1.75 and promotional discount INR -80.00 are netted in other_fees; tax breakdown unknown"
