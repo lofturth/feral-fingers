@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robot Piano</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header><span class="eyebrow">MIDI TRAINING · 60 BPM</span><h1>Robot Piano</h1><p>One sequence. One clean attempt.</p></header>
+    <section class="card device"><div><span class="label">MIDI INPUT</span><strong id="device">Click Connect keyboard to begin</strong><select id="inputs" aria-label="Choose MIDI input" hidden></select><div class="device-options"><button id="save-input" class="secondary" type="button" disabled>Save this input</button><button id="forget-input" class="secondary" type="button" hidden>Forget saved input</button></div><small id="input-preference">Without a saved choice, MiniLab 37 is preferred when available.</small></div><button id="connect" class="secondary">Connect keyboard</button></section>
+    <section class="card practice"><div class="section-heading"><span class="label">YOUR SEQUENCE</span><span id="phase" class="badge">Ready</span></div><div class="training-options"><label>Pitch level <select id="level"><option value="0">0 · C4–D4 · 3 notes</option><option value="1">1 · C4–E4 · 4 notes</option><option value="2">2 · C4–F4 · 5 notes</option><option value="3">3 · C4–G4 · 6 notes</option><option value="4">4 · C4–A4 · 7 notes</option><option value="5">5 · C4–B4 · 8 notes</option><option value="6">6 · C4–C5 · 9 notes</option></select></label></div><div id="notes" class="notes" aria-label="Target notes"></div><div class="practice-options"><fieldset id="sequence-choice" class="sequence-choice" aria-label="Sequence selection"><label><input id="new-sequence" type="radio" name="sequence-choice" value="new" checked><span>New each time</span></label><label><input id="same-sequence" type="radio" name="sequence-choice" value="same"><span>Same sequence</span></label></fieldset><fieldset id="continuous-choice" class="sequence-choice" aria-label="Continuous practice"><label><input id="continuous-off" type="radio" name="continuous-choice" value="off" checked><span>Continuous: Off</span></label><label><input id="continuous-on" type="radio" name="continuous-choice" value="on"><span>On</span></label></fieldset></div><div class="controls"><button id="audio-mode" class="primary" disabled>Audio</button><button id="text-mode" class="primary" disabled>Text</button><button id="stop" class="secondary" disabled>Stop / Cancel</button></div><p id="status" class="status" role="status">Connect a MIDI keyboard, then choose Audio or Text.</p></section>
+    <section id="result" class="card result" hidden><div class="section-heading"><span class="label">LAST ATTEMPT</span><strong id="accuracy"></strong></div><div id="rows" class="rows"></div><div class="metrics"><div><span>Starting offset</span><strong id="offset"></strong></div><div><span>Relative timing error</span><strong id="relative"></strong></div><div><span>Mean absolute error</span><strong id="mae"></strong></div></div><p class="hint">Timing is measured against scheduled audio. MIDI and audio device latency are not calibrated.</p><button id="copy" class="secondary" type="button">Copy results</button></section>
+    <section class="recording-bar"><strong id="saved-count">Checking saved attempts…</strong><button id="copy-json" class="secondary" type="button">Copy JSON</button><button id="download-json" class="secondary" type="button">Download JSON</button><span id="export-status" role="status"></span><span id="storage-status" role="status"></span></section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
