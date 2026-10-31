@@ -5,7 +5,7 @@ order_id,supplier,order_date,currency,merchandise,shipping,tax,other_fees,total_
 213622,Evelta Electronics,2026-10-19,INR,2986.00,45.00,545.58,0,3576.58,received,Received and COD paid 2026-10-27
 114608,7Semi,2026-10-24,INR,6336.00,192.00,0.00,0.00,6528.00,received,Received 2026-10-27
 36575,Makestore.in,2026-10-19,INR,,,,,1248.08,received,"Received 2026-10-27; merchandise, shipping, tax, other fees, and item prices unknown"
-71341,Fab.to.Lab,2026-10-15,INR,5190.45,200.00,970.28,0.00,6360.73,partially_received,"Insured shipping; breadboard and both jumper-wire sets received; Pinecil V2 receipt unconfirmed; separate Pinecil parcel dispatched 2026-10-26"
+71341,Fab.to.Lab,2026-10-15,INR,5190.45,200.00,970.28,0.00,6360.73,received,"Breadboard and both jumper-wire sets received earlier; Pinecil V2 shipped separately and delivered 2026-10-31, 16 calendar days after ordering; Pinecil invoice INR 4866.56 includes INR 742.36 GST and is part of the existing order total"
 6090,The Inventory,2026-10-26,INR,16990.00,0.00,0.00,0.00,16990.00,received,Received 2026-10-30; invoice dated 2026-10-27 and marked Paid; GST of INR 2591.64 is included in merchandise price and not added separately
 3742207,Robu.in,2026-10-05,INR,1933.00,,,,,received,Exact delivery date unknown; shipping and tax breakdown unknown; final amount paid not independently verified
 406-8146193-9854765,Amazon India,2026-10-05,INR,2018.00,200.00,,-197.30,2020.70,received,"Products delivered 2026-10-08 to 2026-10-09; additional fee INR 2.70 and promotional discount INR -200.00 are netted in other_fees; tax breakdown unknown"
@@ -17,4 +17,4 @@ order_id,supplier,order_date,currency,merchandise,shipping,tax,other_fees,total_
 406-6848882-4416357,Amazon India,2026-10-17,INR,39.00,0.00,,0.00,39.00,received,Headset inspection service completed 2026-10-19
 GUMROAD-2026-10-26-TENOR,Gumroad,2026-10-26,USD,29.74,0.00,,,29.74,received,Digital download completed; order_id is a local inventory identifier and not a Gumroad transaction ID; tax and fee breakdown unknown
 388589,Robocraze,2026-10-28,INR,3621.00,125.00,0.00,,,ordered,"Confirmed; preparing to ship; premium shipping advertised 2–4 days; order total INR 3746.00; INR 571.42 tax included in total and not added separately; payment not confirmed"
-1356,PCB Cupid,2026-10-28,INR,300.00,129.00,0.00,,,ordered,"Confirmed; preparing to ship; express shipping; order total INR 429.00; INR 65.44 tax included in total and not added separately; confirmation lists Manual payment method, payment not confirmed"
+1356,PCB Cupid,2026-10-28,INR,300.00,129.00,0.00,,429.00,received,"Delivered 2026-10-31, 3 calendar days after ordering; INR 65.44 GST included in total; express shipping INR 129.00; invoice confirms paid with INR 0 balance due"

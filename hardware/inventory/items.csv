@@ -35,7 +35,7 @@ order_id,supplier_sku,item_name,quantity,unit_price,line_total,notes
 36575,,"Neodymium magnet 5×1.5mm disc, pack of 10",10,,,Price unknown
 36575,,"Neodymium magnet 8×1.5mm disc, pack of 10",10,,,Price unknown
 71341,,400-point breadboard,1,166.65,166.65,Received
-71341,,Pinecil V2 soldering iron,1,4440.00,4440.00,Not confirmed received; separate parcel dispatched 2026-10-26
+71341,,Pinecil V2 soldering iron,1,4440.00,4440.00,Received 2026-10-31; shipped separately
 71341,,"Pololu 6-inch 10-color jumper wires, male-to-male",1,291.90,291.90,Received
 71341,,"Pololu 6-inch 10-color jumper wires, male-to-female",1,291.90,291.90,Received
 6090,,Arturia MiniLab 37 MK3 White MIDI Keyboard Controller,1,16990.00,16990.00,Received 2026-10-30
@@ -67,4 +67,4 @@ GUMROAD-2026-10-26-TENOR,,Joel Blanco Berg Tenor Saxophone preset for Kilohearts
 388589,,7Semi ESP32-C6 Mini Qwiic,1,705.00,705.00,
 388589,,7Semi BMI323 Nano Qwiic,1,432.00,432.00,
 388589,,7Semi BMI323 full-size breakout,2,452.00,904.00,
-1356,,GLink 150 mm JST-SH 1.0 mm 4-pin Qwiic/STEMMA QT cable,10,30.00,300.00,
+1356,,GLink 150 mm JST-SH 1.0 mm 4-pin Qwiic/STEMMA QT cable,10,30.00,300.00,Received 2026-10-31
