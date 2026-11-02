@@ -22,3 +22,14 @@ The built-in composition in `a-little-jazzy-walk.mjs` supplies the phrase note
 sequences. `scoring.mjs` retains the existing note-sequence generator and scoring
 helpers for later phrase work. Importing, selecting, editing, and exporting
 melody libraries are no longer part of this lab.
+
+The separate fixed-phrase presentation shows and/or plays C4 D4 E4 when Start
+is pressed. Letters, treble-staff notation, audio, and metronome are independent
+switches, all enabled initially. The notes sound once at 80 BPM; the metronome
+continues at that tempo until Stop. They do not change the existing MIDI
+practice loop or session recording.
+
+The live piano roll under the fixed phrase records MIDI Note On/Off events
+between Start and Stop. It shows note duration over a scrolling eight-second
+window, with a fixed C3–C5 pitch range. The roll is a visual record only; it
+does not score notes or affect practice.

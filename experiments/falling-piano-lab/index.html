@@ -12,7 +12,7 @@
     <section class="card instrument">
       <div class="phrase-bar"><div><span class="label">PHRASE</span><div id="section-buttons" class="section-buttons" role="group" aria-label="Phrase section"><button type="button" data-section="A" aria-pressed="true">A</button><button type="button" data-section="B" aria-pressed="false">B</button><button type="button" data-section="C" aria-pressed="false">C</button><button type="button" data-section="D" aria-pressed="false">D</button><button type="button" data-section="full" aria-pressed="false">All</button></div><input id="section" type="hidden" value="A"></div><div class="audio-controls"><button id="enable-audio" class="secondary" type="button">Enable Audio</button><span id="audio-state" class="audio-state">Audio Off</span><button id="play-phrase" class="primary play-control" type="button" aria-label="Play phrase">▶ Play</button></div></div>
       <div id="practice-display" class="practice-display" role="status"><strong id="practice-heading">PHRASE PRACTICE</strong><span id="practice-state">Press Start to begin at A</span></div>
-      <div class="continuous-controls"><button id="continuous-start" class="secondary" type="button">Start / Restart at A</button><div id="continuous-progress" class="continuous-progress" aria-label="Phrase progress"></div><span id="continuous-next"></span><small id="continuous-hint">Click a section; Shift-click to extend · All selects A–D</small></div>
+      <div class="continuous-controls"><button id="continuous-start" class="secondary" type="button">Restart practice at A</button><div id="continuous-progress" class="continuous-progress" aria-label="Phrase progress"></div><span id="continuous-next"></span><small id="continuous-hint">Click a section; Shift-click to extend · All selects A–D</small></div>
       <div id="note-readout" class="note-readout" aria-live="polite"></div>
       <div id="piano" class="piano" aria-label="Live piano C3 through C6">
         <div class="piano-key white-key control-key" data-offset="0" data-pitch="48" style="left:0.00000%"></div>
@@ -57,6 +57,35 @@
       <div class="piano-options"><label for="tonic">Tonic</label><select id="tonic"></select><label for="scale">Scale</label><select id="scale"><option value="major">Major</option><option value="minor">Natural minor</option></select><button id="save-settings" class="secondary" type="button">Save Settings</button><span id="settings-status" role="status"></span></div>
       <p class="hint">C3 Replay · C♯3 Previous phrase · D3 Next phrase</p>
       <p id="replay-diagnostic" class="replay-diagnostic" role="status" aria-live="polite"></p>
+    </section>
+    <section class="card presentation" aria-label="Fixed phrase presentation">
+      <span class="label">FIXED PHRASE · C4 D4 E4</span>
+      <div class="presentation-controls"><button id="presentation-start" class="primary" type="button" aria-pressed="false">Start</button><button id="presentation-replay" class="secondary" type="button" disabled>Replay</button><label><input id="show-letters" type="checkbox" checked> Letters</label><label><input id="show-notation" type="checkbox" checked> Notation</label><label><input id="play-audio" type="checkbox" checked> Audio</label><label><input id="play-metronome" type="checkbox" checked> Metronome</label></div>
+      <div class="presentation-output" aria-live="polite">
+        <p id="presentation-letters" hidden>C4 D4 E4</p>
+        <svg id="presentation-notation" viewBox="0 0 300 120" role="img" aria-label="Treble clef staff showing C4, D4, E4" hidden>
+          <g stroke="currentColor" stroke-width="1.5"><path d="M50 40H280 M50 50H280 M50 60H280 M50 70H280 M50 80H280"/><path d="M94 90H124"/></g>
+          <g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M78 105 C70 99 66 91 69 84 C72 77 82 76 87 82 C92 88 86 96 78 96 C64 96 58 86 62 74 C66 62 82 53 84 39 C86 29 82 21 76 22 C70 23 67 32 69 42 C72 55 83 65 88 74"/>
+            <path d="M76 22 C77 48 79 76 80 104 C80 113 75 117 69 115"/>
+          </g>
+          <g fill="currentColor"><ellipse cx="109" cy="90" rx="8" ry="5" transform="rotate(-18 109 90)"/><ellipse cx="170" cy="85" rx="8" ry="5" transform="rotate(-18 170 85)"/><ellipse cx="231" cy="80" rx="8" ry="5" transform="rotate(-18 231 80)"/></g>
+          <g stroke="currentColor" stroke-width="1.6"><path d="M116 89V55 M177 84V50 M238 79V45"/></g>
+        </svg>
+      </div>
+      <p id="presentation-status" class="hint" role="status"></p>
+      <div class="piano-roll-wrap"><label for="roll-zoom">Time window <input id="roll-zoom" type="range" min="2" max="20" step="1" value="8"><output id="roll-zoom-value" for="roll-zoom">8 s</output></label><p class="roll-legend">Blue: ideal entry · Orange: played · Dark line: entry beat</p><canvas id="piano-roll" width="820" height="300" role="img" aria-label="Live MIDI piano roll from C3 to C5: blue ideal notes at the entry beat, orange played notes, grey beat lines, dark entry line"></canvas></div>
+      <div class="performance-dashboard" aria-label="Live performance dashboard">
+        <div class="dashboard-heading"><strong>Performance dashboard</strong><span id="dashboard-state">Awaiting attempt</span></div>
+        <div class="dashboard-grid">
+          <section class="dashboard-panel"><h3>Pitch &amp; first try</h3><div id="pitch-sequence" class="pitch-sequence">Play C4 D4 E4</div><p><span id="pitch-progress">0/3</span> <strong id="first-try-badge" class="first-try-badge" hidden>First Try</strong></p><small id="pitch-extra">0 extra/wrong notes</small></section>
+          <section class="dashboard-panel"><h3>Entry readiness</h3><div class="entry-gauge"><span>Early</span><div id="entry-track" class="entry-track"><span id="entry-value" class="entry-value">Awaiting first note</span><i id="entry-marker" hidden></i></div><span>Late</span></div><div class="entry-zero">0</div></section>
+          <section class="dashboard-panel rhythm-panel"><div class="panel-heading"><h3>Internal rhythm</h3><small id="rhythm-mean">Mean error: —</small></div><svg id="rhythm-timeline" viewBox="0 0 600 150" role="img" aria-label="Target and played note timing"></svg></section>
+          <section class="dashboard-panel"><h3>Beat alignment</h3><svg id="timing-deviation" viewBox="0 0 600 200" role="img" aria-label="Live onset timing deviations"></svg><p id="alignment-mean">Mean absolute onset error: —</p></section>
+          <section class="dashboard-panel duration-panel"><h3>Note duration &amp; articulation</h3><div id="duration-rows"></div><p id="duration-mean">Mean absolute duration error: —</p><small id="articulation-values">C4→D4 — · D4→E4 —</small></section>
+        </div>
+      </div>
+      <div class="presentation-export"><button id="presentation-copy-json" class="secondary" type="button" disabled>Copy JSON</button><span id="presentation-json-status" class="hint" role="status"></span></div>
     </section>
     <section class="card device"><div><span class="label">MIDI INPUT</span><strong id="device">No keyboard connected</strong><select id="inputs" aria-label="Choose MIDI input" hidden></select><div class="device-options"><button id="save-input" class="secondary" type="button" disabled>Save input</button><button id="forget-input" class="secondary" type="button" hidden>Forget input</button></div><small id="input-preference">MiniLab 37 preferred when available.</small></div><button id="connect" class="secondary">Connect keyboard</button></section>
     <p id="status" class="status" role="status">Connect a keyboard to play.</p>
