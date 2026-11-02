@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0D19">
+  <title>Mündu — Retrieval instrument</title>
+  <link rel="stylesheet" href="style.css?v=exponential-v8">
+  <script src="physics.js?v=exponential-v8" defer></script>
+  <script src="app.js?v=exponential-v8" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="identity"><h1>MÜNDU<span>_</span></h1><span class="edition">RETRIEVAL INSTRUMENT / 01</span></div>
+      <div class="language">ENGLISH <span>→</span> SPANISH</div>
+      <div class="readouts"><span class="status"><i id="status-dot"></i><span id="status">LIVE</span></span><span>RETRIEVALS <b id="count">000</b></span><span>PROGRESS <b id="score">0.0</b><small>%</small></span><button id="tune" type="button" aria-expanded="false" aria-controls="tuning-panel">TUNE <span>≡</span></button></div>
+    </header>
+
+    <section id="tuning-panel" class="tuning-panel" aria-label="Live tuning settings" hidden>
+      <div class="tuning-title"><span>INSTRUMENT TUNING</span><button id="tuning-close" type="button" aria-label="Close tuning settings">CLOSE ×</button></div>
+      <p>Change values live; Total words applies on Reset. Save defaults for future visits.</p>
+      <div id="tuning-fields"></div>
+      <button id="tuning-save" type="button">SAVE AS DEFAULTS</button>
+      <button id="tuning-defaults" type="button">RESTORE FACTORY DEFAULTS ↺</button>
+    </section>
+
+    <section class="instrument" aria-label="Vocabulary states and session performance">
+      <div class="chart-heading"><span>01 / WORD FIELD</span><div class="legend"><span class="magenta">▥ WORD DEPTH</span><span class="cyan">∿ OVERALL PROGRESS</span></div></div>
+      <div class="chart-wrap">
+        <svg id="chart" viewBox="0 0 1270 560" role="img" aria-labelledby="chart-title chart-description">
+          <title id="chart-title">Falling vocabulary and overall progress</title>
+          <desc id="chart-description">One word begins active; the remaining words appear progressively in fixed slots. Active words fall with time and rise on retrieval. The cyan line independently shows successive progress observations, from zero at the bottom to one hundred at the top.</desc>
+          <defs><linearGradient id="bar-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ED4CA8" stop-opacity=".025"/><stop offset="1" stop-color="#ED4CA8" stop-opacity=".20"/></linearGradient></defs>
+          <g id="grid"></g><g id="bars"></g>
+          <path id="trace" fill="none" stroke="#43E6ED" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+          <path id="trace-live" fill="none" stroke="#43E6ED" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+          <g id="labels"></g>
+          <text id="trace-percentage" x="1192" y="498" fill="#43E6ED" font-size="16" font-weight="700" dominant-baseline="central" stroke="#0A0D19" stroke-width="4" paint-order="stroke" aria-label="Current overall progress">0.0%</text>
+        </svg>
+      </div>
+      <div class="chart-foot"><span>WORDS: FIXED SLOTS <span class="divider">/</span> TRACE: SESSION TIME →</span><span>FULL SESSION <span class="divider">/</span> PROGRESS HISTORY</span></div>
+    </section>
+
+    <section class="terminal" aria-label="Retrieval controls">
+      <div class="target"><span class="eyebrow">NEXT RETRIEVAL / LOWEST WORD</span><div><span class="chevron">›</span> <strong id="target-word">window</strong><span class="cursor">_</span><span id="target-streak" class="streak">STREAK 00</span><span id="target-hint" class="streak" hidden></span></div></div>
+      <div class="instruction"><span id="prompt">LETTER = RETRIEVE / ESC = SKIP</span><span id="feedback">Ten words. One key. Keep them afloat.</span>
+        <div id="kick-graph" class="kick-graph" hidden>
+          <div class="kick-graph-heading"><span>POSSIBLE KICK</span><span id="kick-graph-value">0.0s / 2.00×</span></div>
+          <svg id="kick-graph-svg" viewBox="0 0 240 84" role="img" aria-label="Possible kick multiplier by retrieval time">
+            <path class="kick-axes" d="M32 8 V64 H224"/>
+            <text x="25" y="16" text-anchor="end">2×</text><text x="25" y="42" text-anchor="end">1×</text><text x="25" y="55" text-anchor="end">½×</text>
+            <line id="kick-hint-guide" class="kick-guide" x1="128" x2="128" y1="8" y2="64"/>
+            <path id="kick-reward-curve" class="kick-reward" d=""/>
+            <circle id="kick-hint-point" class="kick-filled" cx="128" cy="49.0583" r="2.5"/>
+            <circle id="kick-indicator" cx="32" cy="12" r="3.5"/>
+            <text x="32" y="79" text-anchor="middle">0s</text><text id="kick-one-second" x="80" y="79" text-anchor="middle">1s</text>
+            <text id="kick-hint-time" x="128" y="79" text-anchor="middle">2s</text><text id="kick-axis-end" x="224" y="79" text-anchor="middle">4s</text>
+          </svg>
+        </div>
+      </div>
+      <div class="controls"><button id="pause" type="button">PAUSE <span>Ⅱ</span></button><button id="reset" type="button">RESET <span>↺</span></button></div>
+    </section>
+    <footer><span>REPETITION BUILDS FLUENCY.</span><span>SIMULATED ANSWERS <span class="divider">/</span> PROGRESS FROM WORD POSITIONS</span></footer>
+  </main>
+  <dialog id="completion-screen" aria-labelledby="completion-title" aria-describedby="completion-description">
+    <div class="completion-top"><span><i></i> SESSION COMPLETE</span><span>MÜNDU / FINISH SIGNAL</span></div>
+    <div class="completion-hero">
+      <div><p class="completion-kicker">EVERY WORD. OVER THE LINE.</p><h2 id="completion-title">ALL WORDS<br><em>AFLOAT.</em></h2><p id="completion-description">You lifted the entire vocabulary.<br>One complete journey.</p></div>
+      <div class="completion-percent">100<span>%</span><small>DATASET COMPLETE</small></div>
+    </div>
+    <div class="completion-bottom">
+      <div class="completion-stats"><span>SESSION TIME <b id="completion-time">00:00</b></span><span>ANSWERS <b id="completion-count">0</b></span><span>WORDS <b id="completion-word-count">—</b></span></div>
+      <div class="completion-actions"><button id="completion-review" type="button">VIEW JOURNEY ↗</button><button id="completion-again" type="button" autofocus>PLAY AGAIN <span>↺</span></button></div>
+    </div>
+  </dialog>
+</body>
+</html>
