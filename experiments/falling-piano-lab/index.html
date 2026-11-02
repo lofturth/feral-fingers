@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Falling Piano Lab</title>
+  <link rel="stylesheet" href="style.css?v=rp016">
+</head>
+<body>
+  <main class="app">
+    <header><span class="eyebrow">MIDI PRACTICE</span><h1>Falling Piano Lab</h1></header>
+    <section class="card instrument">
+      <div class="phrase-bar"><div><span class="label">PHRASE</span><div id="section-buttons" class="section-buttons" role="group" aria-label="Phrase section"><button type="button" data-section="A" aria-pressed="true">A</button><button type="button" data-section="B" aria-pressed="false">B</button><button type="button" data-section="C" aria-pressed="false">C</button><button type="button" data-section="D" aria-pressed="false">D</button><button type="button" data-section="full" aria-pressed="false">All</button></div><input id="section" type="hidden" value="A"></div><div class="audio-controls"><button id="enable-audio" class="secondary" type="button">Enable Audio</button><span id="audio-state" class="audio-state">Audio Off</span><button id="play-phrase" class="primary play-control" type="button" aria-label="Play phrase">▶ Play</button></div></div>
+      <div id="practice-display" class="practice-display" role="status"><strong id="practice-heading">PHRASE PRACTICE</strong><span id="practice-state">Press Start to begin at A</span></div>
+      <div class="continuous-controls"><button id="continuous-start" class="secondary" type="button">Start / Restart at A</button><div id="continuous-progress" class="continuous-progress" aria-label="Phrase progress"></div><span id="continuous-next"></span><small id="continuous-hint">Click a section; Shift-click to extend · All selects A–D</small></div>
+      <div id="note-readout" class="note-readout" aria-live="polite"></div>
+      <div id="piano" class="piano" aria-label="Live piano C3 through C6">
+        <div class="piano-key white-key control-key" data-offset="0" data-pitch="48" style="left:0.00000%"></div>
+        <div class="piano-key white-key control-key" data-offset="2" data-pitch="50" style="left:4.54545%"></div>
+        <div class="piano-key white-key" data-offset="4" data-pitch="52" style="left:9.09091%"></div>
+        <div class="piano-key white-key" data-offset="5" data-pitch="53" style="left:13.63636%"></div>
+        <div class="piano-key white-key" data-offset="7" data-pitch="55" style="left:18.18182%"></div>
+        <div class="piano-key white-key" data-offset="9" data-pitch="57" style="left:22.72727%"></div>
+        <div class="piano-key white-key" data-offset="11" data-pitch="59" style="left:27.27273%"></div>
+        <div class="piano-key white-key" data-offset="12" data-pitch="60" style="left:31.81818%"></div>
+        <div class="piano-key white-key" data-offset="14" data-pitch="62" style="left:36.36364%"></div>
+        <div class="piano-key white-key" data-offset="16" data-pitch="64" style="left:40.90909%"></div>
+        <div class="piano-key white-key" data-offset="17" data-pitch="65" style="left:45.45455%"></div>
+        <div class="piano-key white-key" data-offset="19" data-pitch="67" style="left:50.00000%"></div>
+        <div class="piano-key white-key" data-offset="21" data-pitch="69" style="left:54.54545%"></div>
+        <div class="piano-key white-key" data-offset="23" data-pitch="71" style="left:59.09091%"></div>
+        <div class="piano-key white-key" data-offset="24" data-pitch="72" style="left:63.63636%"></div>
+        <div class="piano-key white-key" data-offset="26" data-pitch="74" style="left:68.18182%"></div>
+        <div class="piano-key white-key" data-offset="28" data-pitch="76" style="left:72.72727%"></div>
+        <div class="piano-key white-key" data-offset="29" data-pitch="77" style="left:77.27273%"></div>
+        <div class="piano-key white-key" data-offset="31" data-pitch="79" style="left:81.81818%"></div>
+        <div class="piano-key white-key" data-offset="33" data-pitch="81" style="left:86.36364%"></div>
+        <div class="piano-key white-key" data-offset="35" data-pitch="83" style="left:90.90909%"></div>
+        <div class="piano-key white-key" data-offset="36" data-pitch="84" style="left:95.45455%"></div>
+        <div class="piano-key black-key control-key" data-offset="1" data-pitch="49" style="left:3.19410%"></div>
+        <div class="piano-key black-key" data-offset="3" data-pitch="51" style="left:7.73956%"></div>
+        <div class="piano-key black-key" data-offset="6" data-pitch="54" style="left:16.83047%"></div>
+        <div class="piano-key black-key" data-offset="8" data-pitch="56" style="left:21.37592%"></div>
+        <div class="piano-key black-key" data-offset="10" data-pitch="58" style="left:25.92138%"></div>
+        <div class="piano-key black-key" data-offset="13" data-pitch="61" style="left:35.01229%"></div>
+        <div class="piano-key black-key" data-offset="15" data-pitch="63" style="left:39.55774%"></div>
+        <div class="piano-key black-key" data-offset="18" data-pitch="66" style="left:48.64865%"></div>
+        <div class="piano-key black-key" data-offset="20" data-pitch="68" style="left:53.19410%"></div>
+        <div class="piano-key black-key" data-offset="22" data-pitch="70" style="left:57.73956%"></div>
+        <div class="piano-key black-key" data-offset="25" data-pitch="73" style="left:66.83047%"></div>
+        <div class="piano-key black-key" data-offset="27" data-pitch="75" style="left:71.37592%"></div>
+        <div class="piano-key black-key" data-offset="30" data-pitch="78" style="left:80.46683%"></div>
+        <div class="piano-key black-key" data-offset="32" data-pitch="80" style="left:85.01229%"></div>
+        <div class="piano-key black-key" data-offset="34" data-pitch="82" style="left:89.55774%"></div>
+      </div>
+      <div class="piano-footer"><span id="piano-range">C3–C6 · MIDI 48–84</span><div class="octave-controls"><button id="octave-down" class="secondary" type="button" aria-label="Shift display down one octave">− Octave</button><button id="octave-up" class="secondary" type="button" aria-label="Shift display up one octave">+ Octave</button></div></div>
+      <div class="piano-options"><label for="tonic">Tonic</label><select id="tonic"></select><label for="scale">Scale</label><select id="scale"><option value="major">Major</option><option value="minor">Natural minor</option></select><button id="save-settings" class="secondary" type="button">Save Settings</button><span id="settings-status" role="status"></span></div>
+      <p class="hint">C3 Replay · C♯3 Previous phrase · D3 Next phrase</p>
+      <p id="replay-diagnostic" class="replay-diagnostic" role="status" aria-live="polite"></p>
+    </section>
+    <section class="card device"><div><span class="label">MIDI INPUT</span><strong id="device">No keyboard connected</strong><select id="inputs" aria-label="Choose MIDI input" hidden></select><div class="device-options"><button id="save-input" class="secondary" type="button" disabled>Save input</button><button id="forget-input" class="secondary" type="button" hidden>Forget input</button></div><small id="input-preference">MiniLab 37 preferred when available.</small></div><button id="connect" class="secondary">Connect keyboard</button></section>
+    <p id="status" class="status" role="status">Connect a keyboard to play.</p>
+    <section class="card session-card"><div class="section-heading"><span class="label">SESSION</span><strong id="session-state">No active session</strong></div><div class="session-details"><span>MIDI events <strong id="session-count">—</strong></span><span>Started <strong id="session-start">—</strong></span></div><div class="controls"><button id="start-session" class="primary" type="button" disabled>Start Session</button><button id="end-session" class="secondary" type="button" disabled>End Session</button><button id="copy-session-json" class="secondary" type="button" disabled>Copy Session JSON</button><button id="download-session-json" class="secondary" type="button" disabled>Download Session JSON</button></div><p id="session-hint" class="hint">Start a session to record MIDI.</p></section>
+    <section class="recording-bar"><button id="copy-json" class="secondary" type="button">Copy All JSON</button><button id="download-json" class="secondary" type="button">Download All JSON</button><span id="export-status" role="status"></span><span id="storage-status" role="status"></span></section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

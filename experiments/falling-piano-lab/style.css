@@ -1,0 +1,47 @@
+*{box-sizing:border-box}
+body{margin:0;background:#e8ede7;color:#243129;font:15px/1.4 system-ui,-apple-system,sans-serif}
+.app{max-width:980px;margin:0 auto;padding:20px 24px 30px}
+header{margin-bottom:12px}
+h1{font-size:2.15rem;letter-spacing:-.055em;line-height:1;margin:3px 0}
+.eyebrow,.label{font-size:.68rem;font-weight:800;letter-spacing:.13em;color:#6c8172}
+.card{background:#fff;border:1px solid #dce5dc;border-radius:16px;padding:16px 20px;margin-bottom:10px;box-shadow:0 4px 20px #20362808}
+button{border:0;border-radius:9px;padding:8px 12px;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+button:disabled{opacity:.45;cursor:not-allowed}
+.primary{background:#334155;color:#fff}.primary:hover:not(:disabled){background:#1e293b}
+.secondary{background:#e9ecef;color:#344054}.secondary:hover:not(:disabled){background:#d9dee4}
+.phrase-bar,.device,.section-heading,.controls,.piano-options{display:flex;align-items:center;gap:10px}
+.phrase-bar,.device,.section-heading{justify-content:space-between}
+.section-buttons{display:flex;gap:4px;margin-top:6px}
+.section-buttons button{min-width:38px;padding:6px 10px;background:#e9ecef;color:#344054}
+.section-buttons button[aria-pressed="true"]{background:#6b3f91;color:#fff}
+.practice-display{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin:7px 0 0;font-size:.78rem;color:#6b3f91}.practice-display strong{font-size:.83rem;letter-spacing:.06em}
+.continuous-controls{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:7px 0 0}.continuous-controls button{padding:5px 9px;font-size:.75rem}.continuous-progress{display:flex;flex-wrap:wrap;gap:4px}.continuous-progress span{min-width:25px;padding:4px 6px;border-radius:5px;background:#e9ecef;color:#667085;text-align:center;font-size:.72rem;font-weight:700}.continuous-progress span.current{background:#eadcf5;color:#583378;outline:1px solid #6b3f91}.continuous-progress span.completed{background:#dcebdc;color:#285f42}.continuous-controls small,.continuous-controls #continuous-next{color:#6b3f91;font-size:.69rem}.continuous-controls [hidden]{display:none}
+.section-buttons button:focus-visible,.play-control:focus-visible{outline:2px solid #334155;outline-offset:2px}
+.play-control{font-size:1rem;padding:10px 16px}
+.audio-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}.audio-controls #enable-audio{padding:7px 10px;font-size:.78rem}.audio-state{color:#607b66;font-size:.72rem;font-weight:700}
+.note-readout{display:flex;align-items:center;min-height:65px;margin:7px 0 8px;font-size:clamp(1.2rem,3vw,2rem);font-weight:750;letter-spacing:-.03em;color:#285f42}
+.piano{position:relative;height:170px;border:1px solid #a7b9aa;border-radius:8px;overflow:hidden;box-shadow:0 8px 18px #20362814}
+.piano-key{position:absolute;top:0;transition:background .08s}
+.white-key{width:calc(100% / 22);height:100%;background:#fff;border-right:1px solid #b7c7b9}
+.white-key.outside-scale{background:#e7ebe7}.white-key.held{background:#73c994}
+.black-key{z-index:1;width:calc(100% / 37);height:62%;background:#25342a;border-radius:0 0 5px 5px;box-shadow:0 3px 6px #0003}
+.black-key.outside-scale{background:#66746b}.black-key.held{background:#21824c}
+.white-key.control-key{background:#d5ddd6}.black-key.control-key{background:#59685e}
+.white-key.control-key.held{background:#3ebf78}.black-key.control-key.held{background:#25b96b}
+.piano-footer{display:flex;justify-content:space-between;margin:4px 2px 12px;color:#87958a;font-size:.72rem}
+.octave-controls{display:flex;gap:4px}.octave-controls button{padding:2px 7px;font-size:.72rem}
+.piano-options{flex-wrap:wrap;border-top:1px solid #e5ebe5;padding-top:12px}
+.piano-options label{font-size:.8rem;font-weight:700;color:#617068}
+.piano-options select,.device select{padding:6px 8px;border:1px solid #cad7cc;border-radius:8px;background:#fff;font:inherit}
+.piano-options #save-settings{margin-left:auto}
+#settings-status{color:#28774b;font-size:.78rem;font-weight:700}
+.hint{margin:8px 0 0;color:#7a8b7f;font-size:.76rem}
+.replay-diagnostic{margin:4px 0 0;color:#456452;font-size:.76rem}.replay-diagnostic:empty{display:none}
+.device{padding:12px 18px}.device strong{display:block;margin-top:2px;font-size:.9rem}.device select{display:block;max-width:100%;margin-top:6px}.device select[hidden],.device button[hidden]{display:none}
+.device-options{display:flex;gap:5px;margin-top:6px}.device-options button{padding:4px 8px;font-size:.72rem}.device small{display:block;margin-top:4px;color:#829087;font-size:.71rem}
+.status{min-height:19px;margin:0 4px 9px;color:#64766a;font-size:.8rem}
+.session-card{padding:12px 18px}.session-card .section-heading strong{font-size:.83rem;color:#456452}
+.session-details{display:flex;gap:22px;margin:8px 0;color:#78877c;font-size:.73rem}.session-details strong{display:inline;color:#33463a;font-size:.8rem}
+.controls{flex-wrap:wrap}.controls button{padding:6px 10px;font-size:.78rem}.session-card .hint{margin-top:7px}
+.recording-bar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:0 4px;color:#7a897e;font-size:.73rem}.recording-bar button{padding:5px 8px;font-size:.72rem}.recording-bar #storage-status{margin-left:auto}
+@media(max-width:600px){.app{padding:15px 12px 24px}.card{padding:14px}.piano{height:135px}.note-readout{min-height:55px}.device{align-items:flex-start;flex-direction:column}.piano-options #save-settings{margin-left:0}.recording-bar #storage-status{margin-left:0}}
