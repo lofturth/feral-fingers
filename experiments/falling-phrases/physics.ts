@@ -99,6 +99,15 @@ export interface SkipResult extends TransitionResult {
   lift: 0;
 }
 
+export interface RewardResult extends TransitionResult {
+  kind: 'reward';
+  index: number;
+  rewardMagnitude: number;
+  previousDepth: number;
+  newDepth: number;
+  lift: number;
+}
+
 export type SessionTransition = RetrievalResult | SkipResult;
 
 // --- Session State Snapshot ---
@@ -154,6 +163,7 @@ export interface PhysicsSession {
   advance(dt: number): TransitionResult;
   retrieve(...args: unknown[]): RetrievalResult | null;
   skip(): SkipResult | null;
+  applyReward(cardIdentifier: number, rewardMagnitude: number): RewardResult | null;
   getState(): SessionSnapshot;
   getProgress(): number;
   getLowestIndex(): number;
@@ -632,6 +642,40 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
       state.selectedIndex = -1;
 
       Object.assign(result, reconcile());
+      return clone(result);
+    },
+
+    applyReward(cardIdentifier: number, rewardMagnitude: number): RewardResult | null {
+      if (state.paused || state.complete) return null;
+      if (typeof cardIdentifier !== 'number' || !Number.isInteger(cardIdentifier)) {
+        throw new TypeError('cardIdentifier must be an integer index');
+      }
+      if (cardIdentifier < 0 || cardIdentifier >= state.words.length) {
+        throw new RangeError('cardIdentifier out of range');
+      }
+      if (typeof rewardMagnitude !== 'number' || !Number.isFinite(rewardMagnitude) || rewardMagnitude < 0) {
+        throw new RangeError('rewardMagnitude must be a finite, nonnegative number');
+      }
+      const word = state.words[cardIdentifier]!;
+      if (!word.unlocked) return null;
+
+      const previousDepth = word.depth;
+      const lift = config.motion.kickHeightPercent * rewardMagnitude;
+      word.depth = clamp(previousDepth + lift, config.bounds.bottom, config.bounds.top);
+      if (config.instantPosition) word.shown = word.depth;
+      if (rewardMagnitude > 0) word.streak++;
+
+      const transition = reconcile();
+      const result: RewardResult = {
+        kind: 'reward',
+        index: cardIdentifier,
+        rewardMagnitude,
+        previousDepth,
+        newDepth: word.depth,
+        lift: word.depth - previousDepth,
+        unlockedIndex: transition.unlockedIndex,
+        completedNow: transition.completedNow
+      };
       return clone(result);
     },
 

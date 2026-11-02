@@ -407,3 +407,32 @@ test('starting count is fixed at one and is not configurable',()=>{
   assert.throws(()=>s.configure({unlock:{initialCount:2}}),RangeError);
  }
 });
+
+test('applyReward supplies a generic magnitude and applies proportional lift',()=>{
+ const s=P.createSession({wordCount:1});
+ assert.equal(s.getState().words[0].depth,0);
+ const halfResult=s.applyReward(0,0.5);
+ assert.equal(halfResult.kind,'reward');
+ assert.equal(halfResult.rewardMagnitude,0.5);
+ assert.equal(halfResult.previousDepth,0);
+ assert.equal(halfResult.newDepth,12.5);
+ assert.equal(halfResult.lift,12.5);
+ assert.equal(s.getState().words[0].depth,12.5);
+
+ const fullResult=s.applyReward(0,1.0);
+ assert.equal(fullResult.kind,'reward');
+ assert.equal(fullResult.rewardMagnitude,1.0);
+ assert.equal(fullResult.previousDepth,12.5);
+ assert.equal(fullResult.newDepth,37.5);
+ assert.equal(fullResult.lift,25.0);
+ assert.equal(s.getState().words[0].depth,37.5);
+ assert.equal(fullResult.lift,halfResult.lift*2);
+
+ const zeroResult=s.applyReward(0,0);
+ assert.equal(zeroResult.lift,0);
+ assert.equal(s.getState().words[0].depth,37.5);
+
+ assert.throws(()=>s.applyReward('bad',1),TypeError);
+ assert.throws(()=>s.applyReward(99,1),RangeError);
+ assert.throws(()=>s.applyReward(0,-1),RangeError);
+});
