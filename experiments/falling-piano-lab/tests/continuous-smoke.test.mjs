@@ -12,6 +12,11 @@ class Element {
     this.dataset = {};
     this.listeners = {};
     this.classList = { toggle() {} };
+    this.style = {
+      setProperty(prop, val) { this[prop] = String(val); },
+      getPropertyValue(prop) { return this[prop] ?? ''; },
+      removeProperty(prop) { delete this[prop]; },
+    };
   }
   addEventListener(type, handler) { this.listeners[type] = handler; }
   append(node) { this.children.push(node); }
@@ -52,7 +57,7 @@ test('continuous MIDI loop and session recording survive interface removal', asy
     document: { getElementById: get, createElement: () => new Element() }, window: {},
     navigator: { requestMIDIAccess: async () => ({ inputs: new Map() }) },
     localStorage: { getItem() { return null; }, setItem() {} },
-    crypto: { randomUUID: () => 'test-session' }, AudioContext,
+    crypto: { randomUUID: () => 'test-session' }, AudioContext, performance,
     setTimeout: (handler, ms) => { timers.push({ handler, ms }); return timers.length; }, clearTimeout() {},
     setInterval: (handler, ms) => { const id = ++nextInterval; intervals.set(id, { handler, ms }); return id; },
     clearInterval: id => intervals.delete(id),
