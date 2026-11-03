@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0D19">
+  <title>Falling Lab — Application Launcher</title>
+  <link rel="stylesheet" href="style.css?v=fl01">
+  <style>
+    .launcher-container {
+      max-width: 860px;
+      margin: 48px auto;
+      padding: 0 24px;
+      font-family: var(--font-mono, monospace);
+    }
+    .launcher-header {
+      margin-bottom: 36px;
+      border-bottom: 1px solid var(--border, #1E2337);
+      padding-bottom: 20px;
+    }
+    .launcher-header h1 {
+      font-size: 28px;
+      letter-spacing: 0.1em;
+      margin: 0 0 8px 0;
+      color: var(--fg, #E8EAED);
+    }
+    .launcher-header h1 span {
+      color: var(--cyan, #43E6ED);
+    }
+    .launcher-header p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted, #6F7899);
+      letter-spacing: 0.05em;
+    }
+    .app-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+    .app-card {
+      background: rgba(18, 22, 38, 0.7);
+      border: 1px solid var(--border, #1E2337);
+      border-radius: 6px;
+      padding: 24px 20px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+    }
+    .app-card:hover {
+      border-color: var(--cyan, #43E6ED);
+      background: rgba(24, 30, 52, 0.85);
+      transform: translateY(-2px);
+    }
+    .app-card .tag {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--cyan, #43E6ED);
+      margin-bottom: 12px;
+      display: inline-block;
+    }
+    .app-card h2 {
+      font-size: 18px;
+      margin: 0 0 10px 0;
+      color: #FFF;
+      letter-spacing: 0.04em;
+    }
+    .app-card p {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted, #8F98BA);
+      margin: 0 0 20px 0;
+      flex-grow: 1;
+    }
+    .app-card .launch-btn {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--cyan, #43E6ED);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .app-card .launch-btn span {
+      transition: transform 0.15s ease;
+    }
+    .app-card:hover .launch-btn span {
+      transform: translateX(4px);
+    }
+  </style>
+</head>
+<body>
+  <div class="launcher-container">
+    <header class="launcher-header">
+      <h1>FALLING LAB<span>_</span></h1>
+      <p>Retrieval instruments and falling learning experiences</p>
+    </header>
+
+    <div class="app-cards">
+      <a href="apps/music/" class="app-card" id="launch-music">
+        <div>
+          <span class="tag">Instrument 01</span>
+          <h2>Music</h2>
+          <p>Polyphonic keyboard and Web MIDI retrieval instrument with musical notation, interactive card overlay, and live piano roll diagnostics.</p>
+        </div>
+        <div class="launch-btn">LAUNCH APPLICATION <span>→</span></div>
+      </a>
+
+      <a href="apps/vocabulary/" class="app-card" id="launch-vocabulary">
+        <div>
+          <span class="tag">Instrument 02</span>
+          <h2>Vocabulary</h2>
+          <p>Spaced vocabulary retrieval instrument with real-time kick graph, latency decay multiplier, typing evaluation, and streak metrics.</p>
+        </div>
+        <div class="launch-btn">LAUNCH APPLICATION <span>→</span></div>
+      </a>
+
+      <a href="apps/generic/" class="app-card" id="launch-generic">
+        <div>
+          <span class="tag">Demonstration</span>
+          <h2>Generic Demo</h2>
+          <p>Clean, content-neutral demonstration proving Falling Core physics and Falling Field rendering across 5 abstract cards (A–E) without domain modules.</p>
+        </div>
+        <div class="launch-btn">LAUNCH APPLICATION <span>→</span></div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

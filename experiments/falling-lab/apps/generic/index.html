@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0D19">
+  <title>Falling Lab — Generic Demonstration</title>
+  <link rel="stylesheet" href="../../style.css?v=fp021">
+  <script src="../../core/physics.js?v=fp021" defer></script>
+  <script src="../../views/falling/view.js?v=fp021" defer></script>
+  <script src="app-generic.js?v=fp021" defer></script>
+</head>
+<body data-app="generic">
+  <main>
+    <header>
+      <div class="identity">
+        <h1>FALLING LAB<span>_</span></h1>
+        <span class="edition">GENERIC DEMO / 01</span>
+        <nav class="app-switcher" aria-label="Application mode" style="margin-left: 12px; font-size: 11px; display: inline-flex; gap: 6px; align-items: center;">
+          <a href="../../index.html" class="app-switch-link" style="color: var(--muted); text-decoration: none;">Launcher</a>
+          <span class="divider" style="opacity: 0.4;">/</span>
+          <a href="../music/" class="app-switch-link" style="color: var(--muted); text-decoration: none;">Music</a>
+          <span class="divider" style="opacity: 0.4;">/</span>
+          <a href="../vocabulary/" class="app-switch-link" style="color: var(--muted); text-decoration: none;">Vocabulary</a>
+          <span class="divider" style="opacity: 0.4;">/</span>
+          <a href="index.html" class="app-switch-link active" style="color: var(--cyan); text-decoration: none; font-weight: 700;">Generic Demo</a>
+        </nav>
+      </div>
+      <div class="readouts">
+        <span class="status"><i id="status-dot"></i><span id="demo-status">LIVE</span></span>
+        <span>SELECTED <b id="selected-card">Card A</b></span>
+        <span>REWARDS <b id="reward-count">0</b></span>
+        <span>PROGRESS <b id="score">0.0</b><small>%</small></span>
+      </div>
+    </header>
+
+    <section class="instrument" aria-label="Generic Falling Field">
+      <div class="chart-heading">
+        <span>GENERIC CARDS: A, B, C, D, E</span>
+        <div class="legend"><span class="magenta">▥ ITEM DEPTH</span><span class="cyan">∿ OVERALL PROGRESS</span></div>
+      </div>
+      <div class="chart-wrap">
+        <svg id="chart" viewBox="0 0 1270 560" role="img" aria-labelledby="chart-title">
+          <title id="chart-title">Falling Cards Field</title>
+          <defs>
+            <linearGradient id="bar-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ED4CA8" stop-opacity=".025"/>
+              <stop offset="1" stop-color="#ED4CA8" stop-opacity=".20"/>
+            </linearGradient>
+            <linearGradient id="bar-fill-selected" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#43E6ED" stop-opacity=".05"/>
+              <stop offset="1" stop-color="#43E6ED" stop-opacity=".25"/>
+            </linearGradient>
+          </defs>
+          <g id="grid"></g>
+          <g id="bars"></g>
+          <path id="trace" fill="none" stroke="#43E6ED" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+          <path id="trace-live" fill="none" stroke="#43E6ED" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+          <g id="labels"></g>
+          <text id="trace-percentage" x="1192" y="498" fill="#43E6ED" font-size="16" font-weight="700" dominant-baseline="central" stroke="#0A0D19" stroke-width="4" paint-order="stroke">0.0%</text>
+        </svg>
+      </div>
+    </section>
+
+    <section class="terminal" aria-label="Generic Demo Controls" style="margin-top: 16px;">
+      <div class="controls" style="display: flex; gap: 12px; align-items: center;">
+        <button id="btn-reward" type="button" style="background: var(--cyan); color: #0A0D19; font-weight: 700; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">REWARD SELECTED CARD (↑)</button>
+        <button id="btn-skip" type="button" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 10px 20px; border-radius: 4px; cursor: pointer;">SKIP (↷)</button>
+        <button id="btn-pause" type="button" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 10px 16px; border-radius: 4px; cursor: pointer;">Pause</button>
+        <button id="btn-reset" type="button" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 10px 16px; border-radius: 4px; cursor: pointer;">Reset ↺</button>
+      </div>
+    </section>
+  </main>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const demo = GenericDemo.createDemo();
+      demo.attachUI();
+      demo.reset();
+    });
+  </script>
+</body>
+</html>

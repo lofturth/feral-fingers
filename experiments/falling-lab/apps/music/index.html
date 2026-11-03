@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0D19">
+  <title>Falling Lab — Musical instrument</title>
+  <link rel="stylesheet" href="../../style.css?v=fp021">
+  <script src="../../core/physics.js?v=fp021" defer></script>
+  <script src="../../views/falling/view.js?v=fp021" defer></script>
+  <script src="../vocabulary/vocabulary-view.js?v=fp021" defer></script>
+  <script src="musical-view.js?v=fp021" defer></script>
+  <script src="../vocabulary/app-vocabulary.js?v=fp021" defer></script>
+  <script src="app-music.js?v=fp021" defer></script>
+  <script src="../../shared/app.js?v=fp021" defer></script>
+</head>
+<body data-app="music">
+  <main>
+    <header>
+      <div class="identity">
+        <h1>FALLING LAB<span>_</span></h1>
+        <span class="edition" id="app-edition">MUSICAL INSTRUMENT / 01</span>
+        <nav class="app-switcher" aria-label="Application mode" style="margin-left: 12px; font-size: 11px; display: inline-flex; gap: 6px; align-items: center;">
+          <a href="../../index.html" class="app-switch-link" style="color: var(--muted); text-decoration: none;">Launcher</a>
+          <span class="divider" style="opacity: 0.4;">/</span>
+          <a href="index.html" class="app-switch-link active" id="mode-link-music" style="color: var(--cyan); text-decoration: none; font-weight: 700;">Music</a>
+          <span class="divider" style="opacity: 0.4;">/</span>
+          <a href="../vocabulary/" class="app-switch-link" id="mode-link-vocab" style="color: var(--muted); text-decoration: none;">Vocabulary</a>
+          <span class="divider" style="opacity: 0.4;">/</span>
+          <a href="../generic/" class="app-switch-link" id="mode-link-generic" style="color: var(--muted); text-decoration: none;">Generic Demo</a>
+        </nav>
+      </div>
+      <div class="readouts">
+        <span class="status"><i id="status-dot"></i><span id="status">LIVE</span></span>
+        <span>RETRIEVALS <b id="count">000</b></span>
+        <span>PROGRESS <b id="score">0.0</b><small>%</small></span>
+        <span id="device-readout">MIDI: <b id="device">Connecting…</b></span>
+        <button id="tune" type="button" aria-expanded="false" aria-controls="tuning-panel">TUNE <span>≡</span></button>
+      </div>
+    </header>
+
+    <section id="tuning-panel" class="tuning-panel" aria-label="Live tuning settings" hidden>
+      <div class="tuning-title"><span>INSTRUMENT TUNING</span><button id="tuning-close" type="button" aria-label="Close tuning settings">CLOSE ×</button></div>
+      <p>Change values live; Total words applies on Reset. Save defaults for future visits.</p>
+      <div id="tuning-fields"></div>
+      <button id="tuning-save" type="button">SAVE AS DEFAULTS</button>
+      <button id="tuning-defaults" type="button">RESTORE FACTORY DEFAULTS ↺</button>
+    </section>
+
+    <section class="instrument" aria-label="Phrase states and session performance">
+      <div class="chart-heading"><span>01 / PHRASE FIELD</span><div class="legend"><span class="magenta">▥ ITEM DEPTH</span><span class="cyan">∿ OVERALL PROGRESS</span></div></div>
+      <div class="chart-wrap">
+        <svg id="chart" viewBox="0 0 1270 560" role="img" aria-labelledby="chart-title chart-description">
+          <title id="chart-title">Falling phrases and overall progress</title>
+          <desc id="chart-description">One phrase begins active; the remaining phrases appear progressively in fixed slots. Active phrases fall with time and rise on retrieval. The cyan line independently shows successive progress observations, from zero at the bottom to one hundred at the top.</desc>
+          <defs>
+            <linearGradient id="bar-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ED4CA8" stop-opacity=".025"/>
+              <stop offset="1" stop-color="#ED4CA8" stop-opacity=".20"/>
+            </linearGradient>
+            <linearGradient id="bar-fill-selected" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#43E6ED" stop-opacity=".05"/>
+              <stop offset="1" stop-color="#43E6ED" stop-opacity=".25"/>
+            </linearGradient>
+          </defs>
+          <g id="grid"></g>
+          <g id="bars"></g>
+          <path id="trace" fill="none" stroke="#43E6ED" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+          <path id="trace-live" fill="none" stroke="#43E6ED" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+          <g id="labels"></g>
+          <text id="trace-percentage" x="1192" y="498" fill="#43E6ED" font-size="16" font-weight="700" dominant-baseline="central" stroke="#0A0D19" stroke-width="4" paint-order="stroke" aria-label="Current overall progress">0.0%</text>
+        </svg>
+
+        <!-- Stationary Foreground Musical Card Overlay -->
+        <div id="musical-card-overlay" class="musical-card-overlay" aria-label="Active Musical Card">
+          <div class="card-header">
+            <span class="card-tag" id="card-slot-tag">ACTIVE SLOT 01</span>
+            <span class="card-tempo">80 BPM</span>
+            <span id="card-badge" class="card-badge">Awaiting notes</span>
+          </div>
+
+          <div class="card-body">
+            <svg id="card-notation" class="card-notation" viewBox="0 0 300 120" role="img" aria-label="Treble clef staff showing C4, D4, E4">
+              <g stroke="currentColor" stroke-width="1.5">
+                <path d="M50 40H280 M50 50H280 M50 60H280 M50 70H280 M50 80H280"/>
+                <path d="M94 90H124"/>
+              </g>
+              <g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M78 105 C70 99 66 91 69 84 C72 77 82 76 87 82 C92 88 86 96 78 96 C64 96 58 86 62 74 C66 62 82 53 84 39 C86 29 82 21 76 22 C70 23 67 32 69 42 C72 55 83 65 88 74"/>
+                <path d="M76 22 C77 48 79 76 80 104 C80 113 75 117 69 115"/>
+              </g>
+              <g id="notation-notes" fill="currentColor">
+                <ellipse id="note-head-0" cx="109" cy="90" rx="8" ry="5" transform="rotate(-18 109 90)"/>
+                <ellipse id="note-head-1" cx="170" cy="85" rx="8" ry="5" transform="rotate(-18 170 85)"/>
+                <ellipse id="note-head-2" cx="231" cy="80" rx="8" ry="5" transform="rotate(-18 231 80)"/>
+              </g>
+              <g stroke="currentColor" stroke-width="1.6">
+                <path d="M116 89V55 M177 84V50 M238 79V45"/>
+              </g>
+            </svg>
+
+            <div class="card-letters" id="card-letters">
+              <span id="letter-0" class="note-letter" title="Click or press 1 to play C4">C4</span>
+              <span id="letter-1" class="note-letter" title="Click or press 2 to play D4">D4</span>
+              <span id="letter-2" class="note-letter" title="Click or press 3 to play E4">E4</span>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <span id="card-feedback" class="card-feedback">Play C4 D4 E4 on your MIDI keyboard</span>
+            <div class="card-actions">
+              <button id="card-demo-btn" type="button" class="btn-demo">▶ Hear Phrase</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-foot"><span>SLOTS: FIXED POSITIONS <span class="divider">/</span> TRACE: SESSION TIME →</span><span>FULL SESSION <span class="divider">/</span> PROGRESS HISTORY</span></div>
+    </section>
+
+    <section class="terminal" aria-label="Retrieval controls">
+      <div class="target">
+        <span class="eyebrow">ACTIVE RETRIEVAL / LOWEST SLOT</span>
+        <div><span class="chevron">›</span> <strong id="target-word">Slot 01</strong><span class="cursor">_</span><span id="target-streak" class="streak">STREAK 00</span><span id="target-hint" class="streak" hidden></span></div>
+      </div>
+      <div class="instruction">
+        <span id="prompt">PLAY C4-D4-E4 = RETRIEVE / ESC = SKIP</span>
+        <span id="feedback">Ten slots. One keyboard. Keep them afloat.</span>
+        <div id="kick-graph" class="kick-graph" hidden>
+          <div class="kick-graph-heading"><span>POSSIBLE KICK</span><span id="kick-graph-value">0.0s / 2.00×</span></div>
+          <svg id="kick-graph-svg" viewBox="0 0 240 84" role="img" aria-label="Possible kick multiplier by retrieval time">
+            <path class="kick-axes" d="M32 8 V64 H224"/>
+            <text x="25" y="16" text-anchor="end">2×</text><text x="25" y="42" text-anchor="end">1×</text><text x="25" y="55" text-anchor="end">½×</text>
+            <line id="kick-hint-guide" class="kick-guide" x1="128" x2="128" y1="8" y2="64"/>
+            <path id="kick-reward-curve" class="kick-reward" d=""/>
+            <circle id="kick-hint-point" class="kick-filled" cx="128" cy="49.0583" r="2.5"/>
+            <circle id="kick-indicator" cx="32" cy="12" r="3.5"/>
+            <text x="32" y="79" text-anchor="middle">0s</text><text id="kick-one-second" x="80" y="79" text-anchor="middle">1s</text>
+            <text id="kick-hint-time" x="128" y="79" text-anchor="middle">2s</text><text id="kick-axis-end" x="224" y="79" text-anchor="middle">4s</text>
+          </svg>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="play-demo" type="button">DEMO <span>▶</span></button>
+        <button id="pause" type="button">PAUSE <span>Ⅱ</span></button>
+        <button id="reset" type="button">RESET <span>↺</span></button>
+        <select id="inputs" aria-label="MIDI input device" hidden></select>
+        <button id="connect" type="button">CONNECT MIDI</button>
+      </div>
+    </section>
+
+    <!-- Expandable Developer Diagnostics & Piano Roll -->
+    <details id="dev-panel" class="developer-panel">
+      <summary class="developer-summary">
+        <strong>Developer Diagnostics &amp; Live Piano Roll</strong>
+        <span class="summary-toggle">[click to expand / collapse]</span>
+      </summary>
+
+      <div class="developer-body">
+        <div class="developer-audio-controls">
+          <label class="toggle-label"><input id="play-metronome" type="checkbox" checked> Metronome</label>
+          <label class="toggle-label"><input id="play-audio" type="checkbox" checked> Demo Audio</label>
+        </div>
+
+        <!-- Live Canvas Piano Roll -->
+        <div class="piano-roll-wrap">
+          <div class="roll-header">
+            <label for="roll-zoom">Time window: <input id="roll-zoom" type="range" min="2" max="20" step="1" value="8"> <output id="roll-zoom-value">8 s</output></label>
+            <span class="roll-legend">Blue: ideal entry · Orange: played · Dark line: entry beat</span>
+          </div>
+          <canvas id="piano-roll" width="820" height="260" role="img" aria-label="Live MIDI piano roll from C3 to C5"></canvas>
+        </div>
+
+        <!-- 5-Panel Performance Dashboard -->
+        <div class="performance-dashboard" aria-label="Performance Dashboard">
+          <div class="dashboard-heading">
+            <strong>Performance Dashboard</strong>
+            <span id="dashboard-state">Awaiting attempt</span>
+          </div>
+          <div class="dashboard-grid">
+            <section class="dashboard-panel">
+              <h3>Pitch &amp; First Try</h3>
+              <div id="pitch-sequence" class="pitch-sequence">Play C4 D4 E4</div>
+              <p><span id="pitch-progress">0/3</span> <strong id="first-try-badge" class="first-try-badge" hidden>First Try</strong></p>
+              <small id="pitch-extra">0 extra/wrong notes</small>
+            </section>
+
+            <section class="dashboard-panel">
+              <h3>Entry Readiness</h3>
+              <div class="entry-gauge">
+                <span>Early</span>
+                <div id="entry-track" class="entry-track">
+                  <span id="entry-value" class="entry-value">Awaiting first note</span>
+                  <i id="entry-marker" hidden></i>
+                </div>
+                <span>Late</span>
+              </div>
+              <div class="entry-zero">0</div>
+            </section>
+
+            <section class="dashboard-panel rhythm-panel">
+              <div class="panel-heading">
+                <h3>Internal Rhythm</h3>
+                <small id="rhythm-mean">Mean error: —</small>
+              </div>
+              <svg id="rhythm-timeline" viewBox="0 0 600 150" role="img" aria-label="Target and played note timing"></svg>
+            </section>
+
+            <section class="dashboard-panel">
+              <div class="panel-heading">
+                <h3>Beat Alignment</h3>
+                <small id="alignment-mean">Mean absolute onset error: —</small>
+              </div>
+              <svg id="timing-deviation" viewBox="0 0 600 200" role="img" aria-label="Live onset timing deviations"></svg>
+            </section>
+
+            <section class="dashboard-panel duration-panel">
+              <div class="panel-heading">
+                <h3>Note Duration &amp; Articulation</h3>
+                <small id="duration-mean">Mean absolute duration error: —</small>
+              </div>
+              <div id="duration-rows"></div>
+              <small id="articulation-values">C4→D4 — · D4→E4 —</small>
+            </section>
+          </div>
+        </div>
+
+        <div class="developer-actions">
+          <button id="copy-attempt-json" type="button">Copy Attempt JSON</button>
+          <span id="json-status" class="json-status"></span>
+        </div>
+      </div>
+    </details>
+
+    <footer><span>REPETITION BUILDS FLUENCY.</span><span>C4–D4–E4 · 80 BPM <span class="divider">/</span> PROGRESS FROM ITEM POSITIONS</span></footer>
+  </main>
+
+  <dialog id="completion-screen" aria-labelledby="completion-title" aria-describedby="completion-description">
+    <div class="completion-top"><span><i></i> SESSION COMPLETE</span><span>MÜNDU / FINISH SIGNAL</span></div>
+    <div class="completion-hero">
+      <div><p class="completion-kicker">EVERY PHRASE. OVER THE LINE.</p><h2 id="completion-title">ALL WORDS<br><em>AFLOAT.</em></h2><p id="completion-description">You lifted the entire vocabulary.<br>One complete journey.</p></div>
+      <div class="completion-percent">100<span>%</span><small>DATASET COMPLETE</small></div>
+    </div>
+    <div class="completion-bottom">
+      <div class="completion-stats"><span>SESSION TIME <b id="completion-time">00:00</b></span><span>ANSWERS <b id="completion-count">0</b></span><span>WORDS <b id="completion-word-count">—</b></span></div>
+      <div class="completion-actions"><button id="completion-review" type="button">VIEW JOURNEY ↗</button><button id="completion-again" type="button" autofocus>PLAY AGAIN <span>↺</span></button></div>
+    </div>
+  </dialog>
+</body>
+</html>
