@@ -1,7 +1,19 @@
 'use strict';
 
+const FallingFieldModule = typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('./field.js') : null);
+const field = FallingFieldModule ? FallingFieldModule.createField({
+  chartId: 'chart',
+  gridId: 'grid',
+  barsId: 'bars',
+  labelsId: 'labels',
+  traceId: 'trace',
+  traceLiveId: 'trace-live',
+  tracePercentageId: 'trace-percentage',
+  scoreId: 'score'
+}) : null;
+
 // SVG coordinates are rendering only; engine positions are percentages.
-const TUNE = { top: 24, bottom: 502, reachableTop: 60, left: 20, right: 1180, traceMargin: 4 };
+const TUNE = field ? field.TUNE : { top: 24, bottom: 502, reachableTop: 60, left: 20, right: 1180, traceMargin: 4 };
 // Gravity uses percentage points per second, independent of retrieval streak.
 const MOTION = { ...MunduPhysics.DEFAULTS.motion };
 // A selected word starts a new response clock; active session time excludes pause.
@@ -17,7 +29,7 @@ let session, sessionState, selectedIndex = 0, pendingUnlock = false;
 let wordFlashes = [];
 let kickGraphEnded = false;
 let gravityReadout;
-const COLOR = { grid: '#202738', muted: '#657087', pink: '#ED4CA8', cyan: '#43E6ED' };
+const COLOR = field ? field.COLOR : { grid: '#202738', muted: '#657087', pink: '#ED4CA8', cyan: '#43E6ED' };
 const HINT_SECONDS = 2;
 const latencyMultiplier = t => 0.5 + 1.5 * Math.exp(-1.5 * Math.max(0, t));
 const VOCABULARY = [
@@ -32,33 +44,44 @@ const VOCABULARY = [
 ];
 const NS = 'http://www.w3.org/2000/svg';
 const el = id => typeof document !== 'undefined' ? document.getElementById(id) : null;
-const screenY = position => TUNE.bottom - position / 100 * (TUNE.bottom - TUNE.reachableTop);
+const screenY = position => field ? field.screenY(position) : (TUNE.bottom - position / 100 * (TUNE.bottom - TUNE.reachableTop));
 const motionPreference = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 let words, observations, progressValue, count, paused = false;
 let lastTime = null, lastMeasurement = null;
 let activeTime = 0, nextSampleTime = PROGRESS.sampleSeconds;
 let observationTimes = [];
-const nodes = [];
+const nodes = field ? field.nodes : [];
 let animationFrame = null;
 let historyPath = '', historyLength = 0;
 const renderedAttributes = new WeakMap();
 
-function setAttribute(node, key, value) {
+const setAttribute = FallingFieldModule ? FallingFieldModule.setAttribute : function(node, key, value) {
   if (!node) return;
   let values = renderedAttributes.get(node);
   if (!values) { values = new Map(); renderedAttributes.set(node, values); }
   const text = String(value);
   if (values.get(key) !== text) { node.setAttribute(key, text); values.set(key, text); }
-}
-function setText(node, value) {
+};
+const setText = FallingFieldModule ? FallingFieldModule.setText : function(node, value) {
   if (!node) return;
   const text = String(value);
   if (node.textContent !== text) node.textContent = text;
-}
-function toggleClass(node, key, value) {
+};
+const toggleClass = FallingFieldModule ? FallingFieldModule.toggleClass : function(node, key, value) {
   if (!node || !node.classList) return;
   if (node.classList.contains(key) !== value) node.classList.toggle(key, value);
-}
+};
+const svgNode = FallingFieldModule ? FallingFieldModule.svgNode : function(type, attributes = {}, parent = null) {
+  const doc = typeof document !== 'undefined' ? document : null;
+  if (!doc) return null;
+  const node = doc.createElementNS(NS, type);
+  for (const [k, v] of Object.entries(attributes)) {
+    if (k === 'textContent') node.textContent = String(v);
+    else node.setAttribute(k, String(v));
+  }
+  if (parent) parent.appendChild(node);
+  return node;
+};
 function scheduleFrame() {
   if (animationFrame === null && !paused && !sessionComplete && typeof document !== 'undefined' && !document.hidden) {
     if (typeof requestAnimationFrame === 'function') {
@@ -71,13 +94,6 @@ function stopFrames() {
     cancelAnimationFrame(animationFrame);
   }
   animationFrame = null;
-}
-
-function svgNode(type, attributes, parent) {
-  const node = document.createElementNS(NS, type);
-  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
-  parent.appendChild(node);
-  return node;
 }
 
 function physicsConfig() {
@@ -121,6 +137,7 @@ function reset() {
   nextSampleTime = PROGRESS.sampleSeconds;
   historyPath = '';
   historyLength = 0;
+  if (field) field.resetHistory();
   progressValue = 0;
   lastMeasurement = null;
   syncSession();
@@ -225,6 +242,10 @@ function plottedHistory() {
 }
 
 function updateTraceStroke() {
+  if (field) {
+    field.updateTraceStroke();
+    return;
+  }
   const scale = el('chart')?.getScreenCTM?.()?.a || 1;
   for (const id of ['trace', 'trace-live']) {
     const node = el(id);
@@ -233,6 +254,15 @@ function updateTraceStroke() {
 }
 
 function buildSvg() {
+  if (field) {
+    field.build(words, {
+      unlockThreshold: UNLOCK.threshold,
+      finishThreshold: FINISH.threshold,
+      unlockLabel: 'NEW WORDS',
+      finishLabel: 'COMPLETION'
+    });
+    return;
+  }
   updateTraceStroke();
   for (const id of ['grid', 'bars', 'labels']) {
     const container = el(id);
@@ -343,84 +373,115 @@ function render(dt) {
   pendingUnlock = false;
   const selected = sessionState ? sessionState.selectedIndex : selectedIndex;
 
-  words.forEach((word, i) => {
-    const node = nodes[i];
-    if (!node) return;
-    const { bar, edge, label, streak, guide, index, slotCol, slotArrow } = node, y = screenY(word.shown);
-    const isSelected = i === selected;
+  if (field) {
+    const displayCards = words.map((word, i) => ({
+      id: word.id,
+      index: i,
+      depth: word.depth,
+      shown: word.shown,
+      unlocked: word.unlocked,
+      flash: word.flash || 0,
+      isComplete: wordAboveFinish(word),
+      isSelected: i === selected,
+      label: word.english || `Phrase ${i + 1}`
+    }));
 
-    for (const element of [bar, edge, label, streak, guide, index]) {
-      setAttribute(element, 'visibility', word.unlocked ? 'visible' : 'hidden');
-    }
-    if (slotCol) {
-      setAttribute(slotCol, 'visibility', word.unlocked && isSelected ? 'visible' : 'hidden');
-      setAttribute(slotCol, 'opacity', isSelected ? '0.9' : '0');
-    }
-    if (slotArrow) {
-      setAttribute(slotArrow, 'visibility', word.unlocked && isSelected ? 'visible' : 'hidden');
-      setAttribute(slotArrow, 'opacity', isSelected ? '1' : '0');
-    }
+    progressValue = overallProgress();
+    if (unlocked) recordObservation();
 
-    const above = wordAboveFinish(word);
-    if (node.aboveFinish === true && !above) node.reactivation = 0.28;
-    else node.reactivation = Math.max(0, (node.reactivation || 0) - dt);
-    node.aboveFinish = above;
-    for (const element of [bar, edge, label, streak]) {
-      toggleClass(element, 'word-faded', above);
-      toggleClass(element, 'word-reactivated', !above && node.reactivation > 0);
-    }
-    setAttribute(bar, 'height', y - TUNE.top);
-    setAttribute(bar, 'fill', isSelected ? 'url(#bar-fill-selected)' : 'url(#bar-fill)');
-    setAttribute(edge, 'y1', y);
-    setAttribute(edge, 'y2', y);
-    setAttribute(edge, 'stroke-width', 1.3 + word.flash * 1.5);
-    setAttribute(edge, 'stroke', word.flash > 0.2 ? '#ffffff' : isSelected ? COLOR.cyan : COLOR.pink);
-    setAttribute(label, 'transform', `translate(${TUNE.left + (i + 0.5) * (TUNE.right - TUNE.left) / words.length},${y - 8}) rotate(-90)`);
-    setAttribute(label, 'fill', word.flash > 0.2 || node.reactivation > 0 ? COLOR.pink : isSelected ? COLOR.cyan : '#e3e8ef');
-    setAttribute(streak, 'y', y + 16);
-    setText(streak, Math.round(Math.min(word.depth, word.shown)) + '%');
-    setAttribute(streak, 'font-size', 15);
-    setAttribute(streak, 'font-weight', 700);
-    setAttribute(streak, 'fill', isSelected ? COLOR.cyan : COLOR.pink);
-    setAttribute(streak, 'stroke', '#0A0D19');
-    setAttribute(streak, 'stroke-width', 4);
-    setAttribute(streak, 'paint-order', 'stroke');
+    const fieldState = {
+      cards: displayCards,
+      selectedIndex: selected,
+      progress: progressValue,
+      activeTime,
+      observations,
+      observationTimes,
+      historyLength,
+      historyPath
+    };
+    field.render(fieldState, dt);
+    historyLength = fieldState.historyLength;
+    historyPath = fieldState.historyPath;
+  } else {
+    words.forEach((word, i) => {
+      const node = nodes[i];
+      if (!node) return;
+      const { bar, edge, label, streak, guide, index, slotCol, slotArrow } = node, y = screenY(word.shown);
+      const isSelected = i === selected;
 
-    if (isSelected) {
-      setAttribute(index, 'fill', COLOR.cyan);
-      setAttribute(index, 'font-weight', '700');
-    } else {
-      setAttribute(index, 'fill', COLOR.muted);
-      setAttribute(index, 'font-weight', '400');
-    }
-  });
+      for (const element of [bar, edge, label, streak, guide, index]) {
+        setAttribute(element, 'visibility', word.unlocked ? 'visible' : 'hidden');
+      }
+      if (slotCol) {
+        setAttribute(slotCol, 'visibility', word.unlocked && isSelected ? 'visible' : 'hidden');
+        setAttribute(slotCol, 'opacity', isSelected ? '0.9' : '0');
+      }
+      if (slotArrow) {
+        setAttribute(slotArrow, 'visibility', word.unlocked && isSelected ? 'visible' : 'hidden');
+        setAttribute(slotArrow, 'opacity', isSelected ? '1' : '0');
+      }
 
-  progressValue = overallProgress();
-  if (unlocked) recordObservation();
-  if (el('score')) setText(el('score'), progressValue.toFixed(1));
+      const above = wordAboveFinish(word);
+      if (node.aboveFinish === true && !above) node.reactivation = 0.28;
+      else node.reactivation = Math.max(0, (node.reactivation || 0) - dt);
+      node.aboveFinish = above;
+      for (const element of [bar, edge, label, streak]) {
+        toggleClass(element, 'word-faded', above);
+        toggleClass(element, 'word-reactivated', !above && node.reactivation > 0);
+      }
+      setAttribute(bar, 'height', y - TUNE.top);
+      setAttribute(bar, 'fill', isSelected ? 'url(#bar-fill-selected)' : 'url(#bar-fill)');
+      setAttribute(edge, 'y1', y);
+      setAttribute(edge, 'y2', y);
+      setAttribute(edge, 'stroke-width', 1.3 + word.flash * 1.5);
+      setAttribute(edge, 'stroke', word.flash > 0.2 ? '#ffffff' : isSelected ? COLOR.cyan : COLOR.pink);
+      setAttribute(label, 'transform', `translate(${TUNE.left + (i + 0.5) * (TUNE.right - TUNE.left) / words.length},${y - 8}) rotate(-90)`);
+      setAttribute(label, 'fill', word.flash > 0.2 || node.reactivation > 0 ? COLOR.pink : isSelected ? COLOR.cyan : '#e3e8ef');
+      setAttribute(streak, 'y', y + 16);
+      setText(streak, Math.round(Math.min(word.depth, word.shown)) + '%');
+      setAttribute(streak, 'font-size', 15);
+      setAttribute(streak, 'font-weight', 700);
+      setAttribute(streak, 'fill', isSelected ? COLOR.cyan : COLOR.pink);
+      setAttribute(streak, 'stroke', '#0A0D19');
+      setAttribute(streak, 'stroke-width', 4);
+      setAttribute(streak, 'paint-order', 'stroke');
 
-  const traceY = value => TUNE.bottom - TUNE.traceMargin - value / 100 * (TUNE.bottom - TUNE.top - 2 * TUNE.traceMargin);
-  while (historyLength < observations.length) {
-    const i = historyLength++;
-    historyPath += (i ? ' L' : 'M') + observationTimes[i] + ',' + traceY(observations[i]).toFixed(2);
-  }
-  if (el('trace')) setAttribute(el('trace'), 'd', historyPath);
-  const transform = `translate(${TUNE.left} 0) scale(${activeTime > 0 ? (TUNE.right - TUNE.left) / activeTime : 1} 1)`;
-  for (const id of ['trace', 'trace-live']) {
-    const node = el(id);
-    if (node) {
-      setAttribute(node, 'transform', transform);
-      setAttribute(node, 'vector-effect', 'non-scaling-stroke');
+      if (isSelected) {
+        setAttribute(index, 'fill', COLOR.cyan);
+        setAttribute(index, 'font-weight', '700');
+      } else {
+        setAttribute(index, 'fill', COLOR.muted);
+        setAttribute(index, 'font-weight', '400');
+      }
+    });
+
+    progressValue = overallProgress();
+    if (unlocked) recordObservation();
+    if (el('score')) setText(el('score'), progressValue.toFixed(1));
+
+    const traceY = value => TUNE.bottom - TUNE.traceMargin - value / 100 * (TUNE.bottom - TUNE.top - 2 * TUNE.traceMargin);
+    while (historyLength < observations.length) {
+      const i = historyLength++;
+      historyPath += (i ? ' L' : 'M') + observationTimes[i] + ',' + traceY(observations[i]).toFixed(2);
     }
-  }
-  const last = observations.length - 1, headY = traceY(progressValue);
-  if (el('trace-live') && observations.length) {
-    setAttribute(el('trace-live'), 'd', `M${observationTimes[last]},${traceY(observations[last]).toFixed(2)} L${activeTime},${headY.toFixed(2)}`);
-  }
-  if (el('trace-percentage')) {
-    setAttribute(el('trace-percentage'), 'x', TUNE.right + TRACE_LABEL.gap);
-    setAttribute(el('trace-percentage'), 'y', headY);
-    setText(el('trace-percentage'), progressValue.toFixed(1) + '%');
+    if (el('trace')) setAttribute(el('trace'), 'd', historyPath);
+    const transform = `translate(${TUNE.left} 0) scale(${activeTime > 0 ? (TUNE.right - TUNE.left) / activeTime : 1} 1)`;
+    for (const id of ['trace', 'trace-live']) {
+      const node = el(id);
+      if (node) {
+        setAttribute(node, 'transform', transform);
+        setAttribute(node, 'vector-effect', 'non-scaling-stroke');
+      }
+    }
+    const last = observations.length - 1, headY = traceY(progressValue);
+    if (el('trace-live') && observations.length) {
+      setAttribute(el('trace-live'), 'd', `M${observationTimes[last]},${traceY(observations[last]).toFixed(2)} L${activeTime},${headY.toFixed(2)}`);
+    }
+    if (el('trace-percentage')) {
+      setAttribute(el('trace-percentage'), 'x', TUNE.right + TRACE_LABEL.gap);
+      setAttribute(el('trace-percentage'), 'y', headY);
+      setText(el('trace-percentage'), progressValue.toFixed(1) + '%');
+    }
   }
 
   const target = words[selected];

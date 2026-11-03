@@ -1,6 +1,8 @@
 // Minimal integration host: validates referenced HTML IDs and drives actual app.js.
 // It does not claim to render layout or CSS.
-const vm=require('node:vm');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 const {instrumentPhysics}=require('./physics-harness.cjs');
 class Element {
   constructor(){this.attrs={};this.children=[];this.listeners={};this.hidden=false;this.open=false;this.style={setProperty(){}};this.classes=new Set();this.classList={contains:k=>this.classes.has(k),toggle:(k,v)=>{if(v)this.classes.add(k);else this.classes.delete(k);}};this.parentElement={classList:{toggle(){}}};}
@@ -15,7 +17,11 @@ class Element {
   showModal(){this.open=true;}
   close(){this.open=false;}
 }
-function makeHost({html,app,physics,instantPosition=false,storage={getItem(){return null;},setItem(){},removeItem(){}}}){
+const defaultField = fs.existsSync(path.join(__dirname, '../field.js'))
+  ? fs.readFileSync(path.join(__dirname, '../field.js'), 'utf8')
+  : '';
+
+function makeHost({html,app,physics,field=defaultField,instantPosition=false,storage={getItem(){return null;},setItem(){},removeItem(){}}}){
   const elements=new Map();
   const create=()=>{const node=new Element();node.register=(id,value)=>elements.set(id,value);return node;};
   for(const match of html.matchAll(/id="([^"]+)"/g))elements.set(match[1],create());
@@ -32,6 +38,7 @@ function makeHost({html,app,physics,instantPosition=false,storage={getItem(){ret
   const states=new WeakMap();
   const context=vm.createContext({__testStates:states,testState:session=>states.get(session),document,localStorage:storage,performance:{now:()=>now},matchMedia:()=>preference,requestAnimationFrame(fn){const id=nextFrame++;frames.set(id,fn);return id;},cancelAnimationFrame(id){frames.delete(id);}});
   if(physics)vm.runInContext(instrumentPhysics(physics),context,{filename:'physics.js'});
+  if(field)vm.runInContext(field,context,{filename:'field.js'});
   vm.runInContext(app,context,{filename:'app.js'});
   const run=source=>vm.runInContext(source,context);
   const tick=seconds=>{now+=seconds*1000;const pending=[...frames.values()];frames.clear();for(const fn of pending)fn(now);};
