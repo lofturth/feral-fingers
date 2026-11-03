@@ -10,12 +10,22 @@
   <script src="field.js?v=fp021" defer></script>
   <script src="vocabulary-view.js?v=fp021" defer></script>
   <script src="musical-view.js?v=fp021" defer></script>
+  <script src="app-vocabulary.js?v=fp021" defer></script>
+  <script src="app-music.js?v=fp021" defer></script>
   <script src="app.js?v=fp021" defer></script>
 </head>
-<body>
+<body data-app="music">
   <main>
     <header>
-      <div class="identity"><h1>FALLING PHRASES<span>_</span></h1><span class="edition">MUSICAL INSTRUMENT / 01</span></div>
+      <div class="identity">
+        <h1>FALLING PHRASES<span>_</span></h1>
+        <span class="edition" id="app-edition">MUSICAL INSTRUMENT / 01</span>
+        <nav class="app-switcher" aria-label="Application mode" style="margin-left: 12px; font-size: 11px; display: inline-flex; gap: 6px; align-items: center;">
+          <a href="index.html" class="app-switch-link active" id="mode-link-music" style="color: var(--cyan); text-decoration: none; font-weight: 700;">Music</a>
+          <span class="divider" style="opacity: 0.4;">/</span>
+          <a href="vocabulary.html" class="app-switch-link" id="mode-link-vocab" style="color: var(--muted); text-decoration: none;">Vocabulary</a>
+        </nav>
+      </div>
       <div class="readouts">
         <span class="status"><i id="status-dot"></i><span id="status">LIVE</span></span>
         <span>RETRIEVALS <b id="count">000</b></span>

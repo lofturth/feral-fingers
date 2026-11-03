@@ -3,6 +3,8 @@
 const FallingFieldModule = typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('./field.js') : null);
 const VocabularyViewModule = typeof VocabularyView !== 'undefined' ? VocabularyView : (typeof require === 'function' ? require('./vocabulary-view.js') : null);
 const MusicalViewModule = typeof MusicalView !== 'undefined' ? MusicalView : (typeof require === 'function' ? require('./musical-view.js') : null);
+const VocabularyAppModule = typeof VocabularyApp !== 'undefined' ? VocabularyApp : (typeof require === 'function' ? require('./app-vocabulary.js') : null);
+const MusicalAppModule = typeof MusicalApp !== 'undefined' ? MusicalApp : (typeof require === 'function' ? require('./app-music.js') : null);
 
 if (!FallingFieldModule || !VocabularyViewModule || !MusicalViewModule) {
   throw new Error('FallingField, VocabularyView, and MusicalView modules are required.');
@@ -42,7 +44,7 @@ let gravityReadout;
 const COLOR = field.COLOR;
 const HINT_SECONDS = 2;
 const latencyMultiplier = t => 0.5 + 1.5 * Math.exp(-1.5 * Math.max(0, t));
-const VOCABULARY = [
+const VOCABULARY = VocabularyAppModule?.VOCABULARY || [
   ['river', 'río'], ['light', 'luz'], ['apple', 'manzana'],
   ['night', 'noche'], ['house', 'casa'], ['water', 'agua'], ['bread', 'pan'],
   ['bird', 'pájaro'], ['dream', 'sueño'], ['window', 'ventana'],
@@ -65,6 +67,7 @@ let animationFrame = null;
 let historyPath = '', historyLength = 0;
 
 const { setAttribute, setText, toggleClass, svgNode } = FallingFieldModule;
+
 function scheduleFrame() {
   if (animationFrame === null && !paused && !sessionComplete && typeof document !== 'undefined' && !document.hidden) {
     if (typeof requestAnimationFrame === 'function') {
@@ -93,14 +96,15 @@ function syncSession() {
   words = state.cards.map((card, i) => ({
     ...card,
     flash: wordFlashes[i] || 0,
-    english: VOCABULARY[i]?.[0] || `Phrase ${i + 1}`,
+    english: VOCABULARY[i]?.[0] || (activeApp ? activeApp.getCardLabel(i) : `Phrase ${i + 1}`),
     spanish: VOCABULARY[i]?.[1] || 'C4 D4 E4'
   }));
   activeTime = state.time;
   paused = state.paused;
   sessionComplete = state.complete;
-  count = state.rewardCount ?? 0;
   selectedIndex = state.selectedIndex;
+  count = state.rewardCount ?? 0;
+  progressValue = session.getProgress();
 }
 
 function acceptTransition(result) {
@@ -108,10 +112,89 @@ function acceptTransition(result) {
   syncSession();
 }
 
+// Coordinator passed to application modules
+const coordinator = {
+  get session() { return session; },
+  isPaused: () => paused,
+  isComplete: () => sessionComplete,
+  getTime: () => typeof performance !== 'undefined' ? performance.now() : 0,
+  advanceTo,
+  recordObservation,
+  acceptTransition,
+  updateReadouts,
+  render,
+  checkCompletion,
+  setWordFlash: (i, v) => { wordFlashes[i] = v; },
+  setLastMeasurement: m => { lastMeasurement = m; },
+  setKickGraphEnded: ended => { kickGraphEnded = ended; },
+  getWords: () => words
+};
+
+let vocabularyApp = null;
+let musicalApp = null;
+let activeApp = null;
+
+if (VocabularyAppModule) {
+  vocabularyApp = VocabularyAppModule.createVocabularyApp({
+    coordinator,
+    vocabularyView,
+    el
+  });
+}
+if (MusicalAppModule) {
+  musicalApp = MusicalAppModule.createMusicalApp({
+    coordinator,
+    musicalView,
+    el
+  });
+}
+
+function getInitialAppMode() {
+  if (typeof window !== 'undefined' && window.location) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('mode')) return params.get('mode');
+    if (params.has('app')) return params.get('app');
+    if (window.location.pathname.includes('vocabulary')) return 'vocabulary';
+    if (window.location.pathname.includes('music')) return 'music';
+  }
+  if (typeof document !== 'undefined') {
+    if (document.body?.dataset?.app) return document.body.dataset.app;
+    if (document.documentElement?.dataset?.app) return document.documentElement.dataset.app;
+  }
+  if (typeof globalThis !== 'undefined' && globalThis.__APP_MODE__) {
+    return globalThis.__APP_MODE__;
+  }
+  return 'vocabulary';
+}
+
+function setAppMode(mode) {
+  if (activeApp) {
+    activeApp.detach?.();
+  }
+  if (mode === 'music' && musicalApp) {
+    activeApp = musicalApp;
+  } else if (vocabularyApp) {
+    activeApp = vocabularyApp;
+  } else {
+    activeApp = musicalApp;
+  }
+  if (activeApp) {
+    activeApp.attach();
+  }
+  if (session) {
+    syncSession();
+    render(0);
+  }
+}
+
 function reset() {
-  if (el('completion-screen')?.open) el('completion-screen').close();
-  session = MunduPhysics.createSession({ cardCount: DATASET.totalWords, config: physicsConfig() });
-  wordFlashes = Array.from({ length: DATASET.totalWords }, () => 0);
+  session = MunduPhysics.createSession({
+    cardCount: DATASET.totalWords,
+    config: physicsConfig()
+  });
+  sessionState = session.getState();
+  wordFlashes = new Array(DATASET.totalWords).fill(0);
+  selectedIndex = 0;
   pendingUnlock = false;
   completionPresented = false;
   kickGraphEnded = false;
@@ -121,8 +204,9 @@ function reset() {
   historyPath = '';
   historyLength = 0;
   field.resetHistory();
-  vocabularyView.reset();
-  musicalView.resetCardVisuals();
+  if (activeApp) {
+    activeApp.reset();
+  }
   progressValue = 0;
   lastMeasurement = null;
   syncSession();
@@ -131,61 +215,12 @@ function reset() {
   updateStatus();
   render(0);
   updateReadouts();
-  initAttempt();
   scheduleFrame();
 }
 
 function retrieve(skipped = false) {
-  if (paused || sessionComplete) return;
-  advanceTo(typeof performance !== 'undefined' ? performance.now() : 0);
-  if (paused || sessionComplete) return;
-  recordObservation();
-  const targetIndex = sessionState ? sessionState.selectedIndex : selectedIndex;
-  if (targetIndex < 0) return;
-
-  if (skipped) {
-    const result = session.skip();
-    if (!result) return;
-    lastMeasurement = {
-      kind: 'skip',
-      index: targetIndex,
-      word: VOCABULARY[targetIndex]?.[0] || 'Phrase',
-      translation: VOCABULARY[targetIndex]?.[1] || '',
-      lift: 0
-    };
-    kickGraphEnded = true;
-    vocabularyView.endKickGraph();
-    acceptTransition(result);
-    progressValue = overallProgress();
-    recordObservation();
-    updateReadouts();
-    render(0);
-    checkCompletion();
-  } else {
-    const latency = sessionState ? Math.max(0, sessionState.time - sessionState.selectedAt) : 0;
-    const multiplier = latencyMultiplier(latency);
-    const result = session.applyReward(targetIndex, multiplier);
-    if (!result) return;
-    wordFlashes[targetIndex] = 1;
-    const hinted = latency >= HINT_SECONDS;
-    lastMeasurement = {
-      kind: 'retrieval',
-      index: targetIndex,
-      word: VOCABULARY[targetIndex]?.[0] || 'Phrase',
-      translation: VOCABULARY[targetIndex]?.[1] || '',
-      hintVisible: hinted,
-      multiplier,
-      kickTime: result.kickTime,
-      lift: result.lift
-    };
-    kickGraphEnded = true;
-    vocabularyView.endKickGraph();
-    acceptTransition(result);
-    progressValue = overallProgress();
-    recordObservation();
-    updateReadouts();
-    render(0);
-    checkCompletion();
+  if (activeApp && activeApp.retrieve) {
+    activeApp.retrieve(skipped);
   }
 }
 
@@ -284,13 +319,9 @@ function render(dt) {
   historyLength = fieldState.historyLength;
   historyPath = fieldState.historyPath;
 
-  const target = words[selected];
-  vocabularyView.renderPrompt({
-    target,
-    selectedIndex: selected,
-    promptState: sessionState
-  }, dt);
-  kickGraphEnded = vocabularyView.isKickGraphEnded();
+  if (activeApp) {
+    activeApp.render(sessionState, dt);
+  }
 
   const promptState = sessionState;
   if (gravityReadout && promptState) setText(gravityReadout, 'EFFECTIVE GRAVITY ' + (100 * promptState.gravityMultiplier).toFixed(2) + '%');
@@ -321,7 +352,13 @@ function updateStatus() {
     el('pause').setAttribute('aria-pressed', String(paused));
   }
   if (el('status')?.parentElement) el('status').parentElement.classList.toggle('paused', paused);
-  if (el('prompt')) el('prompt').textContent = sessionComplete ? 'ALL PHRASES CLEAR / RESET TO RESTART' : paused ? 'SESSION PAUSED / RESUME TO RETRIEVE' : 'PLAY C4-D4-E4 = RETRIEVE / ESC = SKIP';
+  if (el('prompt')) {
+    el('prompt').textContent = sessionComplete
+      ? 'ALL PHRASES CLEAR / RESET TO RESTART'
+      : paused
+        ? 'SESSION PAUSED / RESUME TO RETRIEVE'
+        : (activeApp?.name === 'music' ? 'PLAY C4-D4-E4 = RETRIEVE / ESC = SKIP' : 'TYPE SPANISH = RETRIEVE / ESC = SKIP');
+  }
 }
 
 function advanceTo(time) {
@@ -345,26 +382,8 @@ function frame(time) {
   scheduleFrame();
 }
 
-// Physical letter keys accept all layouts; modifier shortcuts retain browser behavior.
+// Coordinator UI events
 if (typeof document !== 'undefined') {
-  document.addEventListener('keydown', event => {
-    if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      retrieve(true);
-      return;
-    }
-    if (event.target?.matches('input, select, textarea')) return;
-    if (event.key === '1') { event.preventDefault(); handleMidiNote(true, 60, 90); return; }
-    if (event.key === '2') { event.preventDefault(); handleMidiNote(true, 62, 90); return; }
-    if (event.key === '3') { event.preventDefault(); handleMidiNote(true, 64, 90); return; }
-    if (event.key === 'p' || event.key === 'P') { event.preventDefault(); startDemoPlayback(); return; }
-    if (/^Key[A-Z]$/.test(event.code) || /^\p{L}$/u.test(event.key)) {
-      event.preventDefault();
-      retrieve();
-    }
-  });
-
   el('pause')?.addEventListener('click', () => {
     if (sessionComplete) return;
     if (!paused) { advanceTo(typeof performance !== 'undefined' ? performance.now() : 0); render(0); }
@@ -530,470 +549,33 @@ function buildCompletionScreen() {
   });
 }
 
-// =========================================================================
-// MUSICAL LAYER & DIAGNOSTICS (FP-020 & FP-021)
-// Completely decoupled from physics:
-// - Observes sessionState.selectedIndex
-// - Handles Audio / Metronome / MIDI
-// - Evaluates accuracy (first try vs after mistakes)
-// - Applies reward to session.applyReward(selectedIndex, magnitude)
-// - Stationary foreground overlay (never moves vertically)
-// =========================================================================
-
-const sharpNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
-const noteName = pitch => sharpNames[pitch % 12] + (Math.floor(pitch / 12) - 1);
-const targetPitches = [60, 62, 64]; // C4, D4, E4
-const tempoBpm = 80;
-const beatSeconds = 60 / tempoBpm;
-const noteSeconds = 0.65;
-
-let audio = null;
-let activeSounds = new Set();
-let metronomeTimer = null;
-let presentationRunning = false;
-let presentationListeningAt = Infinity;
-let presentationPlaybackEnd = Infinity;
-let presentationProgress = 0;
-let presentationMatchEvents = [];
-let presentationComplete = false;
-let attemptResetTimer = null;
-let activeAttempt = null;
-let totalLifts = 0;
-
-let rollStartedAt = 0;
-let rollStoppedAt = 0;
-let rollNotes = [];
-const rollHeld = new Map();
-let rollZoomSeconds = 8;
-
-let midiAccess = null;
-let activeInput = null;
-let midiConnecting = false;
-
-async function prepareAudio() {
-  if (typeof window === 'undefined') return null;
-  if (!audio) {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (AudioContextClass) audio = new AudioContextClass();
-  }
-  if (audio && audio.state === 'suspended') {
-    await audio.resume();
-  }
-  return audio;
+// Application facade delegates
+function startDemoPlayback() {
+  return activeApp?.startDemoPlayback?.();
 }
-
-function sound(when, frequency, duration, volume = 0.14, piano = false, timbre = 'sine') {
-  if (!audio) return [];
-  const harmonics = timbre === 'bell' ? [1, 0.23] : timbre === 'warm' ? [1, 0.16] : piano ? [1, 0.22, 0.07] : [1];
-  const oscillators = [];
-  harmonics.forEach((strength, index) => {
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = frequency * (timbre === 'bell' && index === 1 ? 2.71 : index + 1);
-
-    gain.gain.setValueAtTime(0.0001, when);
-    gain.gain.exponentialRampToValueAtTime(
-      volume * strength,
-      when + (timbre === 'bell' ? 0.003 : timbre === 'warm' ? 0.018 : piano ? 0.005 : 0.008)
-    );
-    if (piano) gain.gain.exponentialRampToValueAtTime(volume * strength * 0.38, when + 0.16);
-    if (timbre === 'warm') gain.gain.exponentialRampToValueAtTime(volume * strength * 0.45, when + 0.18);
-    gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
-
-    osc.connect(gain).connect(audio.destination);
-    osc.start(when);
-    osc.stop(when + duration + 0.02);
-
-    activeSounds.add(osc);
-    osc.onended = () => activeSounds.delete(osc);
-    oscillators.push(osc);
-  });
-  return oscillators;
+function handleMidiNote(noteOn, pitch, velocity, channel) {
+  return activeApp?.handleMidiNote?.(noteOn, pitch, velocity, channel);
 }
-
-function stopAllAudio() {
-  if (metronomeTimer) clearInterval(metronomeTimer);
-  metronomeTimer = null;
-  if (audio) {
-    for (const osc of activeSounds) {
-      try { osc.stop(audio.currentTime); } catch {}
-    }
-  }
-  activeSounds.clear();
-}
-
-function playCompletionChime() {
-  if (!audio || audio.state !== 'running') return;
-  const now = audio.currentTime + 0.01;
-  sound(now, 523.25, 0.3, 0.05, false, 'warm');
-  sound(now + 0.18, 659.25, 0.4, 0.05, false, 'warm');
-}
-
-function initAttempt() {
-  presentationProgress = 0;
-  presentationMatchEvents = [];
-  presentationComplete = false;
-  if (attemptResetTimer) clearTimeout(attemptResetTimer);
-  attemptResetTimer = null;
-
-  rollStartedAt = typeof performance !== 'undefined' ? performance.now() : 0;
-  rollStoppedAt = 0;
-  rollNotes = [];
-  rollHeld.clear();
-
-  activeAttempt = {
-    timeUnit: 'milliseconds',
-    timeReference: 'Monotonic performance.now() elapsed since Start',
-    startedAtMs: 0,
-    completedAtMs: null,
-    stoppedAtMs: null,
-    targetPitches: [...targetPitches],
-    tempoBpm,
-    beatDurationMs: beatSeconds * 1000,
-    audioPromptEnabled: el('play-audio')?.checked ?? true,
-    metronomeEnabled: el('play-metronome')?.checked ?? true,
-    promptNotes: [],
-    promptEndMs: null,
-    metronomeBeatOriginMs: null,
-    preparationBeatMs: null,
-    intendedEntryMs: null,
-    replays: [],
-    midiEvents: [],
-    matchedMidiEvents: []
-  };
-
-  updateCardVisuals();
-  renderPerformanceMetrics();
-  renderTimingDeviation();
-  renderNoteDuration();
-  drawPianoRoll();
-}
-
-async function startDemoPlayback() {
-  stopAllAudio();
-  initAttempt();
-
-  const playAudio = el('play-audio')?.checked ?? true;
-  const playMetronome = el('play-metronome')?.checked ?? true;
-
-  presentationRunning = true;
-  if (el('card-badge')) {
-    el('card-badge').className = 'card-badge';
-    el('card-badge').textContent = 'Listening…';
-  }
-  if (el('card-feedback')) el('card-feedback').textContent = 'Listen to phrase C4 D4 E4, then play it';
-
-  if (!playAudio && !playMetronome) {
-    activeAttempt.metronomeBeatOriginMs = 0;
-    activeAttempt.preparationBeatMs = 3 * activeAttempt.beatDurationMs;
-    activeAttempt.intendedEntryMs = 4 * activeAttempt.beatDurationMs;
-    presentationListeningAt = 0;
-    presentationPlaybackEnd = 0;
-    return;
-  }
-
-  try {
-    await prepareAudio();
-    if (!audio) return;
-    const startTime = audio.currentTime + 0.1;
-    const scheduledStartMs = performance.now() - rollStartedAt + (startTime - audio.currentTime) * 1000;
-
-    activeAttempt.metronomeBeatOriginMs = scheduledStartMs;
-    activeAttempt.preparationBeatMs = scheduledStartMs + 3 * activeAttempt.beatDurationMs;
-    activeAttempt.intendedEntryMs = scheduledStartMs + 4 * activeAttempt.beatDurationMs;
-
-    if (playAudio) {
-      const promptNotes = targetPitches.map((pitch, index) => ({
-        pitch,
-        timeMs: scheduledStartMs + index * beatSeconds * 1000,
-        durationMs: noteSeconds * 1000
-      }));
-      activeAttempt.promptNotes = promptNotes;
-
-      for (const [index, pitch] of targetPitches.entries()) {
-        const freq = 440 * (2 ** ((pitch - 69) / 12));
-        sound(startTime + index * beatSeconds, freq, noteSeconds, 0.14, true);
-      }
-      presentationPlaybackEnd = startTime + (targetPitches.length - 1) * beatSeconds + noteSeconds;
-      activeAttempt.promptEndMs = scheduledStartMs + 2 * activeAttempt.beatDurationMs + noteSeconds * 1000;
-      presentationListeningAt = presentationPlaybackEnd;
-    } else {
-      presentationListeningAt = 0;
-      presentationPlaybackEnd = 0;
-    }
-
-    if (playMetronome) {
-      let nextClick = startTime;
-      const scheduleClicks = () => {
-        while (nextClick < audio.currentTime - 0.01) nextClick += beatSeconds;
-        while (nextClick < audio.currentTime + 0.15) {
-          sound(nextClick, 1760, 0.06, 0.035, false, 'bell');
-          nextClick += beatSeconds;
-        }
-      };
-      scheduleClicks();
-      metronomeTimer = setInterval(scheduleClicks, 50);
-    }
-  } catch (err) {
-    presentationListeningAt = 0;
-    presentationPlaybackEnd = 0;
-    if (el('card-feedback')) el('card-feedback').textContent = `Audio unavailable (${err.message}); you can still play via MIDI.`;
-  }
-}
-
-function recordPianoRollEvent(noteOn, pitch, velocity, channel) {
-  if (!activeAttempt) return null;
-  const timeMs = Math.max(0, (typeof performance !== 'undefined' ? performance.now() : 0) - rollStartedAt);
-  const time = timeMs / 1000;
-  const event = { type: noteOn ? 'noteOn' : 'noteOff', pitch, velocity, channel, timeMs };
-  activeAttempt.midiEvents.push(event);
-
-  const key = `${channel}:${pitch}`;
-  if (noteOn) {
-    const note = { pitch, start: time, end: null };
-    rollNotes.push(note);
-    if (!rollHeld.has(key)) rollHeld.set(key, []);
-    rollHeld.get(key).push(note);
-  } else {
-    const held = rollHeld.get(key);
-    if (held?.length) held.shift().end = time;
-    if (held?.length === 0) rollHeld.delete(key);
-  }
-
-  drawPianoRoll();
-  return event;
-}
-
-function handleMidiNote(noteOn, pitch, velocity, channel = 0) {
-  const event = recordPianoRollEvent(noteOn, pitch, velocity, channel);
-  if (!event || presentationComplete) return;
-
-  if (noteOn) {
-    if (pitch === targetPitches[presentationProgress]) {
-      presentationProgress++;
-      presentationMatchEvents.push(event);
-    } else if (pitch === targetPitches[0]) {
-      presentationProgress = 1;
-      presentationMatchEvents = [event];
-    } else {
-      presentationProgress = 0;
-      presentationMatchEvents = [];
-    }
-
-    updateCardVisuals();
-    renderPerformanceMetrics();
-    renderTimingDeviation();
-
-    if (presentationProgress === targetPitches.length) {
-      presentationComplete = true;
-      activeAttempt.completedAtMs = event.timeMs;
-      activeAttempt.matchedMidiEvents = [...presentationMatchEvents];
-
-      const noteOns = activeAttempt.midiEvents.filter(e => e.type === 'noteOn');
-      const extraNotes = Math.max(0, noteOns.length - targetPitches.length);
-      const isFirstTry = extraNotes === 0;
-      const rewardMagnitude = isFirstTry ? 1.0 : 0.5;
-
-      const targetIndex = sessionState ? sessionState.selectedIndex : selectedIndex;
-      let rewardResult = null;
-      if (targetIndex >= 0 && !paused && !sessionComplete) {
-        advanceTo(typeof performance !== 'undefined' ? performance.now() : 0);
-        recordObservation();
-        const result = session.applyReward(targetIndex, rewardMagnitude);
-        if (result) {
-          rewardResult = result;
-          wordFlashes[targetIndex] = 1;
-          totalLifts++;
-          lastMeasurement = result;
-          kickGraphEnded = true;
-          acceptTransition(result);
-          progressValue = overallProgress();
-          recordObservation();
-          updateReadouts();
-          render(0);
-          checkCompletion();
-        }
-      }
-
-      playCompletionChime();
-
-      musicalView.showRewardFeedback({
-        isFirstTry,
-        extraNotes,
-        targetIndex,
-        rewardResult
-      });
-      musicalView.renderAllDiagnostics({
-        activeAttempt,
-        presentationProgress,
-        presentationComplete,
-        presentationMatchEvents
-      });
-
-      if (typeof setTimeout === 'function') {
-        attemptResetTimer = setTimeout(() => {
-          if (!paused && !sessionComplete) {
-            initAttempt();
-            musicalView.resetCardVisuals();
-          }
-        }, 1200);
-      }
-    }
-  }
-
-  renderNoteDuration();
-}
-
-function updateCardVisuals() {
-  musicalView.updateCardVisuals(presentationProgress, targetPitches);
-}
-
-async function connectMidi() {
-  if (midiConnecting || typeof navigator === 'undefined') return;
-  midiConnecting = true;
-  if (el('device')) el('device').textContent = 'Requesting MIDI…';
-  if (el('connect')) el('connect').disabled = true;
-
-  if (!navigator.requestMIDIAccess) {
-    if (el('device')) el('device').textContent = 'Web MIDI not supported (use keys 1, 2, 3)';
-    if (el('connect')) el('connect').disabled = false;
-    midiConnecting = false;
-    return;
-  }
-
-  try {
-    midiAccess = await navigator.requestMIDIAccess();
-    midiAccess.onstatechange = updateMidiInputs;
-    updateMidiInputs();
-  } catch (error) {
-    if (el('device')) el('device').textContent = `MIDI access failed: ${error.message || error.name}`;
-  } finally {
-    if (el('connect')) el('connect').disabled = false;
-    midiConnecting = false;
-  }
-}
-
-function updateMidiInputs() {
-  if (!midiAccess) return;
-  const inputs = [...midiAccess.inputs.values()].filter(p => p.state === 'connected');
-  const picker = el('inputs');
-  if (picker) {
-    picker.replaceChildren(...inputs.map(port => {
-      const option = document.createElement('option');
-      option.value = port.id;
-      option.textContent = port.name || 'MIDI Input';
-      return option;
-    }));
-    picker.hidden = inputs.length < 2;
-  }
-
-  if (inputs.length > 0) {
-    const preferred = inputs.find(p => /minilab/i.test(p.name || '')) || inputs[0];
-    selectMidiInput(preferred.id);
-  } else {
-    activeInput = null;
-    if (el('device')) el('device').textContent = 'No keyboard connected';
-  }
-}
-
-async function selectMidiInput(id) {
-  if (activeInput) activeInput.onmidimessage = null;
-  activeInput = midiAccess?.inputs.get(id) || null;
-  if (activeInput) {
-    try {
-      await activeInput.open();
-      activeInput.onmidimessage = event => {
-        const [status, pitch, velocity] = event.data;
-        const type = status & 0xf0;
-        const noteOn = type === 0x90 && velocity > 0;
-        const noteOff = type === 0x80 || (type === 0x90 && velocity === 0);
-        if (noteOn || noteOff) {
-          handleMidiNote(noteOn, pitch, velocity, status & 0x0f);
-        }
-      };
-      if (el('device')) el('device').textContent = activeInput.name || 'Connected';
-    } catch (err) {
-      if (el('device')) el('device').textContent = `Input error: ${err.message}`;
-    }
-  }
-}
-
-function formatSignedMs(value) {
-  const rounded = Math.round(value);
-  return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${Math.abs(rounded)} ms`;
-}
-
 function drawPianoRoll() {
-  musicalView.drawPianoRoll({
-    rollNotes,
-    rollStartedAt,
-    rollZoomSeconds,
-    activeAttempt,
-    noteSeconds
-  });
+  // MusicalView draws via activeApp
+}
+function renderPerformanceMetrics() {}
+function renderTimingDeviation() {}
+function renderNoteDuration() {}
+function connectMidi() {
+  return activeApp?.connectMidi?.();
+}
+function stopAllAudio() {
+  activeApp?.stopAllAudio?.();
 }
 
-function renderPerformanceMetrics() {
-  musicalView.renderPerformanceMetrics({
-    activeAttempt,
-    presentationProgress,
-    presentationComplete,
-    presentationMatchEvents
-  });
-}
-
-function renderTimingDeviation() {
-  musicalView.renderTimingDeviation({
-    activeAttempt,
-    presentationMatchEvents
-  });
-}
-
-function renderNoteDuration() {
-  musicalView.renderNoteDuration({
-    activeAttempt,
-    presentationMatchEvents,
-    presentationComplete
-  });
-}
-
-async function copyAttemptJson() {
-  if (!activeAttempt || typeof navigator === 'undefined' || !navigator.clipboard) return;
-  try {
-    const rounded = (key, val) => key.endsWith('Ms') && Number.isFinite(val) ? Math.round(val * 10) / 10 : val;
-    await navigator.clipboard.writeText(JSON.stringify({ schemaVersion: 1, ...activeAttempt }, rounded, 2));
-    if (el('json-status')) {
-      el('json-status').textContent = 'JSON copied ✓';
-      setTimeout(() => { if (el('json-status')) el('json-status').textContent = ''; }, 2500);
-    }
-  } catch (err) {
-    if (el('json-status')) el('json-status').textContent = `Copy failed: ${err.message}`;
-  }
-}
-
-// Attach UI events
-if (typeof document !== 'undefined') {
-  el('play-demo')?.addEventListener('click', startDemoPlayback);
-  el('card-demo-btn')?.addEventListener('click', startDemoPlayback);
-  el('connect')?.addEventListener('click', connectMidi);
-  el('inputs')?.addEventListener('change', e => selectMidiInput(e.target.value));
-  el('copy-attempt-json')?.addEventListener('click', copyAttemptJson);
-  el('roll-zoom')?.addEventListener('input', e => {
-    rollZoomSeconds = Number(e.target.value);
-    if (el('roll-zoom-value')) el('roll-zoom-value').textContent = `${rollZoomSeconds} s`;
-    drawPianoRoll();
-  });
-
-  el('letter-0')?.addEventListener('click', () => handleMidiNote(true, 60, 90));
-  el('letter-1')?.addEventListener('click', () => handleMidiNote(true, 62, 90));
-  el('letter-2')?.addEventListener('click', () => handleMidiNote(true, 64, 90));
-}
-
-// Initial system boots
+// Boot initial mode and system
+setAppMode(getInitialAppMode());
 loadTuningDefaults();
 reset();
 buildTuning();
 buildCompletionScreen();
-connectMidi();
+if (activeApp?.name === 'music') {
+  connectMidi();
+}
 scheduleFrame();

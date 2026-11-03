@@ -210,7 +210,7 @@ test('Simulated musical input: keys 1, 2, and 3 trigger end-to-end musical rewar
     musicalView: fs.readFileSync(path.join(base, 'musical-view.js'), 'utf8')
   };
 
-  const h = makeHost(files);
+  const h = makeHost({ ...files, appMode: 'music' });
 
   // Initial state: slot 0 at depth 0
   assert.equal(h.run('words[0].depth'), 0);

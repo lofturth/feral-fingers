@@ -26,28 +26,68 @@ const defaultVocabView = fs.existsSync(path.join(__dirname, '../vocabulary-view.
 const defaultMusicalView = fs.existsSync(path.join(__dirname, '../musical-view.js'))
   ? fs.readFileSync(path.join(__dirname, '../musical-view.js'), 'utf8')
   : '';
+const defaultVocabApp = fs.existsSync(path.join(__dirname, '../app-vocabulary.js'))
+  ? fs.readFileSync(path.join(__dirname, '../app-vocabulary.js'), 'utf8')
+  : '';
+const defaultMusicalApp = fs.existsSync(path.join(__dirname, '../app-music.js'))
+  ? fs.readFileSync(path.join(__dirname, '../app-music.js'), 'utf8')
+  : '';
 
-function makeHost({html,app,physics,field=defaultField,vocabularyView=defaultVocabView,musicalView=defaultMusicalView,instantPosition=false,storage={getItem(){return null;},setItem(){},removeItem(){}}}){
-  const elements=new Map();
-  const create=()=>{const node=new Element();node.register=(id,value)=>elements.set(id,value);return node;};
-  for(const match of html.matchAll(/id="([^"]+)"/g))elements.set(match[1],create());
-  elements.get('tuning-panel').hidden=true;
-  const listeners={};
-  const document={hidden:false,
-    getElementById(id){if(!elements.has(id))throw new Error('Missing DOM ID: '+id);return elements.get(id);},
-    createElement:create,createElementNS:create,
-    addEventListener(k,v){(listeners[k]??=[]).push(v);}
+function makeHost({
+  html,
+  app,
+  physics,
+  field = defaultField,
+  vocabularyView = defaultVocabView,
+  musicalView = defaultMusicalView,
+  vocabApp = defaultVocabApp,
+  musicalApp = defaultMusicalApp,
+  appMode = 'vocabulary',
+  mode,
+  instantPosition = false,
+  storage = { getItem() { return null; }, setItem() {}, removeItem() {} }
+}) {
+  const activeMode = mode || appMode;
+  const elements = new Map();
+  const create = () => { const node = new Element(); node.register = (id, value) => elements.set(id, value); return node; };
+  for (const match of html.matchAll(/id="([^"]+)"/g)) elements.set(match[1], create());
+  elements.get('tuning-panel').hidden = true;
+  const listeners = {};
+  const document = {
+    hidden: false,
+    getElementById(id) { if (!elements.has(id)) throw new Error('Missing DOM ID: ' + id); return elements.get(id); },
+    createElement: create, createElementNS: create,
+    addEventListener(k, v) { (listeners[k] ??= []).push(v); },
+    removeEventListener(k, v) {
+      if (listeners[k]) listeners[k] = listeners[k].filter(l => l !== v);
+    }
   };
-  let now=0, nextFrame=1;
-  const frames=new Map();
-  const preference={matches:instantPosition,addEventListener(){}};
-  const states=new WeakMap();
-  const context=vm.createContext({__testStates:states,testState:session=>states.get(session),document,localStorage:storage,performance:{now:()=>now},matchMedia:()=>preference,setTimeout:globalThis.setTimeout,clearTimeout:globalThis.clearTimeout,setInterval:globalThis.setInterval,clearInterval:globalThis.clearInterval,requestAnimationFrame(fn){const id=nextFrame++;frames.set(id,fn);return id;},cancelAnimationFrame(id){frames.delete(id);}});
-  if(physics)vm.runInContext(instrumentPhysics(physics),context,{filename:'physics.js'});
-  if(field)vm.runInContext(field,context,{filename:'field.js'});
-  if(vocabularyView)vm.runInContext(vocabularyView,context,{filename:'vocabulary-view.js'});
-  if(musicalView)vm.runInContext(musicalView,context,{filename:'musical-view.js'});
-  vm.runInContext(app,context,{filename:'app.js'});
+  let now = 0, nextFrame = 1;
+  const frames = new Map();
+  const preference = { matches: instantPosition, addEventListener() {} };
+  const states = new WeakMap();
+  const context = vm.createContext({
+    __APP_MODE__: activeMode,
+    __testStates: states,
+    testState: session => states.get(session),
+    document,
+    localStorage: storage,
+    performance: { now: () => now },
+    matchMedia: () => preference,
+    setTimeout: globalThis.setTimeout,
+    clearTimeout: globalThis.clearTimeout,
+    setInterval: globalThis.setInterval,
+    clearInterval: globalThis.clearInterval,
+    requestAnimationFrame(fn) { const id = nextFrame++; frames.set(id, fn); return id; },
+    cancelAnimationFrame(id) { frames.delete(id); }
+  });
+  if (physics) vm.runInContext(instrumentPhysics(physics), context, { filename: 'physics.js' });
+  if (field) vm.runInContext(field, context, { filename: 'field.js' });
+  if (vocabularyView) vm.runInContext(vocabularyView, context, { filename: 'vocabulary-view.js' });
+  if (musicalView) vm.runInContext(musicalView, context, { filename: 'musical-view.js' });
+  if (vocabApp) vm.runInContext(vocabApp, context, { filename: 'app-vocabulary.js' });
+  if (musicalApp) vm.runInContext(musicalApp, context, { filename: 'app-music.js' });
+  vm.runInContext(app, context, { filename: 'app.js' });
   const run=source=>vm.runInContext(source,context);
   const tick=seconds=>{now+=seconds*1000;const pending=[...frames.values()];frames.clear();for(const fn of pending)fn(now);};
   return {elements,run,
