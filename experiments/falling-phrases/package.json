@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node scripts/build.cjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/physics.test.cjs tests/differential.test.cjs tests/repetitions.test.cjs tests/musical-card.test.cjs tests/prototype.test.cjs",
+    "test": "node --test tests/physics.test.cjs tests/differential.test.cjs tests/repetitions.test.cjs tests/musical-card.test.cjs tests/prototype.test.cjs tests/characterization.test.cjs",
     "test:musical": "node --test tests/musical-card.test.cjs",
     "test:engine": "node --test tests/physics.test.cjs tests/differential.test.cjs tests/repetitions.test.cjs",
     "test:differential": "node --test tests/differential.test.cjs",

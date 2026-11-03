@@ -6,12 +6,13 @@ function run(responseDelay=1,timeoutSeconds=3600,kickHeightPercent=Physics.DEFAU
   for(const value of [responseDelay,timeoutSeconds]){
     if(!Number.isFinite(value)||value<=0)throw new RangeError('Delay and timeout must be finite positive seconds');
   }
-  const session=Physics.createSession({wordCount:10,config:{motion:{kickHeightPercent}}});
+  const session=Physics.createSession({cardCount:10,config:{motion:{kickHeightPercent}}});
   const words=Array.from({length:10},(_,i)=>({word:i+1,unlockTime:i===0?0:null,successfulRetrievals:0,skips:0,totalAttempts:0}));
   let elapsed=0,attempt=1;
   function recordUnlock(transition){
     if(transition.unlockedIndex!==null)words[transition.unlockedIndex].unlockTime=elapsed;
   }
+  const multiplier = 0.5 + 1.5 * Math.exp(-1.5 * responseDelay);
   while(!session.isComplete()&&elapsed<timeoutSeconds){
     const deadline=Math.min(attempt*responseDelay,timeoutSeconds);
     while(!session.isComplete()&&elapsed<deadline){
@@ -21,9 +22,8 @@ function run(responseDelay=1,timeoutSeconds=3600,kickHeightPercent=Physics.DEFAU
       recordUnlock(transition);
     }
     if(session.isComplete()||attempt*responseDelay>timeoutSeconds)break;
-    // retrieve() itself selects the lowest active logical position.
-    const action=session.retrieve(),word=words[action.index];
-    word.successfulRetrievals+=action.kind==='retrieval'?1:0;
+    const action=session.applyReward(multiplier),word=words[action.index];
+    word.successfulRetrievals+=action.kind==='reward'?1:0;
     word.skips+=action.kind==='skip'?1:0;
     word.totalAttempts++;
     recordUnlock(action);attempt++;

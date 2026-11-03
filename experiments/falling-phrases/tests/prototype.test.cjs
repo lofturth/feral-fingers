@@ -17,18 +17,26 @@ function compare(actual,expected){
 const snapshot=h=>JSON.parse(h.run(`JSON.stringify({time:activeTime,paused,complete:sessionComplete,selectedIndex:session.getState().selectedIndex,selectedAt:session.getState().selectedAt,retrievalCount:count,progress:progressValue,words:words.map(w=>[w.initialDepth,w.depth,w.shown,w.streak,w.unlocked])})`));
 for(const fixture of fixtures)test(`prototype/engine parity: initial=${fixture.options.initialCount}, instant=${fixture.options.instantPosition}`,()=>{
  const h=host({instantPosition:fixture.options.instantPosition});
- h.run(`testState(session).words.forEach((w,i)=>w.unlocked=i<${fixture.options.initialCount});syncSession();render(0);`);
- const engine=Physics.createSession({wordCount:10,config:{instantPosition:fixture.options.instantPosition}});
- stateOf(engine).words.forEach((w,i)=>w.unlocked=i<fixture.options.initialCount);
+ h.run(`testState(session).cards.forEach((w,i)=>w.unlocked=i<${fixture.options.initialCount});syncSession();render(0);`);
+ const engine=Physics.createSession({cardCount:10,config:{instantPosition:fixture.options.instantPosition}});
+ stateOf(engine).cards.forEach((w,i)=>w.unlocked=i<fixture.options.initialCount);
  const expected=()=>{const s=engine.getState();return {
    time:s.time,paused:s.paused,complete:s.complete,selectedIndex:s.selectedIndex,
-   selectedAt:s.selectedAt,retrievalCount:s.retrievalCount,progress:engine.getProgress(),
-   words:s.words.map(w=>[w.initialDepth,w.depth,w.shown,w.streak,w.unlocked])
+   selectedAt:s.selectedAt,retrievalCount:s.rewardCount,progress:engine.getProgress(),
+   words:s.cards.map(w=>[w.initialDepth,w.depth,w.shown,w.streak,w.unlocked])
  };};
  compare(snapshot(h),expected());
  fixture.actions.forEach(action=>{
    if(action.type==='advance'){h.advance(action.seconds);engine.advance(action.seconds);}
-   else if(action.type==='retrieve'){h.retrieve(action.correct);action.correct?engine.retrieve():engine.skip();}
+   else if(action.type==='retrieve'){
+     h.retrieve(action.correct);
+     if(action.correct){
+       const latency=Math.max(0,engine.getState().time-engine.getState().selectedAt);
+       engine.applyReward(reward(latency));
+     } else {
+       engine.skip();
+     }
+   }
    else {h.click('pause');engine.setPaused(action.type==='pause');}
    compare(snapshot(h),expected());
    assert.ok(!/NaN|undefined/.test(h.elements.get('trace').attrs.d));
@@ -165,7 +173,7 @@ test('prototype applies engine retrieval-time multipliers and reports the unaide
 test('word percentages use field height, matching Tune and the fade threshold',()=>{
  const h=host();h.settings('threshold',95,'FINISH');
  for(const [depth,shown,label,faded] of [[90.25,90.25,'90%',false],[94.05,94.05,'94%',false],[95,95,'95%',false],[95.01,95.01,'95%',true],[100,94,'94%',false]]){
-  h.run(`{const saved=testState(session);saved.words[0].depth=${depth};saved.words[0].shown=${shown};syncSession();render(0);}`);
+  h.run(`{const saved=testState(session);saved.cards[0].depth=${depth};saved.cards[0].shown=${shown};syncSession();render(0);}`);
   assert.equal(h.run('nodes[0].streak.textContent'),label);
   assert.equal(h.run('nodes[0].aboveFinish'),faded);
  }
@@ -194,9 +202,9 @@ test('kick graph follows the shared timer and actual hint state, continuously th
  compare(Number(h.elements.get('kick-indicator').attrs.cx),32);compare(Number(h.elements.get('kick-indicator').attrs.cy),12);
  h.advance(1);compare(Number(h.elements.get('kick-indicator').attrs.cx),80);compare(Number(h.elements.get('kick-indicator').attrs.cy),64-26*reward(1));
  assert.equal(h.elements.get('kick-graph-value').textContent,'1.0s / 0.83×');
- h.advance(.999);assert.equal(h.run('session.getState().hintVisible'),false);
+ h.advance(.999);assert.equal(h.elements.get('target-hint').hidden,true);
  compare(Number(h.elements.get('kick-indicator').attrs.cy),64-26*reward(1.999));
- h.advance(.001);assert.equal(h.run('session.getState().hintVisible'),true);
+ h.advance(.001);assert.equal(h.elements.get('target-hint').hidden,false);
  compare(Number(h.elements.get('kick-indicator').attrs.cx),128);compare(Number(h.elements.get('kick-indicator').attrs.cy),64-26*reward(h.run('session.getState().time-session.getState().selectedAt')));
  assert.equal(h.elements.has('kick-reward-drop'),false);
  compare(Number(h.elements.get('kick-hint-point').attrs.cy),64-26*reward(2));
@@ -230,8 +238,8 @@ test('ended prompt graph hides on retrieval/skip, resets for the next prompt, an
 test('Tune effective gravity updates on unlocking, parameter edits and Reset',()=>{
  const h=host();assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 100.00%');
  assert.equal(h.run("tuningInputs.find(v=>v.key==='gravityReductionPercent').input.value"),'5');
- h.run('{const state=testState(session);state.words[0].depth=51;state.words[0].shown=51;}');
- h.advance(.01);assert.equal(h.run('session.getState().unlockedWordCount'),2);
+ h.run('{const state=testState(session);state.cards[0].depth=51;state.cards[0].shown=51;}');
+ h.advance(.01);assert.equal(h.run('session.getState().unlockedCardCount'),2);
  assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 95.00%');
  h.settings('gravityReductionPercent',5,'MOTION');assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 95.00%');
  h.settings('gravityReductionPercent',0,'MOTION');assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 100.00%');
@@ -262,18 +270,18 @@ for(const size of [1,10,30])test(`Total words ${size}: reset, progress, sequenti
  assert.equal(h.run('words.filter(w=>w.unlocked).length'),1);
  assert.equal(h.run('session.getState().gravityMultiplier'),1);
  assert.equal(h.run('progressValue'),0);
- h.run('{const state=testState(session);state.words[0].depth=45;state.words[0].shown=45;syncSession();render(0);}');
+ h.run('{const state=testState(session);state.cards[0].depth=45;state.cards[0].shown=45;syncSession();render(0);}');
  compare(h.run('progressValue'),50/size);
  for(let i=1;i<size;i++){
-  h.run('testState(session).words.forEach(w=>{if(w.unlocked){w.depth=51;w.shown=51;}});acceptTransition(session.advance(0));render(0);');
+  h.run('testState(session).cards.forEach(w=>{if(w.unlocked){w.depth=51;w.shown=51;}});acceptTransition(session.advance(0));render(0);');
   assert.equal(h.run('words.filter(w=>w.unlocked).length'),i+1);
   assert.equal(h.run(`words[${i}].depth`),0);
   compare(h.run('session.getState().gravityMultiplier'),.95**i);
   assert.equal(h.run('sessionComplete'),false);
  }
- h.run('testState(session).words.forEach(w=>{w.depth=90;w.shown=90;});acceptTransition(session.advance(0));render(0);');
+ h.run('testState(session).cards.forEach(w=>{w.depth=90;w.shown=90;});acceptTransition(session.advance(0));render(0);');
  assert.equal(h.run('sessionComplete'),false);
- h.run('testState(session).words.forEach(w=>{w.depth=91;w.shown=91;});acceptTransition(session.advance(0));render(0);');
+ h.run('testState(session).cards.forEach(w=>{w.depth=91;w.shown=91;});acceptTransition(session.advance(0));render(0);');
  assert.equal(h.run('sessionComplete && paused'),true);
  assert.equal(h.run('progressValue'),100);
  assert.equal(h.elements.get('completion-word-count').textContent,String(size));
@@ -293,7 +301,7 @@ test('Total words rejects invalid values and restores the ten-word default',()=>
 for(const size of [10,20,30])test(`vertical word labels stay centered and follow bars for ${size} words`,()=>{
  const h=host();h.settings('totalWords',size,'DATASET');h.click('reset');
  for(const height of [0,50,100]){
-  h.run(`testState(session).words.forEach(w=>{w.depth=${height};w.shown=${height};});syncSession();render(0);`);
+  h.run(`testState(session).cards.forEach(w=>{w.depth=${height};w.shown=${height};});syncSession();render(0);`);
   const labels=JSON.parse(h.run('JSON.stringify(nodes.map(n=>({label:n.label.attrs,percentage:n.streak.attrs,index:n.index.attrs})))'));
   labels.forEach((n,i)=>{
    const x=20+(i+.5)*1160/size,y=502-height*442/100;
@@ -386,13 +394,13 @@ test('hidden tabs stop all frames and exclude hidden time on return, including r
 
 test('completion cancels frames; reset and completion recheck can restart the scheduler',()=>{
  const h=host();h.settings('totalWords',1,'DATASET');h.click('reset');
- h.run('testState(session).words[0].depth=100;testState(session).words[0].shown=100;');
+ h.run('testState(session).cards[0].depth=100;testState(session).cards[0].shown=100;');
  h.tick(.001);assert.ok(h.run('sessionComplete'));assert.equal(h.pendingFrames(),0);
  const saved=h.run('JSON.stringify(session.getState())');h.tick(60);
  assert.equal(h.run('JSON.stringify(session.getState())'),saved);
  h.click('completion-review');assert.equal(h.pendingFrames(),0);
  // Raising the finish line after a marginal completion can reopen a session.
- h.run('testState(session).words[0].depth=91;testState(session).words[0].shown=91;');
+ h.run('testState(session).cards[0].depth=91;testState(session).cards[0].shown=91;');
  h.settings('threshold',99,'FINISH');assert.equal(h.run('sessionComplete'),false);
  assert.equal(h.pendingFrames(),0);h.click('pause');
  assert.equal(h.pendingFrames(),1);h.tick(.1);
@@ -416,10 +424,14 @@ test('unchanged rendering writes no attributes and reuses the synchronized engin
 });
 
 test('irregular scheduled frames and input retain exact engine timing and displayed settling',()=>{
- const h=host(),engine=Physics.createSession({vocabulary:JSON.parse(h.run('JSON.stringify(VOCABULARY.slice(0,10))'))});
+ const h=host(),engine=Physics.createSession({cardCount:10});
  for(let i=0;i<180;i++){
    const dt=[1/120,1/60,.027,.08][i%4];h.tick(dt);engine.advance(dt);
-   if(i%7===0){h.retrieve();engine.retrieve();}
+   if(i%7===0){
+     h.retrieve();
+     const latency=Math.max(0,engine.getState().time-engine.getState().selectedAt);
+     engine.applyReward(reward(latency));
+   }
    if(i%19===0){h.retrieve(false);engine.skip();}
    const actual=JSON.parse(h.run('JSON.stringify(session.getState())'));
    compare(actual,engine.getState());

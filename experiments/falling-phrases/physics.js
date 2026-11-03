@@ -10,20 +10,21 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const exports = {};
-  /* DOM-free, deterministic session model for Falling Phrases.
+  /* DOM-free, deterministic session model for Falling Core.
    *
    * Example:
    *   import { createSession } from './physics';
-   *   const session = createSession({ wordCount: 20 });
-   *   session.advance(0.1);       // explicit seconds, not wall clock
-   *   session.retrieve();         // successful retrieval; session.skip() advances without a kick
-   *   const state = session.getState(); // detached inspection snapshot
+   *   const session = createSession({ cardCount: 10 });
+   *   session.advance(0.1);                // explicit seconds, not wall clock
+   *   session.applyReward("card-1", 1.0);  // apply time-coordinate reward
+   *   session.skip();                      // advance to next lowest item without reward
+   *   const state = session.getState();    // detached inspection snapshot
    */
   Object.defineProperty(exports, "__esModule", { value: true });
-  exports.MunduPhysics = exports.retrievalMultiplier = exports.RETRIEVAL = exports.DEFAULTS = void 0;
+  exports.MunduPhysics = exports.DEFAULTS = void 0;
   exports.configuration = configuration;
   exports.isAboveFinish = isAboveFinish;
-  exports.wordProgress = wordProgress;
+  exports.cardProgress = cardProgress;
   exports.scalingFactor = scalingFactor;
   exports.gravityMultiplier = gravityMultiplier;
   exports.fallingCoefficients = fallingCoefficients;
@@ -36,8 +37,7 @@
   exports.fullKick = fullKick;
   exports.derivedMotion = derivedMotion;
   exports.fallingDepth = fallingDepth;
-  exports.kickMultiplier = kickMultiplier;
-  exports.retrievalLift = retrievalLift;
+  exports.timeCoordinateKick = timeCoordinateKick;
   exports.createSession = createSession;
   // ==========================================
   // Implementation
@@ -53,9 +53,6 @@
       unlock: Object.freeze({ threshold: 50 }),
       finish: Object.freeze({ threshold: 90 }),
       instantPosition: false
-  });
-  exports.RETRIEVAL = Object.freeze({
-      hintSeconds: 2
   });
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
@@ -105,14 +102,14 @@
       }
       return config;
   }
-  function isAboveFinish(word, threshold) {
-      return word.unlocked && Math.min(word.depth, word.shown) > threshold;
+  function isAboveFinish(card, threshold) {
+      return card.unlocked && Math.min(card.depth, card.shown) > threshold;
   }
-  function wordProgress(word, threshold) {
-      if (!word.unlocked)
+  function cardProgress(card, threshold) {
+      if (!card.unlocked)
           return 0;
-      const distance = Math.max(0, threshold - word.initialDepth);
-      const traveled = clamp(Math.min(word.depth, word.shown) - word.initialDepth, 0, distance);
+      const distance = Math.max(0, threshold - card.initialDepth);
+      const traveled = clamp(Math.min(card.depth, card.shown) - card.initialDepth, 0, distance);
       return distance > 0 ? traveled / distance : 1;
   }
   function scalingFactor(position, config) {
@@ -120,23 +117,23 @@
       const R = config.motion.bottomToTopMultiplier;
       return R - (R - 1) * h;
   }
-  function gravityMultiplier(config, unlockedWordCount = 1) {
-      if (!Number.isInteger(unlockedWordCount) || unlockedWordCount < 1) {
+  function gravityMultiplier(config, unlockedCardCount = 1) {
+      if (!Number.isInteger(unlockedCardCount) || unlockedCardCount < 1) {
           throw new RangeError('Unlocked count must be a positive integer');
       }
-      return Math.pow(1 - config.motion.gravityReductionPercent / 100, unlockedWordCount - 1);
+      return Math.pow(1 - config.motion.gravityReductionPercent / 100, unlockedCardCount - 1);
   }
-  function fallingCoefficients(config, unlockedWordCount = 1) {
+  function fallingCoefficients(config, unlockedCardCount = 1) {
       const { topFallingSpeed, bottomToTopMultiplier: R } = config.motion;
-      const effectiveTopSpeed = topFallingSpeed * gravityMultiplier(config, unlockedWordCount);
+      const effectiveTopSpeed = topFallingSpeed * gravityMultiplier(config, unlockedCardCount);
       return { a: effectiveTopSpeed * R, b: (effectiveTopSpeed * (R - 1)) / 100 };
   }
-  function fallingSpeed(position, config, unlockedWordCount = 1) {
-      return config.motion.topFallingSpeed * gravityMultiplier(config, unlockedWordCount) * scalingFactor(position, config);
+  function fallingSpeed(position, config, unlockedCardCount = 1) {
+      return config.motion.topFallingSpeed * gravityMultiplier(config, unlockedCardCount) * scalingFactor(position, config);
   }
-  function timeCoordinate(position, config, unlockedWordCount = 1) {
+  function timeCoordinate(position, config, unlockedCardCount = 1) {
       const x = clamp(position, 0, 100);
-      const { a, b } = fallingCoefficients(config, unlockedWordCount);
+      const { a, b } = fallingCoefficients(config, unlockedCardCount);
       if (b === 0)
           return x / a;
       if (x === 100)
@@ -144,9 +141,9 @@
       const q = (b * x) / a;
       return q === 0 ? x / a : (x / a) * (-Math.log1p(-q) / q);
   }
-  function positionAtTime(seconds, config, unlockedWordCount = 1) {
-      const { a, b } = fallingCoefficients(config, unlockedWordCount);
-      const ceiling = timeCoordinate(100, config, unlockedWordCount);
+  function positionAtTime(seconds, config, unlockedCardCount = 1) {
+      const { a, b } = fallingCoefficients(config, unlockedCardCount);
+      const ceiling = timeCoordinate(100, config, unlockedCardCount);
       if (seconds <= 0)
           return 0;
       if (seconds >= ceiling)
@@ -155,99 +152,104 @@
       const x = z === 0 ? a * seconds : a * seconds * (-Math.expm1(-z) / z);
       return clamp(x, 0, 100);
   }
-  function reverseFallingTime(position, seconds, config, unlockedWordCount = 1) {
+  function reverseFallingTime(position, seconds, config, unlockedCardCount = 1) {
       const x = clamp(position, 0, 100);
       return seconds === 0
           ? x
-          : positionAtTime(timeCoordinate(x, config, unlockedWordCount) + seconds, config, unlockedWordCount);
+          : positionAtTime(timeCoordinate(x, config, unlockedCardCount) + seconds, config, unlockedCardCount);
   }
-  function fieldFallTime(config, unlockedWordCount = 1) {
-      return timeCoordinate(100, config, unlockedWordCount);
+  function fieldFallTime(config, unlockedCardCount = 1) {
+      return timeCoordinate(100, config, unlockedCardCount);
   }
-  function baselineKickTime(config, unlockedWordCount = 1) {
-      return timeCoordinate(config.motion.kickHeightPercent, config, unlockedWordCount);
+  function baselineKickTime(config, unlockedCardCount = 1) {
+      return timeCoordinate(config.motion.kickHeightPercent, config, unlockedCardCount);
   }
-  function fullKick(position, config, unlockedWordCount = 1) {
-      return (reverseFallingTime(position, baselineKickTime(config, unlockedWordCount), config, unlockedWordCount) -
+  function fullKick(position, config, unlockedCardCount = 1) {
+      return (reverseFallingTime(position, baselineKickTime(config, unlockedCardCount), config, unlockedCardCount) -
           clamp(position, 0, 100));
   }
-  function derivedMotion(config, unlockedWordCount = 1) {
+  function derivedMotion(config, unlockedCardCount = 1) {
       return {
-          baseFallingSpeed: fallingCoefficients(config, unlockedWordCount).a,
-          baseKick: fullKick(0, config, unlockedWordCount),
-          fieldFallTime: fieldFallTime(config, unlockedWordCount),
-          baselineKickTime: baselineKickTime(config, unlockedWordCount)
+          baseFallingSpeed: fallingCoefficients(config, unlockedCardCount).a,
+          baseKick: fullKick(0, config, unlockedCardCount),
+          fieldFallTime: fieldFallTime(config, unlockedCardCount),
+          baselineKickTime: baselineKickTime(config, unlockedCardCount)
       };
   }
-  function fallingDepth(position, dt, config, unlockedWordCount = 1) {
+  function fallingDepth(position, dt, config, unlockedCardCount = 1) {
       const x = clamp(position, 0, 100);
-      return dt === 0 ? x : positionAtTime(timeCoordinate(x, config, unlockedWordCount) - dt, config, unlockedWordCount);
+      return dt === 0 ? x : positionAtTime(timeCoordinate(x, config, unlockedCardCount) - dt, config, unlockedCardCount);
   }
-  function kickMultiplier(elapsedSeconds) {
-      const t = Math.max(0, elapsedSeconds);
-      return 0.5 + 1.5 * Math.exp(-1.5 * t);
-  }
-  exports.retrievalMultiplier = kickMultiplier;
-  function retrievalLift(position, config, _hintVisible = false, latency = 0, unlockedWordCount = 1) {
-      const kickTime = baselineKickTime(config, unlockedWordCount) * kickMultiplier(latency);
-      return reverseFallingTime(position, kickTime, config, unlockedWordCount) - clamp(position, 0, 100);
+  function timeCoordinateKick(position, multiplier, config, unlockedCardCount = 1) {
+      const x = clamp(position, 0, 100);
+      if (multiplier <= 0) {
+          return { newDepth: x, lift: 0, kickTime: 0 };
+      }
+      const kickTime = baselineKickTime(config, unlockedCardCount) * multiplier;
+      const newDepth = clamp(reverseFallingTime(x, kickTime, config, unlockedCardCount), config.bounds.bottom, config.bounds.top);
+      return {
+          newDepth,
+          lift: newDepth - x,
+          kickTime
+      };
   }
   function createSession(options = {}) {
       let config = configuration(options.config);
-      const vocabulary = options.vocabulary ??
-          Array.from({ length: options.wordCount ?? 10 }, (_, i) => ['word' + (i + 1), '']);
-      if (!Array.isArray(vocabulary) ||
-          vocabulary.length < 1 ||
-          (options.wordCount !== undefined && (!Number.isInteger(options.wordCount) || options.wordCount < 1))) {
-          throw new RangeError('A session needs a positive vocabulary size');
-      }
-      const state = {
-          config,
-          words: vocabulary.map((entry, i) => {
-              let english = '';
-              let spanish = '';
-              if (Array.isArray(entry)) {
-                  english = String(entry[0]);
-                  spanish = String(entry[1] ?? '');
-              }
-              else if (typeof entry === 'object' && entry !== null) {
-                  english = String(entry.english ?? '');
-                  spanish = String(entry.spanish ?? '');
-              }
-              else {
-                  english = String(entry);
-                  spanish = '';
-              }
+      let cards;
+      if (options.cards !== undefined) {
+          if (!Array.isArray(options.cards) || options.cards.length < 1) {
+              throw new RangeError('A session needs a positive collection size');
+          }
+          cards = options.cards.map((item, i) => {
+              const id = typeof item === 'string' ? item : (item && typeof item === 'object' && item.id ? String(item.id) : `card-${i + 1}`);
               return {
-                  english,
-                  spanish,
+                  id,
                   streak: 0,
                   unlocked: i === 0,
                   initialDepth: config.bounds.bottom,
                   depth: config.bounds.bottom,
                   shown: config.bounds.bottom
               };
-          }),
+          });
+      }
+      else {
+          const count = options.cardCount ?? 10;
+          if (!Number.isInteger(count) || count < 1) {
+              throw new RangeError('A session needs a positive collection size');
+          }
+          cards = Array.from({ length: count }, (_, i) => ({
+              id: `card-${i + 1}`,
+              streak: 0,
+              unlocked: i === 0,
+              initialDepth: config.bounds.bottom,
+              depth: config.bounds.bottom,
+              shown: config.bounds.bottom
+          }));
+      }
+      const state = {
+          config,
+          cards,
           time: 0,
           paused: false,
           complete: false,
           selectedIndex: 0,
+          selectedCardId: cards[0]?.id ?? '',
           selectedAt: 0,
-          hintVisible: false,
           skippedIndex: -1,
-          retrievalCount: 0,
+          skippedCardId: null,
+          rewardCount: 0,
           skipCount: 0,
-          lastRetrieval: null
+          lastReward: null
       };
       function lowestIndex() {
           let lowest = -1;
-          state.words.forEach((word, i) => {
-              if (i !== state.skippedIndex && word.unlocked && (lowest < 0 || word.depth < state.words[lowest].depth)) {
+          state.cards.forEach((card, i) => {
+              if (i !== state.skippedIndex && card.unlocked && (lowest < 0 || card.depth < state.cards[lowest].depth)) {
                   lowest = i;
               }
           });
           if (lowest < 0) {
-              lowest = state.words.findIndex(word => word.unlocked);
+              lowest = state.cards.findIndex(card => card.unlocked);
           }
           return lowest;
       }
@@ -255,51 +257,60 @@
           const index = lowestIndex();
           if (index !== state.selectedIndex) {
               state.selectedIndex = index;
+              state.selectedCardId = state.cards[index]?.id ?? '';
               state.selectedAt = state.time;
-              state.hintVisible = false;
           }
           return index;
       }
       function reconcile() {
           let unlockedIndex = null;
+          let unlockedCardId = null;
           let completedNow = false;
           if (!state.paused && !state.complete) {
-              const active = state.words.filter(word => word.unlocked);
-              if (active.every(word => Math.min(word.depth, word.shown) > config.unlock.threshold)) {
-                  const index = state.words.findIndex(word => !word.unlocked);
+              const active = state.cards.filter(card => card.unlocked);
+              if (active.every(card => Math.min(card.depth, card.shown) > config.unlock.threshold)) {
+                  const index = state.cards.findIndex(card => !card.unlocked);
                   if (index >= 0) {
-                      const word = state.words[index];
-                      word.unlocked = true;
-                      word.depth = config.bounds.bottom;
-                      word.shown = config.bounds.bottom;
-                      word.streak = 0;
+                      const card = state.cards[index];
+                      card.unlocked = true;
+                      card.depth = config.bounds.bottom;
+                      card.shown = config.bounds.bottom;
+                      card.streak = 0;
                       unlockedIndex = index;
+                      unlockedCardId = card.id;
                   }
               }
           }
           select();
-          const clockPrecision = 128 * Number.EPSILON * Math.max(1, state.time, state.selectedAt);
-          if (!state.paused &&
-              !state.complete &&
-              state.time - state.selectedAt + clockPrecision >= exports.RETRIEVAL.hintSeconds) {
-              state.hintVisible = true;
-          }
-          if (!state.complete && state.words.every(word => isAboveFinish(word, config.finish.threshold))) {
+          if (!state.complete && state.cards.every(card => isAboveFinish(card, config.finish.threshold))) {
               state.complete = true;
               state.paused = true;
               completedNow = true;
           }
-          return { unlockedIndex, completedNow };
+          return { unlockedIndex, unlockedCardId, completedNow };
       }
       function getProgress() {
-          const value = clamp((100 * state.words.reduce((sum, word) => sum + wordProgress(word, config.finish.threshold), 0)) /
-              state.words.length, 0, 100);
-          return value === 100 && !state.words.every(word => isAboveFinish(word, config.finish.threshold))
+          const value = clamp((100 * state.cards.reduce((sum, card) => sum + cardProgress(card, config.finish.threshold), 0)) /
+              state.cards.length, 0, 100);
+          return value === 100 && !state.cards.every(card => isAboveFinish(card, config.finish.threshold))
               ? 100 - 1e-10
               : value;
       }
       function unlockedCount() {
-          return state.words.filter(word => word.unlocked).length;
+          return state.cards.filter(card => card.unlocked).length;
+      }
+      function executeKick(index, multiplier) {
+          const card = state.cards[index];
+          const previousDepth = card.depth;
+          const activeCount = unlockedCount();
+          const kick = timeCoordinateKick(previousDepth, multiplier, config, activeCount);
+          if (multiplier > 0) {
+              card.depth = kick.newDepth;
+              if (config.instantPosition)
+                  card.shown = card.depth;
+              card.streak++;
+          }
+          return { previousDepth, newDepth: card.depth, lift: kick.lift, kickTime: kick.kickTime };
       }
       const api = {
           advance(dt) {
@@ -307,131 +318,131 @@
                   throw new RangeError('Duration must be finite and nonnegative');
               }
               if (state.paused || state.complete) {
-                  return { unlockedIndex: null, completedNow: false };
+                  return { unlockedIndex: null, unlockedCardId: null, completedNow: false };
               }
               const activeCount = unlockedCount();
-              for (const word of state.words) {
-                  if (!word.unlocked)
+              for (const card of state.cards) {
+                  if (!card.unlocked)
                       continue;
-                  word.depth = fallingDepth(word.depth, dt, config, activeCount);
-                  word.shown = config.instantPosition
-                      ? word.depth
-                      : word.shown + (word.depth - word.shown) * (1 - Math.exp(-15 * dt));
+                  card.depth = fallingDepth(card.depth, dt, config, activeCount);
+                  card.shown = config.instantPosition
+                      ? card.depth
+                      : card.shown + (card.depth - card.shown) * (1 - Math.exp(-15 * dt));
               }
               state.time += dt;
               return reconcile();
-          },
-          retrieve(...args) {
-              if (args.length > 0) {
-                  throw new TypeError('retrieve() is successful only; use skip() to skip');
-              }
-              if (state.paused || state.complete)
-                  return null;
-              const index = select();
-              const word = state.words[index];
-              const previousDepth = word.depth;
-              const latency = Math.max(0, state.time - state.selectedAt);
-              const hintVisible = state.hintVisible;
-              const activeCount = unlockedCount();
-              const fullLift = fullKick(previousDepth, config, activeCount);
-              word.streak++;
-              word.depth = clamp(previousDepth + retrievalLift(previousDepth, config, hintVisible, latency, activeCount), config.bounds.bottom, config.bounds.top);
-              if (config.instantPosition)
-                  word.shown = word.depth;
-              const result = {
-                  kind: 'retrieval',
-                  index,
-                  word: word.english,
-                  translation: word.spanish,
-                  latency,
-                  hintVisible,
-                  multiplier: kickMultiplier(latency),
-                  kickTime: baselineKickTime(config, activeCount) * kickMultiplier(latency),
-                  fullLift,
-                  lift: word.depth - previousDepth,
-                  unlockedIndex: null,
-                  completedNow: false
-              };
-              state.lastRetrieval = result;
-              state.retrievalCount++;
-              state.skippedIndex = -1;
-              state.selectedIndex = -1;
-              Object.assign(result, reconcile());
-              return clone(result);
           },
           skip() {
               if (state.paused || state.complete)
                   return null;
               const index = select();
-              const word = state.words[index];
+              const card = state.cards[index];
+              state.skipCount++;
+              state.skippedIndex = index;
+              state.skippedCardId = card.id;
+              state.selectedIndex = -1;
+              state.selectedCardId = '';
+              const transition = reconcile();
               const result = {
                   kind: 'skip',
                   index,
-                  word: word.english,
-                  translation: word.spanish,
-                  latency: Math.max(0, state.time - state.selectedAt),
-                  hintVisible: state.hintVisible,
-                  multiplier: 0,
-                  kickTime: 0,
-                  lift: 0,
-                  unlockedIndex: null,
-                  completedNow: false
-              };
-              state.lastRetrieval = result;
-              state.skipCount++;
-              state.skippedIndex = index;
-              state.selectedIndex = -1;
-              Object.assign(result, reconcile());
-              return clone(result);
-          },
-          applyReward(cardIdentifier, rewardMagnitude) {
-              if (state.paused || state.complete)
-                  return null;
-              if (typeof cardIdentifier !== 'number' || !Number.isInteger(cardIdentifier)) {
-                  throw new TypeError('cardIdentifier must be an integer index');
-              }
-              if (cardIdentifier < 0 || cardIdentifier >= state.words.length) {
-                  throw new RangeError('cardIdentifier out of range');
-              }
-              if (typeof rewardMagnitude !== 'number' || !Number.isFinite(rewardMagnitude) || rewardMagnitude < 0) {
-                  throw new RangeError('rewardMagnitude must be a finite, nonnegative number');
-              }
-              const word = state.words[cardIdentifier];
-              if (!word.unlocked)
-                  return null;
-              const previousDepth = word.depth;
-              const lift = config.motion.kickHeightPercent * rewardMagnitude;
-              word.depth = clamp(previousDepth + lift, config.bounds.bottom, config.bounds.top);
-              if (config.instantPosition)
-                  word.shown = word.depth;
-              if (rewardMagnitude > 0)
-                  word.streak++;
-              const transition = reconcile();
-              const result = {
-                  kind: 'reward',
-                  index: cardIdentifier,
-                  rewardMagnitude,
-                  previousDepth,
-                  newDepth: word.depth,
-                  lift: word.depth - previousDepth,
+                  cardId: card.id,
                   unlockedIndex: transition.unlockedIndex,
+                  unlockedCardId: transition.unlockedCardId,
                   completedNow: transition.completedNow
               };
               return clone(result);
           },
+          applyReward(cardIdentifierOrMagnitude, maybeMagnitude) {
+              if (state.paused || state.complete)
+                  return null;
+              let index;
+              let rewardMagnitude;
+              if (maybeMagnitude !== undefined) {
+                  if (typeof cardIdentifierOrMagnitude === 'number') {
+                      if (!Number.isInteger(cardIdentifierOrMagnitude)) {
+                          throw new TypeError('cardIdentifier must be an integer index or valid card ID');
+                      }
+                      if (cardIdentifierOrMagnitude < 0 || cardIdentifierOrMagnitude >= state.cards.length) {
+                          throw new RangeError('cardIdentifier out of range');
+                      }
+                      index = cardIdentifierOrMagnitude;
+                  }
+                  else if (typeof cardIdentifierOrMagnitude === 'string') {
+                      index = state.cards.findIndex(c => c.id === cardIdentifierOrMagnitude);
+                      if (index < 0) {
+                          throw new TypeError(`Unknown card ID: ${cardIdentifierOrMagnitude}`);
+                      }
+                  }
+                  else {
+                      throw new TypeError('cardIdentifier must be an integer index or valid card ID');
+                  }
+                  rewardMagnitude = maybeMagnitude;
+              }
+              else {
+                  if (typeof cardIdentifierOrMagnitude !== 'number' || !Number.isFinite(cardIdentifierOrMagnitude) || cardIdentifierOrMagnitude < 0) {
+                      throw new RangeError('rewardMagnitude must be a finite, nonnegative number');
+                  }
+                  index = select();
+                  rewardMagnitude = cardIdentifierOrMagnitude;
+              }
+              if (typeof rewardMagnitude !== 'number' || !Number.isFinite(rewardMagnitude) || rewardMagnitude < 0) {
+                  throw new RangeError('rewardMagnitude must be a finite, nonnegative number');
+              }
+              const card = state.cards[index];
+              if (!card.unlocked)
+                  return null;
+              const previousDepth = card.depth;
+              const kick = executeKick(index, rewardMagnitude);
+              state.rewardCount++;
+              state.skippedIndex = -1;
+              state.skippedCardId = null;
+              state.selectedIndex = -1;
+              state.selectedCardId = '';
+              const transition = reconcile();
+              const result = {
+                  kind: 'reward',
+                  index,
+                  cardId: card.id,
+                  rewardMagnitude,
+                  previousDepth,
+                  newDepth: card.depth,
+                  lift: kick.lift,
+                  kickTime: kick.kickTime,
+                  unlockedIndex: transition.unlockedIndex,
+                  unlockedCardId: transition.unlockedCardId,
+                  completedNow: transition.completedNow
+              };
+              state.lastReward = result;
+              return clone(result);
+          },
           getState() {
-              const unlockedWordCount = unlockedCount();
+              const unlockedCardCount = unlockedCount();
+              const clonedCards = clone(state.cards);
               return clone({
                   ...state,
+                  cards: clonedCards,
                   config,
-                  unlockedWordCount,
-                  gravityMultiplier: gravityMultiplier(config, unlockedWordCount),
-                  fieldFallTime: fieldFallTime(config, unlockedWordCount),
-                  baselineKickTime: baselineKickTime(config, unlockedWordCount)
+                  unlockedCardCount,
+                  gravityMultiplier: gravityMultiplier(config, unlockedCardCount),
+                  fieldFallTime: fieldFallTime(config, unlockedCardCount),
+                  baselineKickTime: baselineKickTime(config, unlockedCardCount)
               });
           },
           getProgress,
           getLowestIndex: lowestIndex,
+          getLowestCardId() {
+              const idx = lowestIndex();
+              return idx >= 0 ? state.cards[idx].id : '';
+          },
+          getCard(cardIdentifier) {
+              if (typeof cardIdentifier === 'number') {
+                  const card = state.cards[cardIdentifier];
+                  return card ? clone(card) : undefined;
+              }
+              const card = state.cards.find(c => c.id === cardIdentifier);
+              return card ? clone(card) : undefined;
+          },
           isComplete() {
               return state.complete;
           },
@@ -454,7 +465,6 @@
   }
   exports.MunduPhysics = Object.freeze({
       DEFAULTS: exports.DEFAULTS,
-      RETRIEVAL: exports.RETRIEVAL,
       createSession,
       gravityMultiplier,
       derivedMotion,
@@ -467,10 +477,8 @@
       fullKick,
       fallingSpeed,
       fallingDepth,
-      kickMultiplier,
-      retrievalMultiplier: exports.retrievalMultiplier,
-      retrievalLift,
-      wordProgress,
+      timeCoordinateKick,
+      cardProgress,
       isAboveFinish
   });
   exports.default = exports.MunduPhysics;

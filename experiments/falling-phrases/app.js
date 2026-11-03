@@ -18,6 +18,8 @@ let wordFlashes = [];
 let kickGraphEnded = false;
 let gravityReadout;
 const COLOR = { grid: '#202738', muted: '#657087', pink: '#ED4CA8', cyan: '#43E6ED' };
+const HINT_SECONDS = 2;
+const latencyMultiplier = t => 0.5 + 1.5 * Math.exp(-1.5 * Math.max(0, t));
 const VOCABULARY = [
   ['river', 'río'], ['light', 'luz'], ['apple', 'manzana'],
   ['night', 'noche'], ['house', 'casa'], ['water', 'agua'], ['bread', 'pan'],
@@ -89,11 +91,16 @@ function physicsConfig() {
 
 function syncSession() {
   const state = sessionState = session.getState();
-  words = state.words.map((word, i) => ({ ...word, flash: wordFlashes[i] || 0 }));
+  words = state.cards.map((card, i) => ({
+    ...card,
+    flash: wordFlashes[i] || 0,
+    english: VOCABULARY[i]?.[0] || `Phrase ${i + 1}`,
+    spanish: VOCABULARY[i]?.[1] || 'C4 D4 E4'
+  }));
   activeTime = state.time;
   paused = state.paused;
   sessionComplete = state.complete;
-  count = state.retrievalCount;
+  count = state.rewardCount ?? 0;
   selectedIndex = state.selectedIndex;
 }
 
@@ -104,7 +111,7 @@ function acceptTransition(result) {
 
 function reset() {
   if (el('completion-screen')?.open) el('completion-screen').close();
-  session = MunduPhysics.createSession({ vocabulary: VOCABULARY.slice(0, DATASET.totalWords), config: physicsConfig() });
+  session = MunduPhysics.createSession({ cardCount: DATASET.totalWords, config: physicsConfig() });
   wordFlashes = Array.from({ length: DATASET.totalWords }, () => 0);
   pendingUnlock = false;
   completionPresented = false;
@@ -131,17 +138,51 @@ function retrieve(skipped = false) {
   advanceTo(typeof performance !== 'undefined' ? performance.now() : 0);
   if (paused || sessionComplete) return;
   recordObservation();
-  const result = skipped ? session.skip() : session.retrieve();
-  if (!result) return;
-  if (!skipped) wordFlashes[result.index] = 1;
-  lastMeasurement = result;
-  kickGraphEnded = true;
-  acceptTransition(result);
-  progressValue = overallProgress();
-  recordObservation();
-  updateReadouts();
-  render(0);
-  checkCompletion();
+  const targetIndex = sessionState ? sessionState.selectedIndex : selectedIndex;
+  if (targetIndex < 0) return;
+
+  if (skipped) {
+    const result = session.skip();
+    if (!result) return;
+    lastMeasurement = {
+      kind: 'skip',
+      index: targetIndex,
+      word: VOCABULARY[targetIndex]?.[0] || 'Phrase',
+      translation: VOCABULARY[targetIndex]?.[1] || '',
+      lift: 0
+    };
+    kickGraphEnded = true;
+    acceptTransition(result);
+    progressValue = overallProgress();
+    recordObservation();
+    updateReadouts();
+    render(0);
+    checkCompletion();
+  } else {
+    const latency = sessionState ? Math.max(0, sessionState.time - sessionState.selectedAt) : 0;
+    const multiplier = latencyMultiplier(latency);
+    const result = session.applyReward(targetIndex, multiplier);
+    if (!result) return;
+    wordFlashes[targetIndex] = 1;
+    const hinted = latency >= HINT_SECONDS;
+    lastMeasurement = {
+      kind: 'retrieval',
+      index: targetIndex,
+      word: VOCABULARY[targetIndex]?.[0] || 'Phrase',
+      translation: VOCABULARY[targetIndex]?.[1] || '',
+      hintVisible: hinted,
+      multiplier,
+      kickTime: result.kickTime,
+      lift: result.lift
+    };
+    kickGraphEnded = true;
+    acceptTransition(result);
+    progressValue = overallProgress();
+    recordObservation();
+    updateReadouts();
+    render(0);
+    checkCompletion();
+  }
 }
 
 function recordObservation() {
@@ -270,11 +311,11 @@ function renderKickGraph(state, dt) {
   setAttribute(graph, 'aria-hidden', String(graph.hidden));
   if (state.complete || state.selectedIndex < 0) return;
   const elapsed = Math.max(0, state.time - state.selectedAt);
-  const hintSeconds = MunduPhysics.RETRIEVAL.hintSeconds;
+  const hintSeconds = HINT_SECONDS;
   const windowSeconds = Math.max(4, elapsed);
   const x = t => 32 + 192 * t / windowSeconds;
-  const y = m => 64 - 52 * m / MunduPhysics.kickMultiplier(0);
-  const multiplier = MunduPhysics.kickMultiplier(elapsed);
+  const y = m => 64 - 52 * m / latencyMultiplier(0);
+  const multiplier = latencyMultiplier(elapsed);
   const hintX = x(hintSeconds);
   const curve = el('kick-reward-curve');
   if (curve && curve.windowSeconds !== windowSeconds) {
@@ -282,13 +323,13 @@ function renderKickGraph(state, dt) {
     const denseEnd = Math.min(windowSeconds, 8);
     const curvePoints = Array.from({ length: 97 }, (_, i) => {
       const t = denseEnd * i / 96;
-      return `${i === 0 ? 'M' : 'L'}${x(t)} ${y(MunduPhysics.kickMultiplier(t))}`;
+      return `${i === 0 ? 'M' : 'L'}${x(t)} ${y(latencyMultiplier(t))}`;
     });
-    if (windowSeconds > denseEnd) curvePoints.push(`L224 ${y(MunduPhysics.kickMultiplier(windowSeconds))}`);
+    if (windowSeconds > denseEnd) curvePoints.push(`L224 ${y(latencyMultiplier(windowSeconds))}`);
     setAttribute(curve, 'd', curvePoints.join(' '));
   }
   if (el('kick-hint-guide')) { setAttribute(el('kick-hint-guide'), 'x1', hintX); setAttribute(el('kick-hint-guide'), 'x2', hintX); }
-  if (el('kick-hint-point')) { setAttribute(el('kick-hint-point'), 'cx', hintX); setAttribute(el('kick-hint-point'), 'cy', y(MunduPhysics.kickMultiplier(hintSeconds))); }
+  if (el('kick-hint-point')) { setAttribute(el('kick-hint-point'), 'cx', hintX); setAttribute(el('kick-hint-point'), 'cy', y(latencyMultiplier(hintSeconds))); }
   if (el('kick-indicator')) { setAttribute(el('kick-indicator'), 'cx', x(elapsed)); setAttribute(el('kick-indicator'), 'cy', y(multiplier)); }
   if (el('kick-one-second')) { setAttribute(el('kick-one-second'), 'x', x(1)); setAttribute(el('kick-one-second'), 'visibility', x(hintSeconds) - x(1) >= 18 ? 'visible' : 'hidden'); }
   if (el('kick-hint-time')) { setAttribute(el('kick-hint-time'), 'x', hintX); setAttribute(el('kick-hint-time'), 'visibility', hintX - x(0) >= 24 ? 'visible' : 'hidden'); setText(el('kick-hint-time'), hintSeconds + 's'); }
@@ -391,7 +432,7 @@ function render(dt) {
   if (promptState) renderKickGraph(promptState, dt);
   if (gravityReadout && promptState) setText(gravityReadout, 'EFFECTIVE GRAVITY ' + (100 * promptState.gravityMultiplier).toFixed(2) + '%');
   if (promptState && el('target-hint')) {
-    const hinted = promptState.hintVisible;
+    const hinted = (promptState.time - promptState.selectedAt) >= HINT_SECONDS;
     if (el('target-hint').hidden === hinted) el('target-hint').hidden = !hinted;
     setText(el('target-hint'), hinted ? 'HINT → ' + (target ? target.spanish : 'C4 D4 E4') : '');
   }
@@ -897,11 +938,13 @@ function handleMidiNote(noteOn, pitch, velocity, channel = 0) {
       const rewardMagnitude = isFirstTry ? 1.0 : 0.5;
 
       const targetIndex = sessionState ? sessionState.selectedIndex : selectedIndex;
+      let rewardResult = null;
       if (targetIndex >= 0 && !paused && !sessionComplete) {
         advanceTo(typeof performance !== 'undefined' ? performance.now() : 0);
         recordObservation();
         const result = session.applyReward(targetIndex, rewardMagnitude);
         if (result) {
+          rewardResult = result;
           wordFlashes[targetIndex] = 1;
           totalLifts++;
           lastMeasurement = result;
@@ -924,14 +967,19 @@ function handleMidiNote(noteOn, pitch, velocity, channel = 0) {
         card.classList.add(isFirstTry ? 'celebrate-full' : 'celebrate-half');
       }
 
+      const liftAmount = rewardResult ? rewardResult.lift : 0;
+      const liftText = `+${liftAmount.toFixed(1)}%`;
+
       if (el('card-badge')) {
         el('card-badge').className = `card-badge ${isFirstTry ? 'first-try' : 'completed'}`;
-        el('card-badge').textContent = isFirstTry ? 'First Try! Full Lift (+25%)' : 'Completed! Half Lift (+12.5%)';
+        el('card-badge').textContent = isFirstTry
+          ? `First Try! Full Lift (${liftText})`
+          : `Completed! Half Lift (${liftText})`;
       }
       if (el('card-feedback')) {
         el('card-feedback').textContent = isFirstTry
-          ? `Flawless! Slot ${String(targetIndex + 1).padStart(2, '0')} lifted (+25.0%).`
-          : `Completed with ${extraNotes} extra note${extraNotes === 1 ? '' : 's'}. Slot ${String(targetIndex + 1).padStart(2, '0')} lifted (+12.5%).`;
+          ? `Flawless! Slot ${String(targetIndex + 1).padStart(2, '0')} lifted (${liftText}).`
+          : `Completed with ${extraNotes} extra note${extraNotes === 1 ? '' : 's'}. Slot ${String(targetIndex + 1).padStart(2, '0')} lifted (${liftText}).`;
       }
 
       renderPerformanceMetrics();

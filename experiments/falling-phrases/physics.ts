@@ -1,11 +1,12 @@
-/* DOM-free, deterministic session model for Falling Phrases.
+/* DOM-free, deterministic session model for Falling Core.
  *
  * Example:
  *   import { createSession } from './physics';
- *   const session = createSession({ wordCount: 20 });
- *   session.advance(0.1);       // explicit seconds, not wall clock
- *   session.retrieve();         // successful retrieval; session.skip() advances without a kick
- *   const state = session.getState(); // detached inspection snapshot
+ *   const session = createSession({ cardCount: 10 });
+ *   session.advance(0.1);                // explicit seconds, not wall clock
+ *   session.applyReward("card-1", 1.0);  // apply time-coordinate reward
+ *   session.skip();                      // advance to next lowest item without reward
+ *   const state = session.getState();    // detached inspection snapshot
  */
 
 // --- Configuration Types ---
@@ -46,20 +47,12 @@ export interface PhysicsConfigPatch {
   instantPosition?: boolean;
 }
 
-// --- Card / Word State ---
+// --- Card State ---
 
-export type VocabularyPair = readonly [english: string, spanish: string];
+export type CardId = string;
 
-export interface VocabularyObject {
-  english: string;
-  spanish?: string;
-}
-
-export type VocabularyEntry = VocabularyPair | VocabularyObject | string;
-
-export interface WordState {
-  english: string;
-  spanish: string;
+export interface CardState {
+  readonly id: CardId;
   streak: number;
   unlocked: boolean;
   initialDepth: number;
@@ -67,65 +60,54 @@ export interface WordState {
   shown: number;
 }
 
+export interface CardInit {
+  id: CardId;
+}
+
 // --- Simulation Results & Transitions ---
 
 export interface TransitionResult {
   unlockedIndex: number | null;
+  unlockedCardId: CardId | null;
   completedNow: boolean;
-}
-
-export interface RetrievalResult extends TransitionResult {
-  kind: 'retrieval';
-  index: number;
-  word: string;
-  translation: string;
-  latency: number;
-  hintVisible: boolean;
-  multiplier: number;
-  kickTime: number;
-  fullLift: number;
-  lift: number;
-}
-
-export interface SkipResult extends TransitionResult {
-  kind: 'skip';
-  index: number;
-  word: string;
-  translation: string;
-  latency: number;
-  hintVisible: boolean;
-  multiplier: 0;
-  kickTime: 0;
-  lift: 0;
 }
 
 export interface RewardResult extends TransitionResult {
   kind: 'reward';
   index: number;
+  cardId: CardId;
   rewardMagnitude: number;
   previousDepth: number;
   newDepth: number;
   lift: number;
+  kickTime: number;
 }
 
-export type SessionTransition = RetrievalResult | SkipResult;
+export interface SkipResult extends TransitionResult {
+  kind: 'skip';
+  index: number;
+  cardId: CardId;
+}
+
+export type SessionTransition = RewardResult | SkipResult;
 
 // --- Session State Snapshot ---
 
 export interface SessionSnapshot {
   config: PhysicsConfig;
-  words: WordState[];
+  cards: CardState[];
   time: number;
   paused: boolean;
   complete: boolean;
   selectedIndex: number;
+  selectedCardId: CardId;
   selectedAt: number;
-  hintVisible: boolean;
   skippedIndex: number;
-  retrievalCount: number;
+  skippedCardId: CardId | null;
+  rewardCount: number;
   skipCount: number;
-  lastRetrieval: SessionTransition | null;
-  unlockedWordCount: number;
+  lastReward: RewardResult | null;
+  unlockedCardCount: number;
   gravityMultiplier: number;
   fieldFallTime: number;
   baselineKickTime: number;
@@ -135,8 +117,8 @@ export interface SessionSnapshot {
 
 export interface CreateSessionOptions {
   config?: PhysicsConfigPatch;
-  vocabulary?: readonly VocabularyEntry[];
-  wordCount?: number;
+  cards?: readonly (CardInit | CardId)[];
+  cardCount?: number;
 }
 
 export interface ConfigureOptions {
@@ -161,12 +143,14 @@ export interface FallingCoefficients {
 
 export interface PhysicsSession {
   advance(dt: number): TransitionResult;
-  retrieve(...args: unknown[]): RetrievalResult | null;
   skip(): SkipResult | null;
-  applyReward(cardIdentifier: number, rewardMagnitude: number): RewardResult | null;
+  applyReward(cardIdentifier: CardId | number, rewardMagnitude: number): RewardResult | null;
+  applyReward(rewardMagnitude: number): RewardResult | null;
   getState(): SessionSnapshot;
   getProgress(): number;
   getLowestIndex(): number;
+  getLowestCardId(): CardId;
+  getCard(cardIdentifier: CardId | number): CardState | undefined;
   isComplete(): boolean;
   setPaused(value: boolean): void;
   configure(patch?: PhysicsConfigPatch, options?: ConfigureOptions): TransitionResult;
@@ -176,30 +160,26 @@ export interface PhysicsSession {
 
 export interface MunduPhysicsAPI {
   readonly DEFAULTS: Readonly<PhysicsConfig>;
-  readonly RETRIEVAL: Readonly<{ hintSeconds: number }>;
   createSession(options?: CreateSessionOptions): PhysicsSession;
-  gravityMultiplier(config: PhysicsConfig, unlockedWordCount?: number): number;
-  derivedMotion(config: PhysicsConfig, unlockedWordCount?: number): DerivedMotion;
-  fieldFallTime(config: PhysicsConfig, unlockedWordCount?: number): number;
-  baselineKickTime(config: PhysicsConfig, unlockedWordCount?: number): number;
-  timeCoordinate(position: number, config: PhysicsConfig, unlockedWordCount?: number): number;
-  positionAtTime(seconds: number, config: PhysicsConfig, unlockedWordCount?: number): number;
-  reverseFallingTime(position: number, seconds: number, config: PhysicsConfig, unlockedWordCount?: number): number;
+  gravityMultiplier(config: PhysicsConfig, unlockedCardCount?: number): number;
+  derivedMotion(config: PhysicsConfig, unlockedCardCount?: number): DerivedMotion;
+  fieldFallTime(config: PhysicsConfig, unlockedCardCount?: number): number;
+  baselineKickTime(config: PhysicsConfig, unlockedCardCount?: number): number;
+  timeCoordinate(position: number, config: PhysicsConfig, unlockedCardCount?: number): number;
+  positionAtTime(seconds: number, config: PhysicsConfig, unlockedCardCount?: number): number;
+  reverseFallingTime(position: number, seconds: number, config: PhysicsConfig, unlockedCardCount?: number): number;
   scalingFactor(position: number, config: PhysicsConfig): number;
-  fullKick(position: number, config: PhysicsConfig, unlockedWordCount?: number): number;
-  fallingSpeed(position: number, config: PhysicsConfig, unlockedWordCount?: number): number;
-  fallingDepth(position: number, dt: number, config: PhysicsConfig, unlockedWordCount?: number): number;
-  kickMultiplier(elapsedSeconds: number): number;
-  retrievalMultiplier(elapsedSeconds: number): number;
-  retrievalLift(
+  fullKick(position: number, config: PhysicsConfig, unlockedCardCount?: number): number;
+  fallingSpeed(position: number, config: PhysicsConfig, unlockedCardCount?: number): number;
+  fallingDepth(position: number, dt: number, config: PhysicsConfig, unlockedCardCount?: number): number;
+  timeCoordinateKick(
     position: number,
+    multiplier: number,
     config: PhysicsConfig,
-    hintVisible?: boolean,
-    latency?: number,
-    unlockedWordCount?: number
-  ): number;
-  wordProgress(word: Pick<WordState, 'unlocked' | 'depth' | 'shown' | 'initialDepth'>, threshold: number): number;
-  isAboveFinish(word: Pick<WordState, 'unlocked' | 'depth' | 'shown'>, threshold: number): boolean;
+    unlockedCardCount?: number
+  ): { newDepth: number; lift: number; kickTime: number };
+  cardProgress(card: Pick<CardState, 'unlocked' | 'depth' | 'shown' | 'initialDepth'>, threshold: number): number;
+  isAboveFinish(card: Pick<CardState, 'unlocked' | 'depth' | 'shown'>, threshold: number): boolean;
 }
 
 // ==========================================
@@ -217,10 +197,6 @@ export const DEFAULTS: Readonly<PhysicsConfig> = Object.freeze({
   unlock: Object.freeze({ threshold: 50 }),
   finish: Object.freeze({ threshold: 90 }),
   instantPosition: false
-});
-
-export const RETRIEVAL: Readonly<{ hintSeconds: number }> = Object.freeze({
-  hintSeconds: 2
 });
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
@@ -290,19 +266,19 @@ export function configuration(
 }
 
 export function isAboveFinish(
-  word: Pick<WordState, 'unlocked' | 'depth' | 'shown'>,
+  card: Pick<CardState, 'unlocked' | 'depth' | 'shown'>,
   threshold: number
 ): boolean {
-  return word.unlocked && Math.min(word.depth, word.shown) > threshold;
+  return card.unlocked && Math.min(card.depth, card.shown) > threshold;
 }
 
-export function wordProgress(
-  word: Pick<WordState, 'unlocked' | 'depth' | 'shown' | 'initialDepth'>,
+export function cardProgress(
+  card: Pick<CardState, 'unlocked' | 'depth' | 'shown' | 'initialDepth'>,
   threshold: number
 ): number {
-  if (!word.unlocked) return 0;
-  const distance = Math.max(0, threshold - word.initialDepth);
-  const traveled = clamp(Math.min(word.depth, word.shown) - word.initialDepth, 0, distance);
+  if (!card.unlocked) return 0;
+  const distance = Math.max(0, threshold - card.initialDepth);
+  const traveled = clamp(Math.min(card.depth, card.shown) - card.initialDepth, 0, distance);
   return distance > 0 ? traveled / distance : 1;
 }
 
@@ -312,35 +288,35 @@ export function scalingFactor(position: number, config: PhysicsConfig): number {
   return R - (R - 1) * h;
 }
 
-export function gravityMultiplier(config: PhysicsConfig, unlockedWordCount = 1): number {
-  if (!Number.isInteger(unlockedWordCount) || unlockedWordCount < 1) {
+export function gravityMultiplier(config: PhysicsConfig, unlockedCardCount = 1): number {
+  if (!Number.isInteger(unlockedCardCount) || unlockedCardCount < 1) {
     throw new RangeError('Unlocked count must be a positive integer');
   }
-  return Math.pow(1 - config.motion.gravityReductionPercent / 100, unlockedWordCount - 1);
+  return Math.pow(1 - config.motion.gravityReductionPercent / 100, unlockedCardCount - 1);
 }
 
-export function fallingCoefficients(config: PhysicsConfig, unlockedWordCount = 1): FallingCoefficients {
+export function fallingCoefficients(config: PhysicsConfig, unlockedCardCount = 1): FallingCoefficients {
   const { topFallingSpeed, bottomToTopMultiplier: R } = config.motion;
-  const effectiveTopSpeed = topFallingSpeed * gravityMultiplier(config, unlockedWordCount);
+  const effectiveTopSpeed = topFallingSpeed * gravityMultiplier(config, unlockedCardCount);
   return { a: effectiveTopSpeed * R, b: (effectiveTopSpeed * (R - 1)) / 100 };
 }
 
-export function fallingSpeed(position: number, config: PhysicsConfig, unlockedWordCount = 1): number {
-  return config.motion.topFallingSpeed * gravityMultiplier(config, unlockedWordCount) * scalingFactor(position, config);
+export function fallingSpeed(position: number, config: PhysicsConfig, unlockedCardCount = 1): number {
+  return config.motion.topFallingSpeed * gravityMultiplier(config, unlockedCardCount) * scalingFactor(position, config);
 }
 
-export function timeCoordinate(position: number, config: PhysicsConfig, unlockedWordCount = 1): number {
+export function timeCoordinate(position: number, config: PhysicsConfig, unlockedCardCount = 1): number {
   const x = clamp(position, 0, 100);
-  const { a, b } = fallingCoefficients(config, unlockedWordCount);
+  const { a, b } = fallingCoefficients(config, unlockedCardCount);
   if (b === 0) return x / a;
   if (x === 100) return Math.log1p(config.motion.bottomToTopMultiplier - 1) / b;
   const q = (b * x) / a;
   return q === 0 ? x / a : (x / a) * (-Math.log1p(-q) / q);
 }
 
-export function positionAtTime(seconds: number, config: PhysicsConfig, unlockedWordCount = 1): number {
-  const { a, b } = fallingCoefficients(config, unlockedWordCount);
-  const ceiling = timeCoordinate(100, config, unlockedWordCount);
+export function positionAtTime(seconds: number, config: PhysicsConfig, unlockedCardCount = 1): number {
+  const { a, b } = fallingCoefficients(config, unlockedCardCount);
+  const ceiling = timeCoordinate(100, config, unlockedCardCount);
   if (seconds <= 0) return 0;
   if (seconds >= ceiling) return 100;
   const z = b * seconds;
@@ -352,136 +328,141 @@ export function reverseFallingTime(
   position: number,
   seconds: number,
   config: PhysicsConfig,
-  unlockedWordCount = 1
+  unlockedCardCount = 1
 ): number {
   const x = clamp(position, 0, 100);
   return seconds === 0
     ? x
-    : positionAtTime(timeCoordinate(x, config, unlockedWordCount) + seconds, config, unlockedWordCount);
+    : positionAtTime(timeCoordinate(x, config, unlockedCardCount) + seconds, config, unlockedCardCount);
 }
 
-export function fieldFallTime(config: PhysicsConfig, unlockedWordCount = 1): number {
-  return timeCoordinate(100, config, unlockedWordCount);
+export function fieldFallTime(config: PhysicsConfig, unlockedCardCount = 1): number {
+  return timeCoordinate(100, config, unlockedCardCount);
 }
 
-export function baselineKickTime(config: PhysicsConfig, unlockedWordCount = 1): number {
-  return timeCoordinate(config.motion.kickHeightPercent, config, unlockedWordCount);
+export function baselineKickTime(config: PhysicsConfig, unlockedCardCount = 1): number {
+  return timeCoordinate(config.motion.kickHeightPercent, config, unlockedCardCount);
 }
 
-export function fullKick(position: number, config: PhysicsConfig, unlockedWordCount = 1): number {
+export function fullKick(position: number, config: PhysicsConfig, unlockedCardCount = 1): number {
   return (
-    reverseFallingTime(position, baselineKickTime(config, unlockedWordCount), config, unlockedWordCount) -
+    reverseFallingTime(position, baselineKickTime(config, unlockedCardCount), config, unlockedCardCount) -
     clamp(position, 0, 100)
   );
 }
 
-export function derivedMotion(config: PhysicsConfig, unlockedWordCount = 1): DerivedMotion {
+export function derivedMotion(config: PhysicsConfig, unlockedCardCount = 1): DerivedMotion {
   return {
-    baseFallingSpeed: fallingCoefficients(config, unlockedWordCount).a,
-    baseKick: fullKick(0, config, unlockedWordCount),
-    fieldFallTime: fieldFallTime(config, unlockedWordCount),
-    baselineKickTime: baselineKickTime(config, unlockedWordCount)
+    baseFallingSpeed: fallingCoefficients(config, unlockedCardCount).a,
+    baseKick: fullKick(0, config, unlockedCardCount),
+    fieldFallTime: fieldFallTime(config, unlockedCardCount),
+    baselineKickTime: baselineKickTime(config, unlockedCardCount)
   };
 }
 
-export function fallingDepth(position: number, dt: number, config: PhysicsConfig, unlockedWordCount = 1): number {
+export function fallingDepth(position: number, dt: number, config: PhysicsConfig, unlockedCardCount = 1): number {
   const x = clamp(position, 0, 100);
-  return dt === 0 ? x : positionAtTime(timeCoordinate(x, config, unlockedWordCount) - dt, config, unlockedWordCount);
+  return dt === 0 ? x : positionAtTime(timeCoordinate(x, config, unlockedCardCount) - dt, config, unlockedCardCount);
 }
 
-export function kickMultiplier(elapsedSeconds: number): number {
-  const t = Math.max(0, elapsedSeconds);
-  return 0.5 + 1.5 * Math.exp(-1.5 * t);
-}
-
-export const retrievalMultiplier = kickMultiplier;
-
-export function retrievalLift(
+export function timeCoordinateKick(
   position: number,
+  multiplier: number,
   config: PhysicsConfig,
-  _hintVisible = false,
-  latency = 0,
-  unlockedWordCount = 1
-): number {
-  const kickTime = baselineKickTime(config, unlockedWordCount) * kickMultiplier(latency);
-  return reverseFallingTime(position, kickTime, config, unlockedWordCount) - clamp(position, 0, 100);
+  unlockedCardCount = 1
+): { newDepth: number; lift: number; kickTime: number } {
+  const x = clamp(position, 0, 100);
+  if (multiplier <= 0) {
+    return { newDepth: x, lift: 0, kickTime: 0 };
+  }
+  const kickTime = baselineKickTime(config, unlockedCardCount) * multiplier;
+  const newDepth = clamp(
+    reverseFallingTime(x, kickTime, config, unlockedCardCount),
+    config.bounds.bottom,
+    config.bounds.top
+  );
+  return {
+    newDepth,
+    lift: newDepth - x,
+    kickTime
+  };
 }
 
 interface InternalSessionState {
   config: PhysicsConfig;
-  words: WordState[];
+  cards: CardState[];
   time: number;
   paused: boolean;
   complete: boolean;
   selectedIndex: number;
+  selectedCardId: CardId;
   selectedAt: number;
-  hintVisible: boolean;
   skippedIndex: number;
-  retrievalCount: number;
+  skippedCardId: CardId | null;
+  rewardCount: number;
   skipCount: number;
-  lastRetrieval: SessionTransition | null;
+  lastReward: RewardResult | null;
 }
 
 export function createSession(options: CreateSessionOptions = {}): PhysicsSession {
   let config = configuration(options.config);
-  const vocabulary =
-    options.vocabulary ??
-    Array.from({ length: options.wordCount ?? 10 }, (_, i) => ['word' + (i + 1), ''] as const);
+  let cards: CardState[];
 
-  if (
-    !Array.isArray(vocabulary) ||
-    vocabulary.length < 1 ||
-    (options.wordCount !== undefined && (!Number.isInteger(options.wordCount) || options.wordCount < 1))
-  ) {
-    throw new RangeError('A session needs a positive vocabulary size');
-  }
-
-  const state: InternalSessionState = {
-    config,
-    words: vocabulary.map((entry, i) => {
-      let english = '';
-      let spanish = '';
-      if (Array.isArray(entry)) {
-        english = String(entry[0]);
-        spanish = String(entry[1] ?? '');
-      } else if (typeof entry === 'object' && entry !== null) {
-        english = String((entry as VocabularyObject).english ?? '');
-        spanish = String((entry as VocabularyObject).spanish ?? '');
-      } else {
-        english = String(entry);
-        spanish = '';
-      }
+  if (options.cards !== undefined) {
+    if (!Array.isArray(options.cards) || options.cards.length < 1) {
+      throw new RangeError('A session needs a positive collection size');
+    }
+    cards = options.cards.map((item, i) => {
+      const id = typeof item === 'string' ? item : (item && typeof item === 'object' && item.id ? String(item.id) : `card-${i + 1}`);
       return {
-        english,
-        spanish,
+        id,
         streak: 0,
         unlocked: i === 0,
         initialDepth: config.bounds.bottom,
         depth: config.bounds.bottom,
         shown: config.bounds.bottom
       };
-    }),
+    });
+  } else {
+    const count = options.cardCount ?? 10;
+    if (!Number.isInteger(count) || count < 1) {
+      throw new RangeError('A session needs a positive collection size');
+    }
+    cards = Array.from({ length: count }, (_, i) => ({
+      id: `card-${i + 1}`,
+      streak: 0,
+      unlocked: i === 0,
+      initialDepth: config.bounds.bottom,
+      depth: config.bounds.bottom,
+      shown: config.bounds.bottom
+    }));
+  }
+
+  const state: InternalSessionState = {
+    config,
+    cards,
     time: 0,
     paused: false,
     complete: false,
     selectedIndex: 0,
+    selectedCardId: cards[0]?.id ?? '',
     selectedAt: 0,
-    hintVisible: false,
     skippedIndex: -1,
-    retrievalCount: 0,
+    skippedCardId: null,
+    rewardCount: 0,
     skipCount: 0,
-    lastRetrieval: null
+    lastReward: null
   };
 
   function lowestIndex(): number {
     let lowest = -1;
-    state.words.forEach((word, i) => {
-      if (i !== state.skippedIndex && word.unlocked && (lowest < 0 || word.depth < state.words[lowest]!.depth)) {
+    state.cards.forEach((card, i) => {
+      if (i !== state.skippedIndex && card.unlocked && (lowest < 0 || card.depth < state.cards[lowest]!.depth)) {
         lowest = i;
       }
     });
     if (lowest < 0) {
-      lowest = state.words.findIndex(word => word.unlocked);
+      lowest = state.cards.findIndex(card => card.unlocked);
     }
     return lowest;
   }
@@ -490,65 +471,73 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
     const index = lowestIndex();
     if (index !== state.selectedIndex) {
       state.selectedIndex = index;
+      state.selectedCardId = state.cards[index]?.id ?? '';
       state.selectedAt = state.time;
-      state.hintVisible = false;
     }
     return index;
   }
 
   function reconcile(): TransitionResult {
     let unlockedIndex: number | null = null;
+    let unlockedCardId: CardId | null = null;
     let completedNow = false;
 
     if (!state.paused && !state.complete) {
-      const active = state.words.filter(word => word.unlocked);
-      if (active.every(word => Math.min(word.depth, word.shown) > config.unlock.threshold)) {
-        const index = state.words.findIndex(word => !word.unlocked);
+      const active = state.cards.filter(card => card.unlocked);
+      if (active.every(card => Math.min(card.depth, card.shown) > config.unlock.threshold)) {
+        const index = state.cards.findIndex(card => !card.unlocked);
         if (index >= 0) {
-          const word = state.words[index]!;
-          word.unlocked = true;
-          word.depth = config.bounds.bottom;
-          word.shown = config.bounds.bottom;
-          word.streak = 0;
+          const card = state.cards[index]!;
+          card.unlocked = true;
+          card.depth = config.bounds.bottom;
+          card.shown = config.bounds.bottom;
+          card.streak = 0;
           unlockedIndex = index;
+          unlockedCardId = card.id;
         }
       }
     }
 
     select();
 
-    const clockPrecision = 128 * Number.EPSILON * Math.max(1, state.time, state.selectedAt);
-    if (
-      !state.paused &&
-      !state.complete &&
-      state.time - state.selectedAt + clockPrecision >= RETRIEVAL.hintSeconds
-    ) {
-      state.hintVisible = true;
-    }
-
-    if (!state.complete && state.words.every(word => isAboveFinish(word, config.finish.threshold))) {
+    if (!state.complete && state.cards.every(card => isAboveFinish(card, config.finish.threshold))) {
       state.complete = true;
       state.paused = true;
       completedNow = true;
     }
 
-    return { unlockedIndex, completedNow };
+    return { unlockedIndex, unlockedCardId, completedNow };
   }
 
   function getProgress(): number {
     const value = clamp(
-      (100 * state.words.reduce((sum, word) => sum + wordProgress(word, config.finish.threshold), 0)) /
-        state.words.length,
+      (100 * state.cards.reduce((sum, card) => sum + cardProgress(card, config.finish.threshold), 0)) /
+        state.cards.length,
       0,
       100
     );
-    return value === 100 && !state.words.every(word => isAboveFinish(word, config.finish.threshold))
+    return value === 100 && !state.cards.every(card => isAboveFinish(card, config.finish.threshold))
       ? 100 - 1e-10
       : value;
   }
 
   function unlockedCount(): number {
-    return state.words.filter(word => word.unlocked).length;
+    return state.cards.filter(card => card.unlocked).length;
+  }
+
+  function executeKick(index: number, multiplier: number) {
+    const card = state.cards[index]!;
+    const previousDepth = card.depth;
+    const activeCount = unlockedCount();
+    const kick = timeCoordinateKick(previousDepth, multiplier, config, activeCount);
+
+    if (multiplier > 0) {
+      card.depth = kick.newDepth;
+      if (config.instantPosition) card.shown = card.depth;
+      card.streak++;
+    }
+
+    return { previousDepth, newDepth: card.depth, lift: kick.lift, kickTime: kick.kickTime };
   }
 
   const api: PhysicsSession = {
@@ -557,143 +546,141 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
         throw new RangeError('Duration must be finite and nonnegative');
       }
       if (state.paused || state.complete) {
-        return { unlockedIndex: null, completedNow: false };
+        return { unlockedIndex: null, unlockedCardId: null, completedNow: false };
       }
       const activeCount = unlockedCount();
-      for (const word of state.words) {
-        if (!word.unlocked) continue;
-        word.depth = fallingDepth(word.depth, dt, config, activeCount);
-        word.shown = config.instantPosition
-          ? word.depth
-          : word.shown + (word.depth - word.shown) * (1 - Math.exp(-15 * dt));
+      for (const card of state.cards) {
+        if (!card.unlocked) continue;
+        card.depth = fallingDepth(card.depth, dt, config, activeCount);
+        card.shown = config.instantPosition
+          ? card.depth
+          : card.shown + (card.depth - card.shown) * (1 - Math.exp(-15 * dt));
       }
       state.time += dt;
       return reconcile();
-    },
-
-    retrieve(...args: unknown[]): RetrievalResult | null {
-      if (args.length > 0) {
-        throw new TypeError('retrieve() is successful only; use skip() to skip');
-      }
-      if (state.paused || state.complete) return null;
-
-      const index = select();
-      const word = state.words[index]!;
-      const previousDepth = word.depth;
-      const latency = Math.max(0, state.time - state.selectedAt);
-      const hintVisible = state.hintVisible;
-      const activeCount = unlockedCount();
-      const fullLift = fullKick(previousDepth, config, activeCount);
-
-      word.streak++;
-      word.depth = clamp(
-        previousDepth + retrievalLift(previousDepth, config, hintVisible, latency, activeCount),
-        config.bounds.bottom,
-        config.bounds.top
-      );
-      if (config.instantPosition) word.shown = word.depth;
-
-      const result: RetrievalResult = {
-        kind: 'retrieval',
-        index,
-        word: word.english,
-        translation: word.spanish,
-        latency,
-        hintVisible,
-        multiplier: kickMultiplier(latency),
-        kickTime: baselineKickTime(config, activeCount) * kickMultiplier(latency),
-        fullLift,
-        lift: word.depth - previousDepth,
-        unlockedIndex: null,
-        completedNow: false
-      };
-
-      state.lastRetrieval = result;
-      state.retrievalCount++;
-      state.skippedIndex = -1;
-      state.selectedIndex = -1;
-
-      Object.assign(result, reconcile());
-      return clone(result);
     },
 
     skip(): SkipResult | null {
       if (state.paused || state.complete) return null;
 
       const index = select();
-      const word = state.words[index]!;
+      const card = state.cards[index]!;
+      state.skipCount++;
+      state.skippedIndex = index;
+      state.skippedCardId = card.id;
+      state.selectedIndex = -1;
+      state.selectedCardId = '';
+
+      const transition = reconcile();
       const result: SkipResult = {
         kind: 'skip',
         index,
-        word: word.english,
-        translation: word.spanish,
-        latency: Math.max(0, state.time - state.selectedAt),
-        hintVisible: state.hintVisible,
-        multiplier: 0,
-        kickTime: 0,
-        lift: 0,
-        unlockedIndex: null,
-        completedNow: false
-      };
-
-      state.lastRetrieval = result;
-      state.skipCount++;
-      state.skippedIndex = index;
-      state.selectedIndex = -1;
-
-      Object.assign(result, reconcile());
-      return clone(result);
-    },
-
-    applyReward(cardIdentifier: number, rewardMagnitude: number): RewardResult | null {
-      if (state.paused || state.complete) return null;
-      if (typeof cardIdentifier !== 'number' || !Number.isInteger(cardIdentifier)) {
-        throw new TypeError('cardIdentifier must be an integer index');
-      }
-      if (cardIdentifier < 0 || cardIdentifier >= state.words.length) {
-        throw new RangeError('cardIdentifier out of range');
-      }
-      if (typeof rewardMagnitude !== 'number' || !Number.isFinite(rewardMagnitude) || rewardMagnitude < 0) {
-        throw new RangeError('rewardMagnitude must be a finite, nonnegative number');
-      }
-      const word = state.words[cardIdentifier]!;
-      if (!word.unlocked) return null;
-
-      const previousDepth = word.depth;
-      const lift = config.motion.kickHeightPercent * rewardMagnitude;
-      word.depth = clamp(previousDepth + lift, config.bounds.bottom, config.bounds.top);
-      if (config.instantPosition) word.shown = word.depth;
-      if (rewardMagnitude > 0) word.streak++;
-
-      const transition = reconcile();
-      const result: RewardResult = {
-        kind: 'reward',
-        index: cardIdentifier,
-        rewardMagnitude,
-        previousDepth,
-        newDepth: word.depth,
-        lift: word.depth - previousDepth,
+        cardId: card.id,
         unlockedIndex: transition.unlockedIndex,
+        unlockedCardId: transition.unlockedCardId,
         completedNow: transition.completedNow
       };
       return clone(result);
     },
 
+    applyReward(cardIdentifierOrMagnitude: CardId | number, maybeMagnitude?: number): RewardResult | null {
+      if (state.paused || state.complete) return null;
+
+      let index: number;
+      let rewardMagnitude: number;
+
+      if (maybeMagnitude !== undefined) {
+        if (typeof cardIdentifierOrMagnitude === 'number') {
+          if (!Number.isInteger(cardIdentifierOrMagnitude)) {
+            throw new TypeError('cardIdentifier must be an integer index or valid card ID');
+          }
+          if (cardIdentifierOrMagnitude < 0 || cardIdentifierOrMagnitude >= state.cards.length) {
+            throw new RangeError('cardIdentifier out of range');
+          }
+          index = cardIdentifierOrMagnitude;
+        } else if (typeof cardIdentifierOrMagnitude === 'string') {
+          index = state.cards.findIndex(c => c.id === cardIdentifierOrMagnitude);
+          if (index < 0) {
+            throw new TypeError(`Unknown card ID: ${cardIdentifierOrMagnitude}`);
+          }
+        } else {
+          throw new TypeError('cardIdentifier must be an integer index or valid card ID');
+        }
+        rewardMagnitude = maybeMagnitude;
+      } else {
+        if (typeof cardIdentifierOrMagnitude !== 'number' || !Number.isFinite(cardIdentifierOrMagnitude) || cardIdentifierOrMagnitude < 0) {
+          throw new RangeError('rewardMagnitude must be a finite, nonnegative number');
+        }
+        index = select();
+        rewardMagnitude = cardIdentifierOrMagnitude;
+      }
+
+      if (typeof rewardMagnitude !== 'number' || !Number.isFinite(rewardMagnitude) || rewardMagnitude < 0) {
+        throw new RangeError('rewardMagnitude must be a finite, nonnegative number');
+      }
+
+      const card = state.cards[index]!;
+      if (!card.unlocked) return null;
+
+      const previousDepth = card.depth;
+      const kick = executeKick(index, rewardMagnitude);
+
+      state.rewardCount++;
+      state.skippedIndex = -1;
+      state.skippedCardId = null;
+      state.selectedIndex = -1;
+      state.selectedCardId = '';
+
+      const transition = reconcile();
+      const result: RewardResult = {
+        kind: 'reward',
+        index,
+        cardId: card.id,
+        rewardMagnitude,
+        previousDepth,
+        newDepth: card.depth,
+        lift: kick.lift,
+        kickTime: kick.kickTime,
+        unlockedIndex: transition.unlockedIndex,
+        unlockedCardId: transition.unlockedCardId,
+        completedNow: transition.completedNow
+      };
+      state.lastReward = result;
+      return clone(result);
+    },
+
     getState(): SessionSnapshot {
-      const unlockedWordCount = unlockedCount();
+      const unlockedCardCount = unlockedCount();
+      const clonedCards = clone(state.cards);
+
       return clone({
         ...state,
+        cards: clonedCards,
         config,
-        unlockedWordCount,
-        gravityMultiplier: gravityMultiplier(config, unlockedWordCount),
-        fieldFallTime: fieldFallTime(config, unlockedWordCount),
-        baselineKickTime: baselineKickTime(config, unlockedWordCount)
+        unlockedCardCount,
+        gravityMultiplier: gravityMultiplier(config, unlockedCardCount),
+        fieldFallTime: fieldFallTime(config, unlockedCardCount),
+        baselineKickTime: baselineKickTime(config, unlockedCardCount)
       });
     },
 
     getProgress,
 
     getLowestIndex: lowestIndex,
+
+    getLowestCardId(): CardId {
+      const idx = lowestIndex();
+      return idx >= 0 ? state.cards[idx]!.id : '';
+    },
+
+    getCard(cardIdentifier: CardId | number): CardState | undefined {
+      if (typeof cardIdentifier === 'number') {
+        const card = state.cards[cardIdentifier];
+        return card ? clone(card) : undefined;
+      }
+      const card = state.cards.find(c => c.id === cardIdentifier);
+      return card ? clone(card) : undefined;
+    },
 
     isComplete(): boolean {
       return state.complete;
@@ -718,7 +705,6 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
 
 export const MunduPhysics: Readonly<MunduPhysicsAPI> = Object.freeze({
   DEFAULTS,
-  RETRIEVAL,
   createSession,
   gravityMultiplier,
   derivedMotion,
@@ -731,10 +717,8 @@ export const MunduPhysics: Readonly<MunduPhysicsAPI> = Object.freeze({
   fullKick,
   fallingSpeed,
   fallingDepth,
-  kickMultiplier,
-  retrievalMultiplier,
-  retrievalLift,
-  wordProgress,
+  timeCoordinateKick,
+  cardProgress,
   isAboveFinish
 });
 

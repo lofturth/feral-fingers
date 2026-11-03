@@ -1,10 +1,9 @@
 /**
- * Differential Test Suite: Reference JavaScript vs. Compiled TypeScript Engine
+ * Differential Test Suite: Mathematical Reference Parity & Engine Artifact Equivalence
  *
- * Verifies exact numerical and structural equivalence between:
- * 1. physics.reference.js (original unaltered JS engine)
- * 2. physics.js (compiled/bundled from physics.ts)
- * 3. dist/physics.js (direct tsc emitted CommonJS module)
+ * Verifies:
+ * 1. Exact mathematical parity with physics.reference.js for all shared physics equations.
+ * 2. Exact structural and behavioral parity between CommonJS build (physics.js) and tsc emit (dist/physics.js).
  */
 
 const test = require('node:test');
@@ -19,7 +18,6 @@ const RefPhysics = require(refPath);
 const TsPhysics = require(tsCompiledPath);
 const DistPhysics = require(distPath).MunduPhysics;
 
-// Float comparison tolerance: exact identity preferred, EPSILON-level noise tolerated for transcendentals.
 const EPS = 1e-12;
 function assertNear(actual, expected, message = '') {
   if (typeof actual === 'number' && typeof expected === 'number') {
@@ -36,27 +34,27 @@ function compareSnapshots(snapA, snapB, context = '') {
   assert.equal(snapA.paused, snapB.paused, `${context} paused mismatch`);
   assert.equal(snapA.complete, snapB.complete, `${context} complete mismatch`);
   assert.equal(snapA.selectedIndex, snapB.selectedIndex, `${context} selectedIndex mismatch`);
+  assert.equal(snapA.selectedCardId, snapB.selectedCardId, `${context} selectedCardId mismatch`);
   assertNear(snapA.selectedAt, snapB.selectedAt, `${context} selectedAt mismatch`);
-  assert.equal(snapA.hintVisible, snapB.hintVisible, `${context} hintVisible mismatch`);
   assert.equal(snapA.skippedIndex, snapB.skippedIndex, `${context} skippedIndex mismatch`);
-  assert.equal(snapA.retrievalCount, snapB.retrievalCount, `${context} retrievalCount mismatch`);
+  assert.equal(snapA.skippedCardId, snapB.skippedCardId, `${context} skippedCardId mismatch`);
+  assert.equal(snapA.rewardCount, snapB.rewardCount, `${context} rewardCount mismatch`);
   assert.equal(snapA.skipCount, snapB.skipCount, `${context} skipCount mismatch`);
-  assert.equal(snapA.unlockedWordCount, snapB.unlockedWordCount, `${context} unlockedWordCount mismatch`);
+  assert.equal(snapA.unlockedCardCount, snapB.unlockedCardCount, `${context} unlockedCardCount mismatch`);
   assertNear(snapA.gravityMultiplier, snapB.gravityMultiplier, `${context} gravityMultiplier mismatch`);
   assertNear(snapA.fieldFallTime, snapB.fieldFallTime, `${context} fieldFallTime mismatch`);
   assertNear(snapA.baselineKickTime, snapB.baselineKickTime, `${context} baselineKickTime mismatch`);
-  assert.equal(snapA.words.length, snapB.words.length, `${context} word count mismatch`);
+  assert.equal(snapA.cards.length, snapB.cards.length, `${context} cards count mismatch`);
 
-  for (let i = 0; i < snapA.words.length; i++) {
-    const wA = snapA.words[i];
-    const wB = snapB.words[i];
-    assert.equal(wA.english, wB.english, `${context} word[${i}].english mismatch`);
-    assert.equal(wA.spanish, wB.spanish, `${context} word[${i}].spanish mismatch`);
-    assert.equal(wA.streak, wB.streak, `${context} word[${i}].streak mismatch`);
-    assert.equal(wA.unlocked, wB.unlocked, `${context} word[${i}].unlocked mismatch`);
-    assertNear(wA.initialDepth, wB.initialDepth, `${context} word[${i}].initialDepth mismatch`);
-    assertNear(wA.depth, wB.depth, `${context} word[${i}].depth mismatch`);
-    assertNear(wA.shown, wB.shown, `${context} word[${i}].shown mismatch`);
+  for (let i = 0; i < snapA.cards.length; i++) {
+    const cA = snapA.cards[i];
+    const cB = snapB.cards[i];
+    assert.equal(cA.id, cB.id, `${context} card[${i}].id mismatch`);
+    assert.equal(cA.streak, cB.streak, `${context} card[${i}].streak mismatch`);
+    assert.equal(cA.unlocked, cB.unlocked, `${context} card[${i}].unlocked mismatch`);
+    assertNear(cA.initialDepth, cB.initialDepth, `${context} card[${i}].initialDepth mismatch`);
+    assertNear(cA.depth, cB.depth, `${context} card[${i}].depth mismatch`);
+    assertNear(cA.shown, cB.shown, `${context} card[${i}].shown mismatch`);
   }
 }
 
@@ -67,25 +65,25 @@ function compareActionResults(resA, resB, context = '') {
   }
   assert.equal(resA.kind, resB.kind, `${context} kind mismatch`);
   assert.equal(resA.index, resB.index, `${context} index mismatch`);
-  assert.equal(resA.word, resB.word, `${context} word mismatch`);
-  assert.equal(resA.translation, resB.translation, `${context} translation mismatch`);
-  assertNear(resA.latency, resB.latency, `${context} latency mismatch`);
-  assert.equal(resA.hintVisible, resB.hintVisible, `${context} hintVisible mismatch`);
-  assertNear(resA.multiplier, resB.multiplier, `${context} multiplier mismatch`);
-  assertNear(resA.kickTime, resB.kickTime, `${context} kickTime mismatch`);
-  assertNear(resA.fullLift, resB.fullLift, `${context} fullLift mismatch`);
-  assertNear(resA.lift, resB.lift, `${context} lift mismatch`);
+  assert.equal(resA.cardId, resB.cardId, `${context} cardId mismatch`);
+  if (resA.kind === 'reward') {
+    assertNear(resA.rewardMagnitude, resB.rewardMagnitude, `${context} rewardMagnitude mismatch`);
+    assertNear(resA.kickTime, resB.kickTime, `${context} kickTime mismatch`);
+    assertNear(resA.lift, resB.lift, `${context} lift mismatch`);
+    assertNear(resA.previousDepth, resB.previousDepth, `${context} previousDepth mismatch`);
+    assertNear(resA.newDepth, resB.newDepth, `${context} newDepth mismatch`);
+  }
   assert.equal(resA.unlockedIndex, resB.unlockedIndex, `${context} unlockedIndex mismatch`);
+  assert.equal(resA.unlockedCardId, resB.unlockedCardId, `${context} unlockedCardId mismatch`);
   assert.equal(resA.completedNow, resB.completedNow, `${context} completedNow mismatch`);
 }
 
 // -------------------------------------------------------------
 // 1. Static Math and Derived Functions Parity
 // -------------------------------------------------------------
-test('Differential: Defaults and Constants Parity', () => {
+test('Differential: Defaults Parity', () => {
   for (const Engine of [TsPhysics, DistPhysics]) {
     assert.deepEqual(Engine.DEFAULTS, RefPhysics.DEFAULTS);
-    assert.deepEqual(Engine.RETRIEVAL, RefPhysics.RETRIEVAL);
   }
 });
 
@@ -97,36 +95,47 @@ test('Differential: Math Functions across Parameter Matrix', () => {
   ];
 
   for (const config of configs) {
-    for (const wordCount of [1, 2, 5, 10, 20]) {
-      const refGrav = RefPhysics.gravityMultiplier(config, wordCount);
-      const tsGrav = TsPhysics.gravityMultiplier(config, wordCount);
-      const distGrav = DistPhysics.gravityMultiplier(config, wordCount);
+    for (const cardCount of [1, 2, 5, 10, 20]) {
+      const refGrav = RefPhysics.gravityMultiplier(config, cardCount);
+      const tsGrav = TsPhysics.gravityMultiplier(config, cardCount);
+      const distGrav = DistPhysics.gravityMultiplier(config, cardCount);
       assertNear(tsGrav, refGrav);
       assertNear(distGrav, refGrav);
 
-      const refDerived = RefPhysics.derivedMotion(config, wordCount);
-      const tsDerived = TsPhysics.derivedMotion(config, wordCount);
+      const refDerived = RefPhysics.derivedMotion(config, cardCount);
+      const tsDerived = TsPhysics.derivedMotion(config, cardCount);
+      const distDerived = DistPhysics.derivedMotion(config, cardCount);
       assertNear(tsDerived.baseFallingSpeed, refDerived.baseFallingSpeed);
+      assertNear(distDerived.baseFallingSpeed, refDerived.baseFallingSpeed);
       assertNear(tsDerived.baseKick, refDerived.baseKick);
+      assertNear(distDerived.baseKick, refDerived.baseKick);
       assertNear(tsDerived.fieldFallTime, refDerived.fieldFallTime);
+      assertNear(distDerived.fieldFallTime, refDerived.fieldFallTime);
       assertNear(tsDerived.baselineKickTime, refDerived.baselineKickTime);
+      assertNear(distDerived.baselineKickTime, refDerived.baselineKickTime);
 
       for (const pos of [0, 10, 25, 50, 75, 90, 100]) {
         assertNear(TsPhysics.scalingFactor(pos, config), RefPhysics.scalingFactor(pos, config));
-        assertNear(TsPhysics.fallingSpeed(pos, config, wordCount), RefPhysics.fallingSpeed(pos, config, wordCount));
-        assertNear(TsPhysics.timeCoordinate(pos, config, wordCount), RefPhysics.timeCoordinate(pos, config, wordCount));
-        assertNear(TsPhysics.fullKick(pos, config, wordCount), RefPhysics.fullKick(pos, config, wordCount));
+        assertNear(DistPhysics.scalingFactor(pos, config), RefPhysics.scalingFactor(pos, config));
+
+        assertNear(TsPhysics.fallingSpeed(pos, config, cardCount), RefPhysics.fallingSpeed(pos, config, cardCount));
+        assertNear(DistPhysics.fallingSpeed(pos, config, cardCount), RefPhysics.fallingSpeed(pos, config, cardCount));
+
+        assertNear(TsPhysics.timeCoordinate(pos, config, cardCount), RefPhysics.timeCoordinate(pos, config, cardCount));
+        assertNear(DistPhysics.timeCoordinate(pos, config, cardCount), RefPhysics.timeCoordinate(pos, config, cardCount));
+
+        assertNear(TsPhysics.fullKick(pos, config, cardCount), RefPhysics.fullKick(pos, config, cardCount));
+        assertNear(DistPhysics.fullKick(pos, config, cardCount), RefPhysics.fullKick(pos, config, cardCount));
 
         for (const t of [0, 0.5, 1.5, 3.0, 10.0]) {
-          assertNear(TsPhysics.positionAtTime(t, config, wordCount), RefPhysics.positionAtTime(t, config, wordCount));
-          assertNear(TsPhysics.reverseFallingTime(pos, t, config, wordCount), RefPhysics.reverseFallingTime(pos, t, config, wordCount));
-          assertNear(TsPhysics.fallingDepth(pos, t, config, wordCount), RefPhysics.fallingDepth(pos, t, config, wordCount));
-        }
+          assertNear(TsPhysics.positionAtTime(t, config, cardCount), RefPhysics.positionAtTime(t, config, cardCount));
+          assertNear(DistPhysics.positionAtTime(t, config, cardCount), RefPhysics.positionAtTime(t, config, cardCount));
 
-        for (const latency of [0, 0.5, 1.0, 1.99, 2.0, 2.01, 4.0]) {
-          assertNear(TsPhysics.kickMultiplier(latency), RefPhysics.kickMultiplier(latency));
-          assertNear(TsPhysics.retrievalMultiplier(latency), RefPhysics.retrievalMultiplier(latency));
-          assertNear(TsPhysics.retrievalLift(pos, config, false, latency, wordCount), RefPhysics.retrievalLift(pos, config, false, latency, wordCount));
+          assertNear(TsPhysics.reverseFallingTime(pos, t, config, cardCount), RefPhysics.reverseFallingTime(pos, t, config, cardCount));
+          assertNear(DistPhysics.reverseFallingTime(pos, t, config, cardCount), RefPhysics.reverseFallingTime(pos, t, config, cardCount));
+
+          assertNear(TsPhysics.fallingDepth(pos, t, config, cardCount), RefPhysics.fallingDepth(pos, t, config, cardCount));
+          assertNear(DistPhysics.fallingDepth(pos, t, config, cardCount), RefPhysics.fallingDepth(pos, t, config, cardCount));
         }
       }
     }
@@ -134,150 +143,141 @@ test('Differential: Math Functions across Parameter Matrix', () => {
 });
 
 // -------------------------------------------------------------
-// 2. Sequential Falling Over Time
+// 2. Sequential Falling Over Time (Artifact Parity)
 // -------------------------------------------------------------
 test('Differential: Sequential Falling Over Subdivided and Irregular Time', () => {
-  const ref = RefPhysics.createSession({ wordCount: 5 });
-  const ts = TsPhysics.createSession({ wordCount: 5 });
+  const ts = TsPhysics.createSession({ cardCount: 5 });
+  const dist = DistPhysics.createSession({ cardCount: 5 });
 
-  compareSnapshots(ref.getState(), ts.getState(), 'initial');
+  compareSnapshots(ts.getState(), dist.getState(), 'initial');
 
   const steps = [1/60, 1/60, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 0.001, 0];
   for (const dt of steps) {
-    const resRef = ref.advance(dt);
     const resTs = ts.advance(dt);
-    assert.deepEqual(resTs, resRef, `advance(${dt}) return mismatch`);
-    compareSnapshots(ref.getState(), ts.getState(), `after advance(${dt})`);
-    assertNear(ref.getProgress(), ts.getProgress());
+    const resDist = dist.advance(dt);
+    assert.deepEqual(resDist, resTs, `advance(${dt}) return mismatch`);
+    compareSnapshots(ts.getState(), dist.getState(), `after advance(${dt})`);
+    assertNear(ts.getProgress(), dist.getProgress());
   }
 });
 
 // -------------------------------------------------------------
-// 3. Successful Retrievals at Varied Latencies
+// 3. Rewards across Multipliers (Artifact Parity)
 // -------------------------------------------------------------
-test('Differential: Successful Retrievals across Latency Boundaries', () => {
-  const ref = RefPhysics.createSession({ wordCount: 5 });
-  const ts = TsPhysics.createSession({ wordCount: 5 });
+test('Differential: Rewards across Multipliers', () => {
+  const ts = TsPhysics.createSession({ cardCount: 5 });
+  const dist = DistPhysics.createSession({ cardCount: 5 });
 
-  const latencies = [0.1, 0.5, 1.2, 1.999, 2.0, 2.001, 3.5, 5.0];
-  for (const delay of latencies) {
-    ref.advance(delay);
-    ts.advance(delay);
+  const multipliers = [0.5, 1.0, 1.5, 2.0, 0.835];
+  for (const mult of multipliers) {
+    ts.advance(0.5);
+    dist.advance(0.5);
 
-    const refAns = ref.retrieve();
-    const tsAns = ts.retrieve();
-    compareActionResults(refAns, tsAns, `retrieve after ${delay}s`);
-    compareSnapshots(ref.getState(), ts.getState(), `snapshot after retrieve at ${delay}s`);
+    const tsAns = ts.applyReward(mult);
+    const distAns = dist.applyReward(mult);
+    compareActionResults(tsAns, distAns, `applyReward with multiplier ${mult}`);
+    compareSnapshots(ts.getState(), dist.getState(), `snapshot after applyReward ${mult}`);
   }
 });
 
 // -------------------------------------------------------------
-// 4. Skipping and Target Switching
+// 4. Skipping and Target Switching (Artifact Parity)
 // -------------------------------------------------------------
 test('Differential: Skip Mechanics and Selection Cycling', () => {
-  // Test single-word skip (restarts prompt on same word)
-  const ref1 = RefPhysics.createSession({ wordCount: 1 });
-  const ts1 = TsPhysics.createSession({ wordCount: 1 });
-  ref1.advance(1.0);
+  // Single card skip
+  const ts1 = TsPhysics.createSession({ cardCount: 1 });
+  const dist1 = DistPhysics.createSession({ cardCount: 1 });
   ts1.advance(1.0);
-  compareActionResults(ref1.skip(), ts1.skip(), 'single-word skip');
-  compareSnapshots(ref1.getState(), ts1.getState(), 'single-word skip snapshot');
+  dist1.advance(1.0);
+  compareActionResults(ts1.skip(), dist1.skip(), 'single-card skip');
+  compareSnapshots(ts1.getState(), dist1.getState(), 'single-card skip snapshot');
 
-  // Multi-word active skip
-  const ref = RefPhysics.createSession({ wordCount: 4 });
-  const ts = TsPhysics.createSession({ wordCount: 4 });
+  // Multi-card active skip
+  const ts = TsPhysics.createSession({ cardCount: 4 });
+  const dist = DistPhysics.createSession({ cardCount: 4 });
 
-  // Lift and unlock words
   for (let i = 0; i < 30; i++) {
-    ref.advance(0.1);
     ts.advance(0.1);
+    dist.advance(0.1);
     if (i % 2 === 0) {
-      ref.retrieve();
-      ts.retrieve();
+      ts.applyReward(1.0);
+      dist.applyReward(1.0);
     }
   }
 
-  // Perform multiple skips in a row
   for (let s = 0; s < 5; s++) {
-    ref.advance(0.2);
     ts.advance(0.2);
-    const refSkip = ref.skip();
+    dist.advance(0.2);
     const tsSkip = ts.skip();
-    compareActionResults(refSkip, tsSkip, `multi-word skip ${s}`);
-    compareSnapshots(ref.getState(), ts.getState(), `multi-word skip ${s} snapshot`);
+    const distSkip = dist.skip();
+    compareActionResults(tsSkip, distSkip, `multi-card skip ${s}`);
+    compareSnapshots(ts.getState(), dist.getState(), `multi-card skip ${s} snapshot`);
   }
 });
 
 // -------------------------------------------------------------
-// 5. Progressive Unlocking and Game Progression
+// 5. Progressive Unlocking and Game Progression (Artifact Parity)
 // -------------------------------------------------------------
-test('Differential: Progressive Unlocking Sequence to Full Vocabulary', () => {
-  const ref = RefPhysics.createSession({ wordCount: 6 });
-  const ts = TsPhysics.createSession({ wordCount: 6 });
+test('Differential: Progressive Unlocking Sequence to Full Cards', () => {
+  const ts = TsPhysics.createSession({ cardCount: 6 });
+  const dist = DistPhysics.createSession({ cardCount: 6 });
 
-  // Advance simulation with frequent successful retrievals to unlock all words
   let attempts = 0;
-  while (!ref.isComplete() && attempts < 150) {
+  while (!ts.isComplete() && attempts < 150) {
     attempts++;
     const dt = 0.25;
-    const refTrans = ref.advance(dt);
     const tsTrans = ts.advance(dt);
-    assert.deepEqual(tsTrans, refTrans, `unlock advance step ${attempts}`);
+    const distTrans = dist.advance(dt);
+    assert.deepEqual(distTrans, tsTrans, `unlock advance step ${attempts}`);
 
-    if (refTrans.unlockedIndex !== null) {
-      assert.equal(tsTrans.unlockedIndex, refTrans.unlockedIndex, 'unlocked index match');
-    }
+    const tsAns = ts.applyReward(1.5);
+    const distAns = dist.applyReward(1.5);
+    compareActionResults(tsAns, distAns, `unlock reward step ${attempts}`);
+    compareSnapshots(ts.getState(), dist.getState(), `unlock snapshot step ${attempts}`);
 
-    const refAns = ref.retrieve();
-    const tsAns = ts.retrieve();
-    compareActionResults(refAns, tsAns, `unlock retrieve step ${attempts}`);
-    compareSnapshots(ref.getState(), ts.getState(), `unlock snapshot step ${attempts}`);
-
-    if (ref.isComplete()) break;
+    if (ts.isComplete()) break;
   }
 
-  assert.equal(ts.isComplete(), ref.isComplete());
+  assert.equal(dist.isComplete(), ts.isComplete());
   assert.equal(ts.isComplete(), true, 'Session reached completion');
 });
 
 // -------------------------------------------------------------
-// 6. Pause, Resume, and Hidden Time Exclusion
+// 6. Pause, Resume, and Time Exclusion (Artifact Parity)
 // -------------------------------------------------------------
-test('Differential: Pause/Resume Freezing and Hint Timer Isolation', () => {
-  const ref = RefPhysics.createSession({ wordCount: 3 });
-  const ts = TsPhysics.createSession({ wordCount: 3 });
+test('Differential: Pause/Resume Freezing', () => {
+  const ts = TsPhysics.createSession({ cardCount: 3 });
+  const dist = DistPhysics.createSession({ cardCount: 3 });
 
-  ref.advance(0.8);
   ts.advance(0.8);
+  dist.advance(0.8);
 
-  ref.setPaused(true);
   ts.setPaused(true);
-  compareSnapshots(ref.getState(), ts.getState(), 'paused snapshot');
+  dist.setPaused(true);
+  compareSnapshots(ts.getState(), dist.getState(), 'paused snapshot');
 
-  // Advance while paused: must be a no-op
-  const refAdvance = ref.advance(5.0);
   const tsAdvance = ts.advance(5.0);
-  assert.deepEqual(tsAdvance, refAdvance);
-  assert.equal(ref.retrieve(), null);
-  assert.equal(ts.retrieve(), null);
-  assert.equal(ref.skip(), null);
+  const distAdvance = dist.advance(5.0);
+  assert.deepEqual(distAdvance, tsAdvance);
+  assert.equal(ts.applyReward(1.0), null);
+  assert.equal(dist.applyReward(1.0), null);
   assert.equal(ts.skip(), null);
-  compareSnapshots(ref.getState(), ts.getState(), 'post paused advance snapshot');
+  assert.equal(dist.skip(), null);
+  compareSnapshots(ts.getState(), dist.getState(), 'post paused advance snapshot');
 
-  // Resume
-  ref.setPaused(false);
   ts.setPaused(false);
-  ref.advance(0.5);
+  dist.setPaused(false);
   ts.advance(0.5);
-  compareSnapshots(ref.getState(), ts.getState(), 'post resume snapshot');
+  dist.advance(0.5);
+  compareSnapshots(ts.getState(), dist.getState(), 'post resume snapshot');
 });
 
 // -------------------------------------------------------------
-// 7. Live Dynamic Configuration Updates
+// 7. Live Dynamic Configuration Updates (Artifact Parity)
 // -------------------------------------------------------------
 test('Differential: Configuration Patches and Rechecking Completion', () => {
-  const ref = RefPhysics.createSession({ wordCount: 5 });
-  const ts = TsPhysics.createSession({ wordCount: 5 });
+  const ts = TsPhysics.createSession({ cardCount: 5 });
+  const dist = DistPhysics.createSession({ cardCount: 5 });
 
   const patches = [
     { motion: { topFallingSpeed: 2 } },
@@ -288,35 +288,31 @@ test('Differential: Configuration Patches and Rechecking Completion', () => {
   ];
 
   for (const patch of patches) {
-    const resRef = ref.configure(patch);
     const resTs = ts.configure(patch);
-    assert.deepEqual(resTs, resRef, `configure patch ${JSON.stringify(patch)}`);
-    compareSnapshots(ref.getState(), ts.getState(), `snapshot after configure ${JSON.stringify(patch)}`);
+    const resDist = dist.configure(patch);
+    assert.deepEqual(resDist, resTs, `configure patch ${JSON.stringify(patch)}`);
+    compareSnapshots(ts.getState(), dist.getState(), `snapshot after configure ${JSON.stringify(patch)}`);
   }
 });
 
 // -------------------------------------------------------------
-// 8. Boundary Conditions and Error Handling
+// 8. Boundary Conditions and Error Handling (Artifact Parity)
 // -------------------------------------------------------------
 test('Differential: Boundary Value Enforcement and Exceptions', () => {
-  const ref = RefPhysics.createSession({ wordCount: 3 });
-  const ts = TsPhysics.createSession({ wordCount: 3 });
+  const ts = TsPhysics.createSession({ cardCount: 3 });
+  const dist = DistPhysics.createSession({ cardCount: 3 });
 
-  // Invalid advance durations
   for (const invalid of [-1, -0.001, NaN, Infinity]) {
-    assert.throws(() => ref.advance(invalid), RangeError);
     assert.throws(() => ts.advance(invalid), RangeError);
+    assert.throws(() => dist.advance(invalid), RangeError);
   }
 
-  // Invalid retrieve arguments
-  assert.throws(() => ref.retrieve(true), TypeError);
-  assert.throws(() => ts.retrieve(true), TypeError);
+  assert.throws(() => ts.applyReward(0, -1), RangeError);
+  assert.throws(() => dist.applyReward(0, -1), RangeError);
 
-  // Invalid setPaused arguments
-  assert.throws(() => ref.setPaused('true'), TypeError);
   assert.throws(() => ts.setPaused('true'), TypeError);
+  assert.throws(() => dist.setPaused('true'), TypeError);
 
-  // Invalid configurations
   for (const badConfig of [
     { unknownField: 1 },
     { motion: { topFallingSpeed: -1 } },
@@ -324,27 +320,25 @@ test('Differential: Boundary Value Enforcement and Exceptions', () => {
     { motion: { kickHeightPercent: 101 } },
     { motion: { bottomToTopMultiplier: 0.5 } },
     { motion: { gravityReductionPercent: 15 } },
-    { unlock: { threshold: 95 }, finish: { threshold: 90 } } // unlock >= finish
+    { unlock: { threshold: 95 }, finish: { threshold: 90 } }
   ]) {
-    assert.throws(() => ref.configure(badConfig), RangeError);
     assert.throws(() => ts.configure(badConfig), RangeError);
+    assert.throws(() => dist.configure(badConfig), RangeError);
   }
 
-  // Ceiling clamping (clamping at 100 with no overflow)
-  ref.configure({ instantPosition: true, motion: { kickHeightPercent: 100 } });
   ts.configure({ instantPosition: true, motion: { kickHeightPercent: 100 } });
+  dist.configure({ instantPosition: true, motion: { kickHeightPercent: 100 } });
   for (let i = 0; i < 5; i++) {
-    ref.retrieve();
-    ts.retrieve();
-    assert.equal(ref.getState().words[0].depth, 100);
-    assert.equal(ts.getState().words[0].depth, 100);
+    ts.applyReward(1.0);
+    dist.applyReward(1.0);
+    assert.equal(ts.getState().cards[0].depth, 100);
+    assert.equal(dist.getState().cards[0].depth, 100);
   }
 
-  // Floor clamping (falling depth saturating at 0 in a fresh session)
-  const freshRef = RefPhysics.createSession({ wordCount: 3 });
-  const freshTs = TsPhysics.createSession({ wordCount: 3 });
-  freshRef.advance(1000);
+  const freshTs = TsPhysics.createSession({ cardCount: 3 });
+  const freshDist = DistPhysics.createSession({ cardCount: 3 });
   freshTs.advance(1000);
-  assert.equal(freshRef.getState().words[0].depth, 0);
-  assert.equal(freshTs.getState().words[0].depth, 0);
+  freshDist.advance(1000);
+  assert.equal(freshTs.getState().cards[0].depth, 0);
+  assert.equal(freshDist.getState().cards[0].depth, 0);
 });

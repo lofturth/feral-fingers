@@ -4,14 +4,15 @@ const Physics=require('../physics.js');
 const {run}=require('../repetitions.cjs');
 
 test('focused experiment matches lowest-word engine actions and unlock events',()=>{
- const result=run(1,20),session=Physics.createSession({wordCount:10});
+ const result=run(1,20),session=Physics.createSession({cardCount:10});
  const counts=Array(10).fill(0),unlocks=Array(10).fill(null);unlocks[0]=0;
  for(let answer=1;answer<=20;answer++){
   for(let frame=0;frame<60;frame++){
    const transition=session.advance(1/60);
    if(transition.unlockedIndex!==null)unlocks[transition.unlockedIndex]=session.getState().time;
   }
-  const lowest=session.getLowestIndex(),action=session.retrieve();assert.equal(action.index,lowest);
+  const multiplier=0.5+1.5*Math.exp(-1.5*1);
+  const lowest=session.getLowestIndex(),action=session.applyReward(multiplier);assert.equal(action.index,lowest);
   counts[action.index]++;
   if(action.unlockedIndex!==null)unlocks[action.unlockedIndex]=session.getState().time;
  }
