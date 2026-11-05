@@ -1,0 +1,6 @@
+diagnostics/wifi_config.local.h
+.pio/
+__pycache__/
+*.pyc
+sdkconfig.*
+!sdkconfig.defaults

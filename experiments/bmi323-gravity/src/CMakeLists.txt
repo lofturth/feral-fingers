@@ -1,0 +1,7 @@
+if("$ENV{BMI323_I2C_SCAN}" STREQUAL "1")
+    idf_component_register(SRCS "../diagnostics/i2c_scan.cpp" INCLUDE_DIRS "." REQUIRES esp_driver_i2c esp_driver_gpio)
+elseif("$ENV{BMI323_DUAL_STREAM}" STREQUAL "1")
+    idf_component_register(SRCS "../diagnostics/dual_stream.c" INCLUDE_DIRS "." REQUIRES esp_driver_i2c esp_driver_gpio esp_timer esp_wifi esp_netif esp_event nvs_flash lwip)
+else()
+    idf_component_register(SRCS "main.c" INCLUDE_DIRS "." REQUIRES esp_driver_i2c esp_driver_gpio)
+endif()

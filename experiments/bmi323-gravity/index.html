@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BMI323 Motion</title>
+<link rel="stylesheet" href="style.css">
+<main>
+  <header>
+    <div><p class="eyebrow">FERAL FINGERS / EXPERIMENT</p><h1>BMI323 Motion</h1><p class="sub">Live six-axis data from ESP32-C6</p></div>
+    <div class="controls">
+      <span id="status" class="status">Connecting…</span>
+      <span id="rate" class="rate">— samples/s</span>
+      <span id="frames" class="rate">— fps</span>
+      <span id="delivery" class="rate">— arrival</span>
+      <span id="midi-output" class="rate">Estimated Z — g → Mod wheel —</span>
+      <label>Window <select id="window"><option>2</option><option selected>5</option><option>10</option><option>30</option></select> s</label>
+      <button id="pause">Pause</button>
+    </div>
+  </header>
+  <div id="single-charts">
+  <section class="card"><div class="chart-head"><div><h2>Acceleration</h2><span>g</span></div><div class="legend"><span><i class="x"></i>X</span><span><i class="y"></i>Y</span><span><i class="z"></i>Z</span></div></div><canvas id="accel" aria-label="Acceleration X Y Z graph"></canvas></section>
+  <section class="card"><div class="chart-head"><div><h2>Angular velocity</h2><span>degrees / second</span></div><div class="legend"><span><i class="x"></i>X</span><span><i class="y"></i>Y</span><span><i class="z"></i>Z</span></div></div><canvas id="gyro" aria-label="Gyroscope X Y Z graph"></canvas></section>
+  <section class="card"><div class="chart-head"><div><h2>Gravity gate</h2><span>Z mapped to 0–127</span></div><div class="gate-controls"><div class="legend"><span><i class="raw"></i>Raw reference</span><span><i class="estimated"></i>Estimated gravity → MIDI</span></div><label>MIDI <select id="midi-mode"><option value="mod-wheel">Mod wheel (CC1)</option><option value="pitch-bend">Pitch bend (14-bit)</option></select></label></div></div><canvas id="gate" aria-label="Raw and estimated gravity Z mapped to 0 to 127 graph"></canvas></section>
+  </div>
+  <div id="dual-charts" hidden></div>
+  <footer><span>Qwiic · SDA 6 / SCL 7 · 100 Hz sensor configuration</span><span id="latest">Waiting for samples</span></footer>
+</main>
+<script src="app.js"></script>
+<script src="dual.js"></script>
+</html>
