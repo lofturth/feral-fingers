@@ -35,6 +35,14 @@ def z_to_pitch_bend(z):
     return max(0, min(16383, int(z * 16383 + 0.5)))
 
 
+def gravity_x_to_pitch_bend(x):
+    return max(0, min(16383, int((x + 1) * 16383 / 2 + 0.5)))
+
+
+def gravity_z_to_cc1(z):
+    return max(0, min(127, int((z + 1) * 127 / 2 + 0.5)))
+
+
 class MidiBridge:
     def __init__(self, output):
         self.output = output
@@ -42,6 +50,8 @@ class MidiBridge:
         self.mode = "mod-wheel"
         self.gravity_z = None
         self.last_value = None
+        self.dual_pitch = None
+        self.dual_cc1 = None
 
     def _send(self, message):
         if self.output is None:
@@ -70,6 +80,21 @@ class MidiBridge:
         with self.lock:
             self.gravity_z = gravity_z
             return self.mode, self._send_current()
+
+    def update_dual(self, gravity_x, gravity_z):
+        with self.lock:
+            if gravity_x is not None and math.isfinite(gravity_x):
+                pitch = gravity_x_to_pitch_bend(gravity_x)
+                if pitch != self.dual_pitch:
+                    self._send([0xE0, pitch & 0x7f, pitch >> 7])
+                    self.dual_pitch = pitch
+            if gravity_z is not None and math.isfinite(gravity_z):
+                cc1 = gravity_z_to_cc1(gravity_z)
+                if cc1 != self.dual_cc1:
+                    self._send([0xB0, 1, cc1])
+                    self.dual_cc1 = cc1
+            return {"pitch": self.dual_pitch, "cc1": self.dual_cc1,
+                    "available": self.output is not None}
 
     def select(self, mode):
         with self.lock:
@@ -164,7 +189,10 @@ def emit_dual(seq, start_us, raw_values, read_times, ok, estimators):
         timestamp_us = sum(read_times[index]) // 2
         gravity = estimators[index].update(values[:3], values[3:], timestamp_us)
         sensors.append({"address": address, "us": timestamp_us, "v": values, "gravity": gravity})
-    broadcast("dual", {"seq": seq, "us": start_us, "sensors": sensors})
+    gravity_x = sensors[0]["gravity"][0] if sensors[0] and sensors[0]["gravity"] else None
+    gravity_z = sensors[1]["gravity"][2] if sensors[1] and sensors[1]["gravity"] else None
+    midi_state = midi_bridge.update_dual(gravity_x, gravity_z)
+    broadcast("dual", {"seq": seq, "us": start_us, "sensors": sensors, "midi": midi_state})
 
 
 class WirelessStats:
@@ -389,12 +417,12 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=4188)
     parser.add_argument("--serial", default="/dev/cu.usbmodem1101")
     parser.add_argument("--no-midi", action="store_true", help="run the dashboard without MIDI output")
-    parser.add_argument("--dual", action="store_true", help="show both BMI323 sensors without MIDI")
+    parser.add_argument("--dual", action="store_true", help="show and sonify both BMI323 sensors")
     parser.add_argument("--udp-port", type=int, help="receive dual-sensor UDP instead of USB serial")
     args = parser.parse_args()
     dual_mode = args.dual or args.udp_port is not None
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    midi = None if args.no_midi or dual_mode else open_midi()
+    midi = None if args.no_midi else open_midi()
     midi_bridge = MidiBridge(midi)
     stop = threading.Event()
     reader = threading.Thread(target=udp_reader if args.udp_port is not None else serial_reader,

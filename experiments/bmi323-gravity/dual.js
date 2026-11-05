@@ -71,7 +71,7 @@ function initDual() {
   if (dualCharts[0].length) return;
   document.getElementById('single-charts').hidden = true;
   dualRoot.hidden = false;
-  midiOutputEl.hidden = true;
+  midiOutputEl.hidden = false;
   document.querySelector('.sub').textContent = 'Live motion from two BMI323 sensors';
   document.querySelector('footer span').textContent = 'Qwiic · SDA 6 / SCL 7 · 400 Hz sensor configuration';
   const toggle = document.createElement('div');
@@ -219,6 +219,8 @@ function renderDual(now) {
     if (!wirelessMode) deliveryEl.textContent = `missing ${dualGaps}`;
     if (dualLatest) {
       latestEl.textContent = `Cycle ${dualLatest.seq} · ${Math.round(dualLatest.us / 1000)} ms`;
+      const midi = dualLatest.midi;
+      if (midi) midiOutputEl.textContent = `S1 gravity X → Pitch ${midi.pitch ?? '—'} · S2 gravity Z → CC1 ${midi.cc1 ?? '—'}${midi.available ? '' : ' (MIDI unavailable)'}`;
       const source = dualBuffers[0];
       const begin = lowerBound(source, dualLatest.us - 2_000_000);
       if (!wirelessMode && source.length - begin > 1) {
