@@ -12,7 +12,7 @@ Record observed checkout and delivery experiences here. Options offered at check
 | PCB Cupid | Excellent first experience: inexpensive Qwiic cables, successful payment, and delivery in 3 calendar days (2026-10-28 to 2026-10-31) with express shipping. |
 | Fab.to.Lab | Order completed successfully. Pinecil soldering iron required a separate shipment and arrived 16 calendar days after ordering (2026-10-15 to 2026-10-31). |
 | LionCircuits | Air and road shipping options observed. Delivery not yet tested. |
-| [Sharvi Electronics](https://sharvielectronics.com/) | Very large component catalog, especially connectors, batteries, and prototyping parts; offers express shipping and Apple Pay. On 2026-11-06, Razorpay charged ₹774.65, but checkout redirected to a broken page, no order confirmation arrived, and the cart remained full. Payment receipt received; order creation unconfirmed. Support contacted by email and WhatsApp; awaiting resolution. Promising supplier, but checkout reliability is questionable. |
+| [Sharvi Electronics](https://sharvielectronics.com/) | Very large component catalog, especially connectors, batteries, and prototyping parts; offers express shipping and Apple Pay. Order #ST061126138724 (2026-11-06), ₹774.65 total with ₹185 express shipping: confirmed and processing. Checkout initially redirected to a broken page, with no confirmation and a full cart despite the Razorpay charge; confirmation arrived later, resolving the discrepancy. Checkout reliability remains questionable. |
 | Robotools | Checkout failed with a Razorpay authentication error; no completed purchase observed. |
 
 ## Couriers on DigiKey orders
