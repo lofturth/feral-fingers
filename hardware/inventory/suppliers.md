@@ -20,4 +20,4 @@ Record observed checkout and delivery experiences here. Options offered at check
 | Courier | Payment and delivery experience |
 |---|---|
 | FedEx | Delivered in 6 calendar days. Import-duty payment was difficult and ultimately required cash on delivery. |
-| DHL | Current order pending. KYC handled; import-payment and delivery experience not yet evaluated. |
+| DHL | DigiKey order #102463391: KYC handled and customs cleared; delivered in Tiruvannamalai on 2026-11-07, 14 calendar days after ordering. Customs/import charges of approximately ₹4,025 were paid in cash at delivery; exact amount awaits confirmation. These charges are separate from the DigiKey purchase cost. |

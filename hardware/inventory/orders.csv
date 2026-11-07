@@ -1,6 +1,6 @@
 order_id,supplier,order_date,currency,merchandise,shipping,tax,other_fees,total_paid,delivery_status,notes
 101999423,DigiKey,2026-10-02,INR,8468.61,0,0,4163.00,12631.61,received,"Physically received 2026-10-08; import fees include customs duty, import IGST, and FedEx charges"
-102463391,DigiKey,2026-10-24,INR,7497.68,0,0,0,7497.68,shipped,Shipped 2026-10-26 via DHL; KYC approved; import fees pending and not included
+102463391,DigiKey,2026-10-24,INR,7497.68,0,0,0,7497.68,received,"Shipped 2026-10-26 via DHL; KYC approved; customs cleared and delivered in Tiruvannamalai 2026-11-07; DHL customs/import charges approximately INR 4025 paid in cash at delivery 2026-11-07 (exact amount awaiting confirmation); separate from original DigiKey purchase cost and not included in total_paid"
 376705,Robocraze,2026-10-02,INR,306.00,125.00,0,0,431.00,received,"Physically received; delivered 2026-10-05. Displayed tax of INR 66 is treated as included, not additional."
 213622,Evelta Electronics,2026-10-19,INR,2986.00,45.00,545.58,0,3576.58,received,Received and COD paid 2026-10-27
 114608,7Semi,2026-10-24,INR,6336.00,192.00,0.00,0.00,6528.00,received,Received 2026-10-27
