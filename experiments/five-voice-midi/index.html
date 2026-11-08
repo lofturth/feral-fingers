@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Feral Fingers · Chord player</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0c111b;color:#e9eef6}main{max-width:640px;margin:8vh auto;padding:24px}h1{font-size:28px;margin-bottom:8px}p{color:#aab6c8}form{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}input,button{font:inherit;background:#1c2738;color:#e9eef6;border:1px solid #3d4b61;border-radius:7px;padding:10px}input{flex:1;min-width:220px}button{cursor:pointer}#error{color:#ff9c92;min-height:1.4em}#playing{font-weight:650;font-variant-numeric:tabular-nums}small{color:#94a3b8}
+</style></head><body><main>
+<p>FERAL FINGERS / MIDI</p><h1>Five-voice chord player</h1>
+<p>Enter five distinct note names. C4 is MIDI note 60.</p>
+<form id="form"><input id="notes" aria-label="Five note names" placeholder="C3 G3 E4 B4 D5" autocomplete="off"><button type="submit">Play</button><button type="button" id="stop">Stop</button></form>
+<div id="error" role="alert"></div><p>Playing: <span id="playing">None</span></p><small id="connection">Checking router…</small>
+</main><script>
+const names=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+function noteName(n){return names[n%12]+(Math.floor(n/12)-1)}
+async function action(path,data){
+  try{const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const d=await r.json();document.getElementById('error').textContent=d.error||'';if(r.ok)await refresh()}
+  catch(e){document.getElementById('error').textContent='Router unavailable.'}
+}
+document.getElementById('form').onsubmit=e=>{e.preventDefault();action('/play',{notes:document.getElementById('notes').value})};
+document.getElementById('stop').onclick=()=>action('/stop',{});
+async function refresh(){try{const r=await fetch('/status',{cache:'no-store'});const d=await r.json();document.getElementById('playing').textContent=d.assigned_notes?d.assigned_notes.map(noteName).join('  ')+' ('+d.chord_source+')':'None';document.getElementById('connection').textContent=(d.output_available?'MIDI output available':'MIDI output unavailable')+' · '+(d.keyboard_connected?'MiniLab connected':'MiniLab disconnected')+' · '+d.sensor_fresh.filter(Boolean).length+'/5 sensors live'}catch(e){document.getElementById('connection').textContent='Router disconnected';document.getElementById('playing').textContent='Unknown'}}
+refresh();setInterval(refresh,500);
+</script></body></html>

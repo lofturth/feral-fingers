@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Feral Fingers · Five IMUs</title><link rel="stylesheet" href="style.css"></head>
+<body><main>
+<header><div><p class="eyebrow">FERAL FINGERS / EXPERIMENT</p><h1>Five IMU Motion</h1><p class="sub">Live six-axis data · ESP32-S3 · mux channels 3–7</p></div>
+<div class="controls"><span id="status" class="status">Connecting…</span><span id="rate" class="rate">— sweeps/s</span><label>Window <select id="window"><option>2</option><option selected>5</option><option>10</option><option>30</option></select> s</label><button id="pause">Pause</button><button id="start">Connect</button><button id="stop">Disconnect</button></div></header>
+<div class="diagnostics"><span>Sequence gaps <b id="gaps">—</b></span><span>CRC failures <b id="crc">—</b></span><span>Sensor errors <b id="errors">—</b></span><span>Data age <b id="age">—</b></span></div>
+<nav class="view-nav" aria-label="Graph views"><button id="individual-tab" aria-pressed="true">Individual IMUs</button><button id="combined-tab" aria-pressed="false">Combined comparison</button><button id="gravity-tab" aria-pressed="false">Gravity</button><button id="gate-tab" aria-pressed="false">Gravity Gate</button></nav>
+<div id="individual"></div><div id="combined" hidden></div><div id="gravity" hidden></div><div id="gate" hidden></div>
+<footer><span>Raw acceleration and gyro · estimated gravity</span><span id="latest">Waiting for samples</span></footer>
+</main><script src="gravity.js"></script><script src="app.js"></script></body></html>
