@@ -2,21 +2,78 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Feral Fingers · Chord player</title>
 <style>
-:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0c111b;color:#e9eef6}main{max-width:640px;margin:8vh auto;padding:24px}h1{font-size:28px;margin-bottom:8px}p{color:#aab6c8}form{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}input,button{font:inherit;background:#1c2738;color:#e9eef6;border:1px solid #3d4b61;border-radius:7px;padding:10px}input{flex:1;min-width:220px}button{cursor:pointer}#error{color:#ff9c92;min-height:1.4em}#playing{font-weight:650;font-variant-numeric:tabular-nums}small{color:#94a3b8}
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0c111b;color:#e9eef6}main{max-width:640px;margin:8vh auto;padding:24px}h1{font-size:28px;margin-bottom:8px}p{color:#aab6c8}form{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}input,button,select{font:inherit;background:#1c2738;color:#e9eef6;border:1px solid #3d4b61;border-radius:7px;padding:10px}input{flex:1;min-width:220px}button{cursor:pointer}#error{color:#ff9c92;min-height:1.4em}#playing{font-weight:650;font-variant-numeric:tabular-nums}small{color:#94a3b8}
+.presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px;margin:20px 0}.presets button{font-size:14px;padding:9px 6px}.presets button[aria-pressed="true"],.voicings button[aria-pressed="true"]{background:#34537a;border-color:#91bbef;color:#fff}
+.random-toggle{border-radius:999px;padding:7px 14px;font-size:14px}.random-toggle[aria-pressed="true"]{background:#34537a;border-color:#91bbef;color:#fff}
+.voicings{display:flex;gap:5px;flex-wrap:wrap;align-items:center}.voicings button{padding:7px 9px}.voicing-notes{margin:8px 0;color:#e9eef6}
+.progression{border-top:1px solid #3d4b61;margin-top:28px;padding-top:12px}.timeline{display:flex;gap:5px;overflow-x:auto}.timeline button{position:relative;overflow:hidden;min-width:64px;padding:12px 8px}.timeline button[aria-pressed="true"]{border-color:#91bbef;background:#34537a}.timeline button span{position:relative;z-index:1}.timeline button i{position:absolute;bottom:0;left:0;height:4px;background:#9dcfff;width:0}.progress-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}.progress-controls input{min-width:0;flex:none;width:70px}.overall{width:100%;height:7px;accent-color:#9dcfff;margin-top:12px}.progress-notes{margin:8px 0}
 </style></head><body><main>
 <p>FERAL FINGERS / MIDI</p><h1>Five-voice chord player</h1>
 <p>Enter five distinct note names. C4 is MIDI note 60.</p>
+<button id="keyboard-chords" class="random-toggle" type="button" aria-pressed="false">Keyboard Chords: Off</button> <span role="group" aria-label="Notes required to capture chord"> <button class="random-toggle keyboard-size" data-size="3" type="button">3</button> <button class="random-toggle keyboard-size" data-size="4" type="button">4</button> <button class="random-toggle keyboard-size" data-size="5" type="button" aria-pressed="true">5</button></span> <small id="keyboard-required">5 notes required</small> <span id="keyboard-voices"></span><br>
+<button id="live-melody" class="random-toggle" type="button" aria-pressed="false">Live Melody: Off</button> <button id="stop-all" type="button" title="Sends panic over IAC; notes routed directly from another MIDI input may continue">Stop all notes</button>
+<section class="progression" aria-label="Progression"><h2>Progression</h2><label for="progression-select">Choose progression </label><select id="progression-select" aria-label="Choose progression"></select>
+<div id="timeline" class="timeline" aria-label="Progression bars"></div>
+<progress id="overall" class="overall" max="32" value="0" aria-label="Overall progression progress"></progress>
+<p id="progress-notes" class="progress-notes"></p>
+<div class="progress-controls"><button id="progress-play" type="button">Play</button><button id="progress-pause" type="button">Pause / Resume</button><button id="progress-stop" type="button">Stop</button><label for="tempo">Tempo</label><input id="tempo" type="number" min="10" max="120" step="1" value="60"> BPM</div></section>
+<button id="random-voicing" class="random-toggle" type="button" aria-pressed="false">Random voicing: Off</button>
+<div id="presets" class="presets" aria-label="Chord presets"></div>
+<section id="voicing-section" hidden aria-label="Chord voicings"><div class="voicings"><button id="previous" type="button">Previous</button><span id="voicings" class="voicings"></span><button id="next" type="button">Next</button></div><p id="voicing-notes" class="voicing-notes"></p></section>
 <form id="form"><input id="notes" aria-label="Five note names" placeholder="C3 G3 E4 B4 D5" autocomplete="off"><button type="submit">Play</button><button type="button" id="stop">Stop</button></form>
 <div id="error" role="alert"></div><p>Playing: <span id="playing">None</span></p><small id="connection">Checking router…</small>
 </main><script>
 const names=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
 function noteName(n){return names[n%12]+(Math.floor(n/12)-1)}
+const presetButtons=new Map();
+let liveMelody=false,keyboardChords=false;
+const keyboardToggle=document.getElementById('keyboard-chords');
+keyboardToggle.onclick=()=>action('/keyboard-chords',{enabled:!keyboardChords});
+const keyboardSizes=document.querySelectorAll('.keyboard-size');
+keyboardSizes.forEach(b=>b.onclick=()=>action('/keyboard-size',{size:Number(b.dataset.size)}));
+const liveToggle=document.getElementById('live-melody');
+liveToggle.onclick=()=>action('/live-melody',{enabled:!liveMelody});
+document.getElementById('stop-all').onclick=()=>action('/stop-all',{});
+let randomVoicing=false;
+const randomToggle=document.getElementById('random-voicing');
+randomToggle.onclick=()=>{randomVoicing=!randomVoicing;randomToggle.setAttribute('aria-pressed',String(randomVoicing));randomToggle.textContent='Random voicing: '+(randomVoicing?'On':'Off')};
+let progression=null,progressReceived=0;
+const timeline=document.getElementById('timeline');
+const progressionSelect=document.getElementById('progression-select');
+progressionSelect.onchange=e=>action('/progression',{action:'select',value:e.target.value});
+const progressButtons=[];
+function updateTimeline(){
+ while(progressButtons.length>progression.chords.length)progressButtons.pop().remove();
+ while(progressButtons.length<progression.chords.length){const i=progressButtons.length,b=document.createElement('button');b.type='button';b.innerHTML='<span></span><i></i>';b.onclick=()=>action('/progression',{action:'jump',value:i});timeline.append(b);progressButtons.push(b)}
+ progressButtons.forEach((b,i)=>{b.style.flex=progression.chords[i].beats+' 0 0';b.querySelector('span').textContent=(i+1)+' '+progression.chords[i].name});
+ document.getElementById('overall').max=progression.total_beats;
+}
+document.getElementById('progress-play').onclick=()=>action('/progression',{action:'play'});
+document.getElementById('progress-pause').onclick=()=>action('/progression',{action:'pause'});
+document.getElementById('progress-stop').onclick=()=>action('/progression',{action:'stop'});
+document.getElementById('tempo').onchange=e=>action('/progression',{action:'tempo',value:Number(e.target.value)});
+function animateProgress(now){
+ if(progression){let beat=progression.beat;if(progression.state==='playing'){beat+=(now-progressReceived)*progression.tempo/60000;beat=progression.loop?beat%progression.total_beats:Math.min(progression.total_beats,beat)}
+  let start=0,bar=progression.chords.length-1;for(let i=0;i<progression.chords.length;i++){if(beat<start+progression.chords[i].beats){bar=i;break}start+=progression.chords[i].beats}
+  if(beat>=progression.total_beats)start=progression.total_beats-progression.chords[bar].beats;
+  progressButtons.forEach((b,i)=>{b.setAttribute('aria-pressed',String(i===bar));b.querySelector('i').style.width=(i===bar?(beat-start)/progression.chords[i].beats*100:0)+'%'});
+  document.getElementById('overall').value=beat;document.getElementById('progress-notes').textContent=progression.chords[bar].notes;
+ }
+ requestAnimationFrame(animateProgress);
+}
+requestAnimationFrame(animateProgress);
+let selectedPreset=null,selectedVoicing=null;
+const voicingButtons=[];
+for(let i=1;i<=10;i++){const b=document.createElement('button');b.type='button';b.textContent=i;b.setAttribute('aria-label','Voicing '+i);b.onclick=()=>action('/play',{preset:selectedPreset,voicing:i});document.getElementById('voicings').append(b);voicingButtons.push(b)}
+document.getElementById('previous').onclick=()=>action('/play',{preset:selectedPreset,voicing:(selectedVoicing+8)%10+1});
+document.getElementById('next').onclick=()=>action('/play',{preset:selectedPreset,voicing:selectedVoicing%10+1});
+async function loadPresets(){try{const r=await fetch('/presets');for(const name of await r.json()){const button=document.createElement('button');button.type='button';button.textContent=name;button.setAttribute('aria-pressed','false');button.onclick=()=>action('/play',{preset:name,random:randomVoicing});document.getElementById('presets').append(button);presetButtons.set(name,button)}}catch(e){document.getElementById('error').textContent='Could not load presets.'}}
 async function action(path,data){
   try{const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const d=await r.json();document.getElementById('error').textContent=d.error||'';if(r.ok)await refresh()}
   catch(e){document.getElementById('error').textContent='Router unavailable.'}
 }
 document.getElementById('form').onsubmit=e=>{e.preventDefault();action('/play',{notes:document.getElementById('notes').value})};
 document.getElementById('stop').onclick=()=>action('/stop',{});
-async function refresh(){try{const r=await fetch('/status',{cache:'no-store'});const d=await r.json();document.getElementById('playing').textContent=d.assigned_notes?d.assigned_notes.map(noteName).join('  ')+' ('+d.chord_source+')':'None';document.getElementById('connection').textContent=(d.output_available?'MIDI output available':'MIDI output unavailable')+' · '+(d.keyboard_connected?'MiniLab connected':'MiniLab disconnected')+' · '+d.sensor_fresh.filter(Boolean).length+'/5 sensors live'}catch(e){document.getElementById('connection').textContent='Router disconnected';document.getElementById('playing').textContent='Unknown'}}
-refresh();setInterval(refresh,500);
+async function refresh(){try{const r=await fetch('/status',{cache:'no-store'});const d=await r.json();keyboardSizes.forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.size)===d.keyboard_size)));document.getElementById('keyboard-required').textContent=d.keyboard_size+' notes required';keyboardChords=d.keyboard_chords;keyboardToggle.setAttribute('aria-pressed',String(keyboardChords));keyboardToggle.textContent='Keyboard Chords: '+(keyboardChords?'On':'Off');document.getElementById('keyboard-voices').textContent=!keyboardChords?'Turn Keyboard Chords on to capture':d.live_melody?'Unavailable during direct Live Melody':d.keyboard_captured?(d.keyboard_voices.length?d.keyboard_voices.map(v=>'Ch. '+v.channel+' '+noteName(v.note)).join(' · '):'Release all keys for next chord'):(d.keyboard_pending.length+' / '+d.keyboard_size+' notes captured'+(d.keyboard_pending.length?' — '+d.keyboard_pending.map(noteName).join(', '):''));liveMelody=d.live_melody;liveToggle.setAttribute('aria-pressed',String(liveMelody));liveToggle.textContent='Live Melody: '+(liveMelody?'On':'Off');progression=d.progression;updateTimeline();progressReceived=performance.now();if(!progressionSelect.options.length){for(const name of progression.names){const option=document.createElement('option');option.value=name;option.textContent=name;progressionSelect.append(option)}}progressionSelect.value=progression.name;if(document.activeElement!==document.getElementById('tempo'))document.getElementById('tempo').value=progression.tempo;selectedPreset=d.selected_preset;selectedVoicing=d.selected_voicing;document.getElementById('voicing-section').hidden=!selectedPreset;document.getElementById('voicing-notes').textContent=selectedPreset&&d.assigned_notes?d.assigned_notes.map(noteName).join('  '):'';voicingButtons.forEach((b,i)=>b.setAttribute('aria-pressed',String(selectedVoicing===i+1)));document.getElementById('playing').textContent=d.assigned_notes?d.assigned_notes.slice(0,liveMelody?4:5).map(noteName).join('  ')+' ('+d.chord_source+')':'None';for(const [name,button] of presetButtons)button.setAttribute('aria-pressed',String(d.selected_preset===name));document.getElementById('connection').textContent=(d.output_available?'MIDI output available':'MIDI output unavailable')+' · '+(d.keyboard_connected?'MiniLab connected':'MiniLab disconnected')+' · '+d.sensor_fresh.filter(Boolean).length+'/5 sensors live'}catch(e){document.getElementById('connection').textContent='Router disconnected';document.getElementById('playing').textContent='Unknown';for(const button of presetButtons.values())button.setAttribute('aria-pressed','false')}}
+loadPresets().then(refresh);setInterval(refresh,500);
 </script></body></html>
