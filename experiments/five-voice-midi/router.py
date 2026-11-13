@@ -2,6 +2,7 @@
 """Five-voice MIDI router fed by the existing dashboard, never the serial port."""
 import argparse
 import ast
+import hashlib
 import json
 import math
 import re
@@ -17,6 +18,7 @@ import rtmidi
 
 ROOT=Path(__file__).resolve().parent
 source=ROOT.parent/'bmi323-gravity/server.py'
+ROUTER_REVISION=hashlib.sha256(Path(__file__).read_bytes()+source.read_bytes()).hexdigest()
 tree=ast.parse(source.read_text())
 estimator_class=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='GravityEstimator')
 scope={'math':math}
@@ -340,6 +342,8 @@ class Router:
         self.selected_voicing=None
         self.remaining=set()
         self.cc=[None]*5
+        self.finger_mapping=list(range(5))  # voice slot -> physical finger
+        self.cc1_enabled=True
         self.gates=[None]*5
         self.last_sensor=[0.0]*5
         self.estimators=[GravityEstimator() for _ in range(5)]
@@ -371,19 +375,29 @@ class Router:
             self.selected_voicing=None
             self.remaining.clear()
             self.held.clear()
+            self.set_finger_mapping(list(range(5)))
     def release_delayed(self, key, timer):
         with self.lock:
             if self.pending_releases.get(key) is not timer:return
             del self.pending_releases[key]
             self.send([0x80+key[0],key[1],0])
-    def play(self, notes, preset=None, voicing=None, source='player'):
+    def play(self, notes, preset=None, voicing=None, source='player', mapping=None, voice_notes=None):
         with self.lock:
+            if voice_notes is not None:
+                if not isinstance(voice_notes,list) or len(voice_notes)!=5 or any(type(n) is not int or not 0<=n<=127 for n in voice_notes):
+                    raise ValueError('Voice notes must contain five MIDI pitches.')
+                if self.live_melody:raise ValueError('Turn off Live Melody to use five finger voices.')
+            if mapping is not None:
+                if not isinstance(mapping,list) or len(mapping)!=5 or any(type(i) is not int for i in mapping) or sorted(mapping)!=list(range(5)):
+                    raise ValueError('Finger mapping must contain each finger once.')
+                if self.live_melody:raise ValueError('Turn off Live Melody to use five finger voices.')
             if source!='progression':
                 self.progress_state='stopped'
                 self.progress_beat=0.0
             if self.keyboard_voices or self.keyboard_capture:self.silence()
+            self.set_finger_mapping(mapping if source=='explorer' and mapping is not None else list(range(5)))
             old=self.sounding_chord
-            new=list(notes[:4] if self.live_melody else notes[:])
+            new=list(voice_notes) if voice_notes is not None else list(notes[:4] if self.live_melody else notes[:])
             self.held.clear()
             self.remaining.clear()
             self.chord=list(notes)
@@ -399,7 +413,8 @@ class Router:
                 if pending is not None:
                     pending.cancel()
                 else:
-                    self.send([0xb0+i,1,self.cc[i] if self.cc[i] is not None else 0])
+                    finger=self.finger_mapping[i]
+                    if self.cc1_enabled:self.send([0xb0+i,1,self.cc[finger] if self.cc[finger] is not None else 0])
                     self.send([0x90+i,note,100])
                 if previous is not None:
                     old_key=(i,previous)
@@ -438,6 +453,26 @@ class Router:
                 self.keyboard_epoch+=1
                 self.stop_all()
                 self.live_melody=enabled
+    def set_cc1_enabled(self, enabled):
+        if type(enabled) is not bool:raise ValueError('CC1 must be on or off.')
+        with self.lock:
+            if enabled==self.cc1_enabled:return
+            self.cc1_enabled=enabled
+            now=time.monotonic()
+            for i,finger in enumerate(self.finger_mapping):
+                value=(self.cc[finger] if self.last_sensor[finger] and now-self.last_sensor[finger]<=.5 and self.cc[finger] is not None else 0) if enabled else 100
+                self.send([0xb0+i,1,value])
+    def set_finger_mapping(self, mapping):
+        if not isinstance(mapping,list) or len(mapping)!=5 or any(type(i) is not int for i in mapping) or sorted(mapping)!=list(range(5)):
+            raise ValueError('Finger mapping must contain each finger once.')
+        with self.lock:
+            if mapping==self.finger_mapping:return
+            self.finger_mapping=list(mapping)
+            if self.cc1_enabled:
+                now=time.monotonic()
+                for voice,finger in enumerate(mapping):
+                    value=self.cc[finger] if self.last_sensor[finger] and now-self.last_sensor[finger]<=.5 and self.cc[finger] is not None else 0
+                    self.send([0xb0+voice,1,value])
     def set_keyboard_chords(self,enabled):
         if type(enabled) is not bool:raise ValueError('Keyboard Chords must be on or off.')
         with self.lock:
@@ -468,7 +503,7 @@ class Router:
             typ=msg[0]&0xf0
             note,velocity=msg[1],msg[2]
             if self.live_melody:return
-            if self.chord_source in ('player','progression') or self.progress_state=='paused':return
+            if self.chord_source in ('player','explorer','progression') or self.progress_state=='paused':return
             if self.keyboard_chords:
                 key=(msg[0]&15,note)
                 if typ==0x90 and velocity:
@@ -483,7 +518,7 @@ class Router:
                             for voice,pitch in enumerate(sorted(distinct)):
                                 input_key,vel=distinct[pitch]
                                 self.keyboard_voices[input_key]=voice
-                                self.send([0xb0+voice,1,self.cc[voice] if self.cc[voice] is not None else 0])
+                                if self.cc1_enabled:self.send([0xb0+voice,1,self.cc[voice] if self.cc[voice] is not None else 0])
                                 self.send([0x90+voice,pitch,vel])
                 elif typ==0x80 or (typ==0x90 and velocity==0):
                     self.keyboard_capture.pop(key,None)
@@ -503,7 +538,7 @@ class Router:
                     self.remaining=set(self.chord)
                     for i,n in enumerate(self.chord):
                         value=self.cc[i] if self.cc[i] is not None else 0
-                        self.send([0xb0+i,1,value])
+                        if self.cc1_enabled:self.send([0xb0+i,1,value])
                         self.send([0x90+i,n,velocity])
             elif typ==0x80 or (typ==0x90 and velocity==0):
                 if self.chord:
@@ -584,7 +619,7 @@ class Router:
     def safe_cc(self):
         for i in range(5):
             if self.cc[i]!=0:
-                self.send([0xb0+i,1,0])
+                if self.cc1_enabled:self.send([0xb0+self.finger_mapping.index(i),1,0])
                 self.cc[i]=0
     def process(self, message):
         with self.lock:
@@ -610,7 +645,7 @@ class Router:
                     self.last_sensor[i]=time.monotonic()
                     cc=int(math.floor(gate*127+0.5))
                     if cc!=self.cc[i]:
-                        self.send([0xb0+i,1,cc])
+                        if self.cc1_enabled:self.send([0xb0+self.finger_mapping.index(i),1,cc])
                         self.cc[i]=cc
     def watchdog(self):
         with self.lock:
@@ -620,7 +655,9 @@ class Router:
                     self.last_sensor[i]=0
                     self.gates[i]=None
                     self.estimators[i]=GravityEstimator()
-                    if self.cc[i]!=0:self.send([0xb0+i,1,0]);self.cc[i]=0
+                    if self.cc[i]!=0:
+                        if self.cc1_enabled:self.send([0xb0+self.finger_mapping.index(i),1,0])
+                        self.cc[i]=0
 
 def stream(router, stop, url):
     while not stop.is_set():
@@ -690,19 +727,21 @@ def main():
         def do_GET(self):
             with router.lock:
                 body=json.dumps({'keyboard_connected':router.keyboard,'midi_output':args.output,'output_available':midi_output_available(midi_out,args.output),
-                                 'gates':router.gates,'assigned_notes':router.chord,'live_melody':router.live_melody,
+                                 'gates':router.gates,'assigned_notes':router.chord,'voice_notes':router.sounding_chord if router.chord_source=='explorer' else None,'live_melody':router.live_melody,'cc1_enabled':router.cc1_enabled,'finger_mapping':router.finger_mapping,'voice_channel_mapping_supported':True,'finger_mapping_supported':True,'voice_editing_supported':True,'router_revision':ROUTER_REVISION,
                                  'chord_source':router.chord_source,'keyboard_chords':router.keyboard_chords,'keyboard_size':router.keyboard_size,'keyboard_pending':sorted({note for _,note in router.keyboard_capture}),'keyboard_captured':router.keyboard_captured,'keyboard_voices':[{'channel':voice+1,'note':note} for (_,note),voice in sorted(router.keyboard_voices.items(),key=lambda x:x[1])],
                                  'selected_preset':router.selected_preset,'selected_voicing':router.selected_voicing,
                                  'progression':router.progression_status(),
                                  'sensor_fresh':[bool(t and time.monotonic()-t<=.5) for t in router.last_sensor]}).encode()
             if self.path=='/':
                 body=(ROOT/'index.html').read_bytes();content_type='text/html; charset=utf-8'
+            elif self.path=='/harmonic-explorer':
+                body=(ROOT/'harmonic-explorer.html').read_bytes();content_type='text/html; charset=utf-8'
             elif self.path=='/status':content_type='application/json'
             elif self.path=='/presets':body=json.dumps(list(PRESETS),ensure_ascii=False).encode();content_type='application/json'
             else:self.send_error(404);return
             self.send_response(200);self.send_header('Content-Type',content_type);self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
         def do_POST(self):
-            if self.path not in ('/play','/stop','/progression','/live-melody','/stop-all','/keyboard-chords','/keyboard-size'):self.send_error(404);return
+            if self.path not in ('/play','/stop','/progression','/live-melody','/cc1','/finger-mapping','/stop-all','/keyboard-chords','/keyboard-size'):self.send_error(404);return
             if self.headers.get('Origin') not in (None,'http://127.0.0.1:8767','http://localhost:8767'):
                 self.send_error(403);return
             if self.headers.get_content_type()!='application/json':self.send_error(415);return
@@ -721,9 +760,15 @@ def main():
                         router.play_preset(preset,voicing,randomize)
                     else:
                         voicing=None
-                        notes=data.get('notes')
-                        if not isinstance(notes,str):raise ValueError('Enter five note names.')
-                        router.play(parse_notes(notes),preset,voicing)
+                        voice_notes=data.get('voice_notes')
+                        if voice_notes is not None:
+                            if not isinstance(voice_notes,list) or len(voice_notes)!=5 or any(type(n) is not int or not 0<=n<=127 for n in voice_notes):raise ValueError('Voice notes must contain five MIDI pitches.')
+                            router.play(sorted(voice_notes),source='explorer',voice_notes=voice_notes,mapping=data.get('mapping'))
+                        else:
+                            notes=data.get('notes')
+                            if not isinstance(notes,str):raise ValueError('Enter five note names.')
+                            mapping=data.get('mapping')
+                            router.play(parse_notes(notes),preset,voicing,source='explorer' if mapping is not None else 'player',mapping=mapping)
                 elif self.path=='/keyboard-size':
                     if not isinstance(data,dict):raise ValueError('Invalid chord size request.')
                     router.set_keyboard_size(data.get('size'))
@@ -733,6 +778,14 @@ def main():
                 elif self.path=='/live-melody':
                     if not isinstance(data,dict):raise ValueError('Invalid mode request.')
                     router.set_live_melody(data.get('enabled'))
+                elif self.path=='/cc1':
+                    if not isinstance(data,dict):raise ValueError('Invalid CC1 request.')
+                    router.set_cc1_enabled(data.get('enabled'))
+                elif self.path=='/finger-mapping':
+                    if not isinstance(data,dict):raise ValueError('Invalid finger mapping request.')
+                    with router.lock:
+                        if router.chord_source!='explorer':raise ValueError('No Explorer chord is playing.')
+                        router.set_finger_mapping(data.get('mapping'))
                 elif self.path=='/stop-all':router.emergency_stop()
                 elif self.path=='/progression':
                     if not isinstance(data,dict):raise ValueError('Invalid progression request.')
