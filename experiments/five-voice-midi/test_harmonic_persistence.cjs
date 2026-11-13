@@ -37,6 +37,8 @@ function page(storage, unavailable=false){
  p=page(storage);await new Promise(r=>setImmediate(r));assert.equal(p.sent.length,0);assert.equal(p.run('chords.length'),2);assert.equal(p.run('selectedKeyboard'),1);assert.equal(p.run('chords[1].root'),2);assert.equal(p.run('chords[1].edited'),true);assert.equal(p.run('mappingMode'),'reverse');assert.equal(p.run('pitchMode'),'chromatic');assert.equal(p.run('lines.children.length'),5);
  p.run("changeMapping('custom',[2,1,4,3,0])");p.handlers.pagehide();
  const custom=page(storage);await new Promise(r=>setImmediate(r));assert.equal(custom.run('mappingMode'),'custom');assert.deepEqual(Array.from(custom.run('mapping')),[2,1,4,3,0]);assert.equal(custom.sent.length,0);
+ custom.run('chords[1].pitches[4]=84;scheduleSave(true)');
+ const extended=page(storage);await new Promise(r=>setImmediate(r));assert.equal(extended.run('chords[1].pitches[4]'),84);assert.equal(extended.sent.length,0);
  // Keyboard activation of a chord button keeps normal control focus.
  const button=p.document.getElementById('triad-choices').children[2];button.focus();button.onclick({detail:0});assert.equal(p.document.activeElement,button);assert.equal(p.key('Enter'),false);
  for(const bad of ['{',JSON.stringify({version:2}),JSON.stringify({version:1,chords:[],active:0})]){const q=page({[keyName]:bad});await new Promise(r=>setImmediate(r));assert.equal(q.run('chords.length'),1);assert.equal(q.run('chords[0].name'),'C major');assert.equal(q.sent.length,0)}
