@@ -23,7 +23,7 @@ main{padding:12px clamp(12px,3vw,32px) 24px}.workspace-toolbar{position:sticky;t
 <body><main>
 <div class="workspace-toolbar" id="workspace-toolbar"><header><h1>Harmonic Explorer</h1><nav class="surface-switch" aria-label="Surface"><button id="surface-explorer" type="button" aria-pressed="true">Explorer</button><button id="surface-lab" type="button" aria-pressed="false">Voicing Roll Lab</button></nav><span class="compact-status" id="compact-status" role="status">Connecting…</span><button class="stop" id="stop" type="button">Stop notes</button><details class="settings"><summary>Settings &amp; Info</summary><div class="settings-body"><section class="mapping" aria-labelledby="mapping-title"><h2 id="mapping-title">Finger Mapping</h2><div class="mapping-modes" role="radiogroup" aria-label="Finger mapping mode"><label><input type="radio" name="mapping" value="normal"> Normal</label><label><input type="radio" name="mapping" value="reverse"> Reverse</label><label><input type="radio" name="mapping" value="custom"> Custom</label></div><p class="mapping-order" id="mapping-order"></p><div class="mapping-custom" id="mapping-custom" hidden><label>Finger<select id="mapping-finger"></select></label><label>Voice slot<select id="mapping-position"></select></label></div></section><div class="pitch-modes" role="radiogroup" aria-label="Pitch editing mode"><strong>Pitch editing</strong><label><input type="radio" id="pitch-diatonic" name="pitch-mode" value="diatonic"> Diatonic (within key)</label><label><input type="radio" id="pitch-chromatic" name="pitch-mode" value="chromatic"> Chromatic</label></div><div class="legend" id="legend" aria-label="Finger colors"></div><div class="footer"><div class="status"><span id="router-status">Connecting to router…</span><span id="sensor-status">Sensors: checking…</span></div><span id="active-status">No chord selected</span></div><p class="hint" id="edit-status"></p><p class="hint" id="hint">Each finger color follows its voice through the journey.</p></div></details></header><section class="chooser" id="chord-selector" aria-label="Choose a chord for the selected keyboard"><div class="panel" id="chord-panel"><div class="selector-heading"><p class="row-label" id="selected-chord-label">Selected chord</p><div class="voicing-controls" id="voicing-controls" hidden><button type="button" id="voicing-prev" aria-label="Previous voicing">‹</button><span id="voicing-count"></span><button type="button" id="voicing-next" aria-label="Next voicing">›</button></div></div><div class="chord-rows"><div class="chord-row"><div class="choices" id="triad-choices" role="group" aria-label="Triads"></div></div><div class="chord-row"><div class="choices" id="seventh-choices" role="group" aria-label="Seventh chords"></div></div></div></div></section></div><p class="error" id="error" role="alert"></p>
 <section class="landscape" id="explorer-surface" aria-label="Chord progression landscape"><div class="canvas"><svg id="landscape" viewBox="0 0 900 470" role="group" aria-label="Select a chord to play"></svg></div></section>
-<section id="lab-surface" hidden aria-label="Voicing Roll Lab"><p class="lab-description" id="lab-source"></p><div class="lab-controls"><label>Mode <select id="lab-mode"><option value="parallel">Parallel</option><option value="inversion">Inversion</option><option value="octave">Octave</option></select></label><label for="lab-position">Roll</label><input id="lab-position" type="range" min="0" max="0" value="0" step="1"><output id="lab-value">0</output><button type="button" id="lab-reset">Reset</button><button type="button" id="lab-start">Start audition</button><button type="button" id="lab-stop">Stop audition</button></div><div class="lab-canvas"><svg id="lab-keyboard" viewBox="0 0 900 145" role="img" aria-label="Transformed voicing"></svg></div><p class="lab-pitches" id="lab-pitches"></p></section>
+<section id="lab-surface" hidden aria-label="Voicing Roll Lab"><p class="lab-description" id="lab-source"></p><div class="lab-controls"><label>Mode <select id="lab-mode"><option value="parallel">Parallel</option><option value="inversion">Inversion</option><option value="octave">Octave</option></select></label><label for="lab-position">Roll</label><input id="lab-position" type="range" min="0" max="0" value="0" step="1"><output id="lab-value">0</output><button type="button" id="lab-reset">Reset All</button><button type="button" id="lab-start">Start audition</button><button type="button" id="lab-stop">Stop audition</button></div><div class="lab-canvas"><svg id="lab-keyboard" viewBox="0 0 900 145" role="img" aria-label="Transformed voicing"></svg></div><p class="lab-pitches" id="lab-pitches"></p></section>
 </main><script>
 // Each position in mapping identifies the finger controlling that fixed musical voice.
 const voices=[{name:'Thumb',color:'#f3a990'},{name:'Index',color:'#f2d58d'},{name:'Middle',color:'#a9d9ac'},{name:'Ring',color:'#92cadc'},{name:'Pinky',color:'#c4afe0'}];
@@ -231,7 +231,7 @@ function deleteKeyboard(){if(chords.length===1)return;const index=selectedKeyboa
 document.addEventListener('keydown',e=>{if(surface==='lab'||e.defaultPrevented||e.ctrlKey||e.metaKey||e.altKey||e.target?.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target?.tagName)||e.target?.closest?.('input,select,textarea,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="spinbutton"],[role="listbox"],[role="radiogroup"],[role="tablist"],[role="menu"],[role="tree"],[role="grid"]'))return;if((e.key==='Enter'||e.key==='Backspace')&&(['BUTTON','A','SUMMARY'].includes(e.target?.tagName)||e.target?.closest?.('button,a,summary,[role="button"]:not(.chord)')))return;if(e.key==='Enter'){e.preventDefault();appendKeyboard()}else if(e.key==='Backspace'){e.preventDefault();deleteKeyboard()}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();editVoice(e.key==='ArrowLeft'?-1:1)}else if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();const next=Math.max(0,Math.min(chords.length-1,selectedKeyboard+(e.key==='ArrowUp'?-1:1)));if(next!==selectedKeyboard){play(chords[next]);centerKeyboard(chords[next])}}});
 // The lab never stores its snapshot in the Explorer journey.
 const labFirst=36; // C2; the Explorer retains its own C3–C6 range.
-let surface='explorer',labSource=null,labPitches=null,labAuditioning=false;
+let surface='explorer',labSource=null,labWorking=null,labPitches=null,labAuditioning=false;
 function transformVoicing(source,tones,mode,steps){
  const result=[...source],direction=Math.sign(steps);
  if(mode==='octave')return result.map(p=>p+12*steps);
@@ -242,7 +242,7 @@ function transformVoicing(source,tones,mode,steps){
  return result;
 }
 function labBounds(mode){
- const valid=step=>transformVoicing(labSource.pitches,labSource.tones,mode,step).every(p=>p>=labFirst&&p<=last);
+ const valid=step=>transformVoicing(labWorking,labSource.tones,mode,step).every(p=>p>=labFirst&&p<=last);
  let min=0,max=0;while(min>-37&&valid(min-1))min--;while(max<37&&valid(max+1))max++;return [min,max];
 }
 function renderLab(){
@@ -258,21 +258,21 @@ function renderLab(){
 function updateLab(){
  const mode=document.getElementById('lab-mode').value,slider=document.getElementById('lab-position'),[min,max]=labBounds(mode);
  slider.min=String(min);slider.max=String(max);const step=Math.max(min,Math.min(max,Number(slider.value)||0));slider.value=String(step);document.getElementById('lab-value').textContent=String(step);
- labPitches=transformVoicing(labSource.pitches,labSource.tones,mode,step);renderLab();
- if(labAuditioning)action('/play',{voice_notes:[...labPitches],mapping:[...mapping]});
+ const previous=labPitches;labPitches=transformVoicing(labWorking,labSource.tones,mode,step);renderLab();
+ if(labAuditioning&&(!previous||labPitches.some((pitch,i)=>pitch!==previous[i])))action('/play',{voice_notes:[...labPitches],mapping:[...mapping]});
 }
 function switchSurface(next){
  if(next===surface)return;
  if(surface==='lab'&&labAuditioning){labAuditioning=false;action('/stop',{})}
  surface=next;document.getElementById('explorer-surface').hidden=next!=='explorer';document.getElementById('chord-selector').hidden=next!=='explorer';document.getElementById('lab-surface').hidden=next!=='lab';
  document.getElementById('surface-explorer').setAttribute('aria-pressed',String(next==='explorer'));document.getElementById('surface-lab').setAttribute('aria-pressed',String(next==='lab'));
- if(next==='lab'){const chord=chords[selectedKeyboard];labSource={name:chord.name,pitches:[...chord.pitches],tones:[...chord.tones]};document.getElementById('lab-source').textContent=`Source · ${labSource.name} · ${labSource.pitches.map(noteName).join('  ·  ')}`;document.getElementById('lab-mode').value='parallel';document.getElementById('lab-position').value='0';updateLab()}
+ if(next==='lab'){const chord=chords[selectedKeyboard];labSource={name:chord.name,pitches:[...chord.pitches],tones:[...chord.tones]};labWorking=[...labSource.pitches];labPitches=[...labWorking];document.getElementById('lab-source').textContent=`Source · ${labSource.name} · ${labSource.pitches.map(noteName).join('  ·  ')}`;document.getElementById('lab-mode').value='parallel';document.getElementById('lab-position').value='0';updateLab()}
 }
 document.getElementById('surface-explorer').addEventListener('click',()=>switchSurface('explorer'));
 document.getElementById('surface-lab').addEventListener('click',()=>switchSurface('lab'));
-document.getElementById('lab-mode').addEventListener('change',()=>{document.getElementById('lab-position').value='0';updateLab()});
+document.getElementById('lab-mode').addEventListener('change',()=>{labWorking=[...labPitches];document.getElementById('lab-position').value='0';updateLab()});
 document.getElementById('lab-position').addEventListener('input',updateLab);
-document.getElementById('lab-reset').addEventListener('click',()=>{document.getElementById('lab-position').value='0';updateLab()});
+document.getElementById('lab-reset').addEventListener('click',()=>{labWorking=[...labSource.pitches];document.getElementById('lab-position').value='0';updateLab()});
 document.getElementById('lab-start').addEventListener('click',()=>{if(canPlay()){labAuditioning=true;action('/play',{voice_notes:[...labPitches],mapping:[...mapping]})}});
 document.getElementById('lab-stop').addEventListener('click',()=>{if(labAuditioning){labAuditioning=false;action('/stop',{})}});
 document.getElementById('stop').addEventListener('click',()=>{labAuditioning=false;action('/stop',{})});document.getElementById('pitch-diatonic').checked=pitchMode==='diatonic';document.getElementById('pitch-chromatic').checked=pitchMode==='chromatic';draw();renderChoices();renderMapping();pollStatus();requestAnimationFrame(animate);
