@@ -230,6 +230,7 @@ function appendKeyboard(){const source=chords[selectedKeyboard];const {name,refe
 function deleteKeyboard(){if(chords.length===1)return;const index=selectedKeyboard;removeChordView(chords[index]);chords.splice(index,1);selectedKeyboard=Math.max(0,index-1);scheduleSave(true);draw();play(chords[selectedKeyboard]);chords[selectedKeyboard].node.scrollIntoView({block:'nearest',inline:'nearest'});}
 document.addEventListener('keydown',e=>{if(surface==='lab'||e.defaultPrevented||e.ctrlKey||e.metaKey||e.altKey||e.target?.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target?.tagName)||e.target?.closest?.('input,select,textarea,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="spinbutton"],[role="listbox"],[role="radiogroup"],[role="tablist"],[role="menu"],[role="tree"],[role="grid"]'))return;if((e.key==='Enter'||e.key==='Backspace')&&(['BUTTON','A','SUMMARY'].includes(e.target?.tagName)||e.target?.closest?.('button,a,summary,[role="button"]:not(.chord)')))return;if(e.key==='Enter'){e.preventDefault();appendKeyboard()}else if(e.key==='Backspace'){e.preventDefault();deleteKeyboard()}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();editVoice(e.key==='ArrowLeft'?-1:1)}else if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();const next=Math.max(0,Math.min(chords.length-1,selectedKeyboard+(e.key==='ArrowUp'?-1:1)));if(next!==selectedKeyboard){play(chords[next]);centerKeyboard(chords[next])}}});
 // The lab never stores its snapshot in the Explorer journey.
+const labFirst=36; // C2; the Explorer retains its own C3–C6 range.
 let surface='explorer',labSource=null,labPitches=null,labAuditioning=false;
 function transformVoicing(source,tones,mode,steps){
  const result=[...source],direction=Math.sign(steps);
@@ -241,15 +242,17 @@ function transformVoicing(source,tones,mode,steps){
  return result;
 }
 function labBounds(mode){
- const valid=step=>transformVoicing(labSource.pitches,labSource.tones,mode,step).every(p=>p>=first&&p<=last);
+ const valid=step=>transformVoicing(labSource.pitches,labSource.tones,mode,step).every(p=>p>=labFirst&&p<=last);
  let min=0,max=0;while(min>-37&&valid(min-1))min--;while(max<37&&valid(max+1))max++;return [min,max];
 }
 function renderLab(){
  const keyboard=document.getElementById('lab-keyboard');keyboard.replaceChildren();
+ const labWhites=Array.from({length:last-labFirst+1},(_,i)=>labFirst+i).filter(p=>!black(p)),width=850/labWhites.length,blackKeyWidth=width*28/45;
+ const labX=p=>black(p)?25+labWhites.filter(n=>n<p).length*width:25+labWhites.indexOf(p)*width+width/2;
  function rect(pitch,width,height,cls,x,style){element('rect',{x,y:20,width,height,rx:3,class:cls,...(style?{style}: {})},keyboard)}
- function keys(pitch,width,height,cls){const positions=labPitches.map((p,i)=>p===pitch?i:-1).filter(i=>i>=0),x=xFor(pitch)-width/2;if(!positions.length)rect(pitch,width,height,cls,x);else positions.forEach((slot,j)=>rect(pitch,width/positions.length,height,cls,x+j*width/positions.length,`fill:${voices[mapping[slot]].color}`))}
- whitePitches.forEach(p=>keys(p,whiteWidth,keyHeight,'white'));for(let p=first;p<=last;p++)if(black(p))keys(p,blackWidth,53,'black');
- for(const pitch of new Set(labPitches)){const label=element('text',{x:xFor(pitch),y:20+(black(pitch)?40:72),class:'key-label'},keyboard);label.textContent=noteName(pitch)}
+ function keys(pitch,width,height,cls){const positions=labPitches.map((p,i)=>p===pitch?i:-1).filter(i=>i>=0),x=labX(pitch)-width/2;if(!positions.length)rect(pitch,width,height,cls,x);else positions.forEach((slot,j)=>rect(pitch,width/positions.length,height,cls,x+j*width/positions.length,`fill:${voices[mapping[slot]].color}`))}
+ labWhites.forEach(p=>keys(p,width,keyHeight,'white'));for(let p=labFirst;p<=last;p++)if(black(p))keys(p,blackKeyWidth,53,'black');
+ for(const pitch of new Set(labPitches)){const label=element('text',{x:labX(pitch),y:20+(black(pitch)?40:72),class:'key-label'},keyboard);label.textContent=noteName(pitch)}
  document.getElementById('lab-pitches').innerHTML=labPitches.map((p,i)=>`<span style="color:${voices[mapping[i]].color}">${voices[mapping[i]].name}: ${noteName(p)}</span>`).join('');
 }
 function updateLab(){
