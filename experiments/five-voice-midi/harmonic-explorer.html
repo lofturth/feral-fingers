@@ -232,7 +232,7 @@ document.addEventListener('keydown',e=>{if(surface==='lab'){handleLabKey(e);retu
 // The lab never stores its snapshot in the Explorer journey.
 const labFirst=36; // C2; the Explorer retains its own C3–C6 range.
 const labModes=['parallel','inversion','octave','spread'];
-let surface='explorer',labSource=null,labWorking=null,labPitches=null,labAuditioning=false,labMode='parallel';
+let surface='explorer',labSource=null,labWorking=null,labPitches=null,labAuditioning=false,labMode='parallel',labAnchor=0;
 function transformVoicing(source,tones,mode,steps){
  const result=[...source],direction=Math.sign(steps);
  if(mode==='octave')return result.map(p=>p+12*steps);
@@ -275,8 +275,8 @@ function renderLab(){
 }
 function updateLab(){
  const mode=labMode,slider=document.getElementById('lab-'+mode),[min,max]=labBounds(mode);
- slider.min=String(min);slider.max=String(max);const step=Math.max(min,Math.min(max,Number(slider.value)||0));slider.value=String(step);document.getElementById('lab-value-'+mode).textContent=String(step);
- const previous=labPitches;labPitches=transformVoicing(labWorking,labSource.tones,mode,step);renderLab();
+ const position=Number(slider.value)||0;slider.min=String(labAnchor+min);slider.max=String(labAnchor+max);const value=Math.max(labAnchor+min,Math.min(labAnchor+max,position));slider.value=String(value);document.getElementById('lab-value-'+mode).textContent=String(value);
+ const previous=labPitches;labPitches=transformVoicing(labWorking,labSource.tones,mode,value-labAnchor);renderLab();
  if(labAuditioning&&(!previous||labPitches.some((pitch,i)=>pitch!==previous[i])))action('/play',{voice_notes:[...labPitches],mapping:[...mapping],release_first:true});
 }
 function switchSurface(next){
@@ -288,8 +288,8 @@ function switchSurface(next){
 }
 document.getElementById('surface-explorer').addEventListener('click',()=>switchSurface('explorer'));
 document.getElementById('surface-lab').addEventListener('click',()=>switchSurface('lab'));
-function resetLabSliders(){for(const mode of labModes){const slider=document.getElementById('lab-'+mode);slider.min='0';slider.max='0';slider.value='0';document.getElementById('lab-value-'+mode).textContent='0';document.getElementById('lab-label-'+mode).classList.toggle('active',mode===labMode)}}
-function selectLabMode(mode){if(mode===labMode)return;labWorking=[...labPitches];labMode=mode;resetLabSliders();updateLab()}
+function resetLabSliders(){labAnchor=0;for(const mode of labModes){const slider=document.getElementById('lab-'+mode);slider.min='0';slider.max='0';slider.value='0';document.getElementById('lab-value-'+mode).textContent='0';document.getElementById('lab-label-'+mode).classList.toggle('active',mode===labMode)}}
+function selectLabMode(mode){if(mode===labMode)return;labWorking=[...labPitches];labMode=mode;labAnchor=Number(document.getElementById('lab-'+mode).value)||0;for(const item of labModes)document.getElementById('lab-label-'+item).classList.toggle('active',item===mode);updateLab()}
 for(const mode of labModes){const slider=document.getElementById('lab-'+mode);slider.addEventListener('pointerdown',()=>selectLabMode(mode));slider.addEventListener('focus',()=>selectLabMode(mode));slider.addEventListener('input',()=>updateLab())}
 document.getElementById('lab-reset').addEventListener('click',()=>{labWorking=[...labSource.pitches];resetLabSliders();updateLab()});
 function handleLabKey(e){
