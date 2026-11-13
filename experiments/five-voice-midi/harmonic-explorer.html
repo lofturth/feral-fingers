@@ -68,14 +68,13 @@ function xFor(p){if(!black(p))return startX+whitePitches.indexOf(p)*whiteWidth+w
 function element(tag,attrs,parent=svg){const e=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attrs))e.setAttribute(key,value);parent.append(e);return e}
 function shade(color, amount){const n=parseInt(color.slice(1),16);return '#'+[16,8,0].map(shift=>{const v=(n>>shift)&255;return Math.round(amount>=0?v+(255-v)*amount:v*(1+amount)).toString(16).padStart(2,'0')}).join('')}
 function voiceX(chord,finger){const position=mapping.indexOf(finger),pitch=chord.pitches[position],positions=chord.pitches.map((p,i)=>p===pitch?i:-1).filter(i=>i>=0),width=black(pitch)?28:whiteWidth;return xFor(pitch)-width/2+width*(positions.indexOf(position)+.5)/positions.length}
+let gradientDefs, lines;
+function removeChordView(chord){if(chord.node)chord.node.remove();if(chord.clipDefs)chord.clipDefs.remove();chord.node=null;chord.clipDefs=null;chord.renderKey=null}
 function draw(){
- svg.replaceChildren();
  svg.setAttribute('viewBox',`0 0 900 ${(chords.length-1)*rowHeight+180}`);
- const defs=element('defs',{});
- voices.forEach((voice,i)=>{const gradient=element('linearGradient',{id:`liquid-gradient-${i}`,x1:'0%',y1:'0%',x2:'0%',y2:'100%'},defs);element('stop',{offset:'0%','stop-color':shade(voice.color,.1)},gradient);element('stop',{offset:'45%','stop-color':voice.color},gradient);element('stop',{offset:'100%','stop-color':shade(voice.color,-.27)},gradient)});
- const lines=element('g',{'aria-hidden':'true'});
+ if(!gradientDefs){gradientDefs=element('defs',{});voices.forEach((voice,i)=>{const gradient=element('linearGradient',{id:`liquid-gradient-${i}`,x1:'0%',y1:'0%',x2:'0%',y2:'100%'},gradientDefs);element('stop',{offset:'0%','stop-color':shade(voice.color,.1)},gradient);element('stop',{offset:'45%','stop-color':voice.color},gradient);element('stop',{offset:'100%','stop-color':shade(voice.color,-.27)},gradient)});lines=element('g',{'aria-hidden':'true'});}else lines.replaceChildren();
  for(let row=0;row<chords.length-1;row++)voices.forEach((voice,i)=>element('line',{x1:voiceX(chords[row],i),y1:row*rowHeight+keyY+keyHeight,x2:voiceX(chords[row+1],i),y2:(row+1)*rowHeight+keyY,stroke:voice.color,class:'voice-line'},lines));
- chords.forEach((chord,row)=>{const y=row*rowHeight,g=element('g',{class:'chord',tabindex:'0',role:'button','aria-label':'Play '+chord.name,'aria-pressed':'false',transform:`translate(0 ${y})`});chord.node=g;chord.meters=[];
+ chords.forEach((chord,row)=>{const renderKey=JSON.stringify([row,chord.name,chord.role,chord.roman,chord.root,chord.edited,chord.pitches,mapping]);if(chord.renderKey===renderKey)return;removeChordView(chord);chord.renderKey=renderKey;const defs=element('defs',{});chord.clipDefs=defs;const y=row*rowHeight,g=element('g',{class:'chord',tabindex:'0',role:'button','aria-label':'Play '+chord.name,'aria-pressed':'false',transform:`translate(0 ${y})`});chord.node=g;chord.meters=[];
   element('rect',{x:0,y:0,width:900,height:172,rx:14,class:'frame'},g);
   let t=element('text',{x:22,y:34,class:'chord-sub'},g);t.textContent=chord.roman ? chord.role+' · '+chord.roman : chord.role;
   t=element('text',{x:22,y:66,class:'chord-title'},g);t.textContent=chord.name+(chord.edited?' · edited':'');
@@ -97,7 +96,7 @@ function draw(){
   for(const pitch of whitePitches)keys(pitch,whiteWidth,keyHeight,'white');
   for(let pitch=first;pitch<=last;pitch++)if(black(pitch))keys(pitch,28,53,'black');
   for(const pitch of new Set(chord.pitches)){const label=element('text',{x:xFor(pitch),y:keyY+(black(pitch)?40:72),class:'key-label'},g);label.textContent=noteName(pitch);const degree=element('text',{x:xFor(pitch),y:black(pitch)?keyY-5:keyY+keyHeight+14,class:'degree-label'},g);degree.textContent=degreeName(pitch,chord.root)}
-  g.addEventListener('click',()=>play(chord));g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();play(chord)}});
+  g.addEventListener('click',()=>play(chord));g.addEventListener('keydown',e=>{if(e.key===' '){e.preventDefault();play(chord)}});
  });
  selectKeyboard(selectedKeyboard);
  document.getElementById('legend').innerHTML=voices.map(v=>`<span><i class="dot" style="background:${v.color}"></i>${v.name}</span>`).join('');
@@ -105,7 +104,7 @@ function draw(){
 let targetGates=[0,0,0,0,0],displayGates=[0,0,0,0,0],lastFrame=null;
 function selectKeyboard(index){
  selectedKeyboard=index;
- document.getElementById('edit-status').textContent=`Editing ${voices[selectedVoice].name} · ← / → change note · ↑ / ↓ select keyboard`;
+ document.getElementById('edit-status').textContent=`Editing ${voices[selectedVoice].name} · ← / → change note · ↑ / ↓ select keyboard · Enter adds a keyboard`;
  chords.forEach((chord,row)=>{const active=row===index;chord.node.classList.toggle('active',active);chord.node.setAttribute('aria-pressed',String(active));chord.meters.forEach((meter,i)=>{meter.base.setAttribute('style',active?`fill:${voices[i].color};fill-opacity:.28;stroke:${voices[i].color}`:`fill:${voices[i].color}`);meter.glass.setAttribute('opacity',active?1:0);meter.marker.setAttribute('opacity',active&&i===selectedVoice?1:0);if(!active){meter.liquid.setAttribute('height',0);meter.liquid.setAttribute('y',keyY+meter.height);meter.surface.setAttribute('opacity',0)}})});
 }
 function animate(now){
@@ -118,7 +117,7 @@ function animate(now){
 function renderChoices(){
  for(const [category,id] of [['triads','triad-choices'],['sevenths','seventh-choices']]){
   const container=document.getElementById(id);container.replaceChildren();
-  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';button.setAttribute('aria-pressed',String(selected===chord));const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;const quality=document.createElement('span');quality.textContent=chord.quality;button.append(title,quality);button.onclick=()=>{selected=chord;chords[1]={...chord,pitches:[...chord.pitches],role:'DESTINATION CHORD'};draw();renderChoices();play(chords[1])};container.append(button)});
+  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';button.setAttribute('aria-pressed',String(selected===chord));const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;const quality=document.createElement('span');quality.textContent=chord.quality;button.append(title,quality);button.onclick=()=>{selected=chord;const last=chords.length-1;removeChordView(chords[last]);chords[last]={...chord,pitches:[...chord.pitches],role:'DESTINATION CHORD'};draw();renderChoices();play(chords[last])};container.append(button)});
  }
 }
 let currentStatus=null,actionQueue=Promise.resolve(),statusSequence=0;
@@ -151,6 +150,7 @@ function canPlay(){if(!currentStatus){error.textContent='Router unavailable. Che
 function play(chord){if(!canPlay())return;selectKeyboard(chords.indexOf(chord));action('/play',{voice_notes:voiceNotes(chord),mapping:[...mapping]})}
 function chooseVoice(gates){const ranked=gates.map((value,i)=>({value,i})).sort((a,b)=>b.value-a.value);if(ranked[0].value>=VOICE_THRESHOLD&&ranked[0].value-ranked[1].value>=VOICE_MARGIN&&selectedVoice!==ranked[0].i){selectedVoice=ranked[0].i;selectKeyboard(selectedKeyboard)}}
 function editVoice(delta){if(!canPlay())return;const chord=chords[selectedKeyboard],position=mapping.indexOf(selectedVoice),pitch=nextPitch(chord.pitches[position],delta,pitchMode,scalePitchClasses);if(pitch<first||pitch>last){error.textContent='Note is at the edge of the displayed keyboard.';return}chord.pitches[position]=pitch;chord.edited=true;draw();action('/play',{voice_notes:voiceNotes(chord),mapping:[...mapping]})}
-document.addEventListener('keydown',e=>{if(e.defaultPrevented||e.ctrlKey||e.metaKey||e.altKey||e.target?.isContentEditable||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(e.target?.tagName))return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();editVoice(e.key==='ArrowLeft'?-1:1)}else if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();const next=Math.max(0,Math.min(chords.length-1,selectedKeyboard+(e.key==='ArrowUp'?-1:1)));if(next!==selectedKeyboard)play(chords[next])}});
+function appendKeyboard(){const source=chords[selectedKeyboard];const {name,root,roman,quality,edited}=source;const copy={name,root,roman,quality,edited,pitches:[...source.pitches],role:'DESTINATION CHORD'};chords.push(copy);draw();selectKeyboard(chords.length-1);play(copy);copy.node.scrollIntoView({block:'nearest',inline:'nearest'});}
+document.addEventListener('keydown',e=>{if(e.defaultPrevented||e.ctrlKey||e.metaKey||e.altKey||e.target?.isContentEditable||['INPUT','SELECT','TEXTAREA','BUTTON','A'].includes(e.target?.tagName)||e.target?.closest?.('button,input,select,textarea,a,[contenteditable]:not([contenteditable="false"]),[role="button"]:not(.chord)'))return;if(e.key==='Enter'){e.preventDefault();appendKeyboard()}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();editVoice(e.key==='ArrowLeft'?-1:1)}else if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();const next=Math.max(0,Math.min(chords.length-1,selectedKeyboard+(e.key==='ArrowUp'?-1:1)));if(next!==selectedKeyboard)play(chords[next])}});
 document.getElementById('stop').addEventListener('click',()=>action('/stop',{}));document.getElementById('pitch-diatonic').checked=pitchMode==='diatonic';document.getElementById('pitch-chromatic').checked=pitchMode==='chromatic';draw();renderChoices();renderMapping();pollStatus();requestAnimationFrame(animate);
 </script></body></html>

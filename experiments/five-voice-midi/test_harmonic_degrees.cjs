@@ -6,9 +6,11 @@ const source = html.split('<script>')[1].split('</script>')[0];
 class Element {
   constructor() { this.attrs = {}; this.children = []; this.value = '0'; this.classList = { toggle() {}, remove() {} }; }
   setAttribute(key, value) { this.attrs[key] = value; }
-  append(...children) { this.children.push(...children); }
+  append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } }
   replaceChildren() { this.children = []; }
   addEventListener(key, fn) { this[key] = fn; }
+  remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
+  scrollIntoView() {}
 }
 const elements = {}, radios = ['normal','reverse','custom'].map(value => Object.assign(new Element(), {value}));
 const document = {
