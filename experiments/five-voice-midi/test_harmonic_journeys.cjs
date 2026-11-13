@@ -15,9 +15,9 @@ class Element {
 const elements={},radios=['normal','reverse','custom'].map(value=>Object.assign(new Element(),{value}));
 const document={getElementById(id){return elements[id]??=new Element()},createElement(){return new Element()},createElementNS(){return new Element()},querySelectorAll(){return radios},addEventListener(k,fn){this[k]=fn}};
 const sent=[];
-const scrolls=[];
+const scrolls=[],navigationFrames=new Map();let frameId=0,scheduledNavigation=0;
 let status={voice_channel_mapping_supported:true,output_available:true,sensor_fresh:[true,true,true,true,true],gates:[0,0,0,0,0],live_melody:false,assigned_notes:null,chord_source:null};
-const context={document,window:{innerHeight:800,scrollY:0,scrollTo(options){scrolls.push(options)}},localStorage:{getItem(){return null},setItem(){}},fetch:async(path,opts)=>{if(opts?.method==='POST'){const data=JSON.parse(opts.body);sent.push({path,data});if(path==='/play')status={...status,chord_source:'explorer',voice_notes:data.voice_notes,assigned_notes:[...data.voice_notes].sort((a,b)=>a-b)}}return {ok:true,json:async()=>opts?.method==='POST'?{ok:true}:status}},setTimeout(){},requestAnimationFrame(){}};
+const context={document,window:{innerHeight:800,scrollY:200,scrollTo(options){scrolls.push(options)}},performance:{now(){return 0}},localStorage:{getItem(){return null},setItem(){}},fetch:async(path,opts)=>{if(opts?.method==='POST'){const data=JSON.parse(opts.body);sent.push({path,data});if(path==='/play')status={...status,chord_source:'explorer',voice_notes:data.voice_notes,assigned_notes:[...data.voice_notes].sort((a,b)=>a-b)}}return {ok:true,json:async()=>opts?.method==='POST'?{ok:true}:status}},setTimeout(){},requestAnimationFrame(fn){if(fn.name!=='step')return 0;const id=++frameId;navigationFrames.set(id,fn);scheduledNavigation++;return id},cancelAnimationFrame(id){navigationFrames.delete(id)}};
 vm.createContext(context);vm.runInContext(html.split('<script>')[1].split('</script>')[0],context);
 const run=code=>vm.runInContext(code,context);
 function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({key,target:{tagName,...extra},preventDefault(){prevented=true}});return prevented}
@@ -39,7 +39,9 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="tone-indicator chord-tone").length'),5);
  const original=Array.from(run('chords[0].pitches'));const firstNode=run('chords[0].node');
  for(let i=0;i<4;i++)assert.equal(key('Enter'),true);
- assert.equal(run('chords.length'),5);assert.equal(run('selectedKeyboard'),4);assert.equal(run('chords[4].root'),0);assert.equal(scrolls.at(-1).behavior,'smooth');assert.equal(run('lines.children.length'),20);
+ assert.equal(run('chords.length'),5);assert.equal(run('selectedKeyboard'),4);assert.equal(run('chords[4].root'),0);assert.equal(navigationFrames.size,1);assert.equal(run('lines.children.length'),20);
+ let [frame,step]=[...navigationFrames.entries()][0];navigationFrames.delete(frame);step(90);assert.equal(scrolls.at(-1).behavior,'auto');assert.equal(scrolls.at(-1).top,109);assert.equal(navigationFrames.size,1);
+ [frame,step]=[...navigationFrames.entries()][0];navigationFrames.delete(frame);step(180);assert.equal(scrolls.at(-1).top,96);assert.equal(navigationFrames.size,0);assert.equal(run('navigationFrame'),null);
  assert.deepEqual(Array.from(run('chords.map(c=>c.node.children.find(e=>e.attrs.class==="chord-number").textContent)')),['1','2','3','4','5']);
  assert.equal(run('chords[0].node'),firstNode);assert.deepEqual(Array.from(run('chords[4].pitches')),original);
  run("setPitchMode('chromatic');selectedVoice=4");const beforeEditScrolls=scrolls.length;key('ArrowRight');assert.equal(scrolls.length,beforeEditScrolls);
@@ -47,7 +49,7 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.equal(run('chords[4].node.children.filter(e=>e.attrs.class==="tone-indicator non-chord-tone").length'),1);
  assert.deepEqual(Array.from(run('chords[4].tones')),[0,4,7]);
  assert.equal(run('degreeName(chords[4].pitches[4],chords[4].root)'),'♭6');
- const beforeNavigationScrolls=scrolls.length;for(let i=0;i<4;i++)key('ArrowUp');assert.equal(run('selectedKeyboard'),0);assert.equal(scrolls.length,beforeNavigationScrolls+4);
+ const beforeNavigation=scheduledNavigation;for(let i=0;i<4;i++)key('ArrowUp');assert.equal(run('selectedKeyboard'),0);assert.equal(scheduledNavigation,beforeNavigation+4);assert.equal(navigationFrames.size,1);
  for(let i=0;i<4;i++)key('ArrowDown');assert.equal(run('selectedKeyboard'),4);
  const earlier=Array.from(run('chords[3].pitches'));
  document.getElementById('triad-choices').children[1].onclick();
@@ -103,7 +105,7 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.deepEqual(Array.from(run('chords[1].pitches')),Array.from(run('chords[0].pitches')));assert.notEqual(run('chords[1].pitches'),run('chords[0].pitches'));
  assert.deepEqual(Array.from(run('chords[1].tones')),Array.from(run('chords[0].tones')));assert.equal(run('chords[1].root'),run('chords[0].root'));
  key('Enter');assert.equal(run('selectedKeyboard'),2);assert.equal(run('chords[3]'),originalMiddle);assert.equal(run('chords[4]'),originalLast);assert.equal(run('lines.children.length'),20);
- run('selectKeyboard(chords.length-1)');key('Enter');assert.equal(run('selectedKeyboard'),5);assert.equal(run('chords.length'),6);assert.equal(scrolls.at(-1).behavior,'smooth');
+ run('selectKeyboard(chords.length-1)');key('Enter');assert.equal(run('selectedKeyboard'),5);assert.equal(run('chords.length'),6);assert.equal(navigationFrames.size,1);
  await run('actionQueue');assert.deepEqual(sent.at(-1).data.voice_notes,Array.from(run('chords[5].pitches')));
  // Ordinary button and Settings focus retain musical arrows; form fields do not.
  assert.equal(key('ArrowUp','BUTTON'),true);assert.equal(run('selectedKeyboard'),4);
