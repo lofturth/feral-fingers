@@ -54,7 +54,7 @@ class ExplorerIntegrationTests(unittest.TestCase):
         self.assertIn('text/html', headers['Content-Type'])
         self.assertEqual(headers['Cache-Control'], 'no-store')
         self.assertIn(b'Harmonic Explorer', page)
-        self.assertIn(b"name:'C major',role:'STARTING CHORD',pitches:[48,55,60,64,67]", page)
+        self.assertIn(b"name:'C major',root:0,role:'STARTING CHORD',pitches:[48,55,60,64,67]", page)
         self.assertIn(b'[48,53,57,64,67]', page)
         self.assertIn(b'Five-voice chord player', self.request('/')[1])
 
@@ -100,20 +100,17 @@ class ExplorerIntegrationTests(unittest.TestCase):
             self.assertFalse(r.pending_releases)
             for i,n in enumerate([69,55,60,64,67]):self.assertIn([0x80+i,n,0],out.messages)
 
-    def test_mapped_live_cc_and_diagnostic(self):
+    def test_mapped_live_cc_continues_after_remapping(self):
         r,out=self.router,self.output
-        r.silence();r.set_cc1_enabled(True);r.sensor_reset()
+        r.silence();r.sensor_reset()
         self.request('/play',{'voice_notes':[48,55,60,64,67],'mapping':[4,3,2,1,0]})
         out.messages.clear()
         sensors=[[i,3,0,0,math.sqrt(1-z*z),0,z,0,0,0] for i,z in enumerate([1,.5,0,.25,.75])]
         r.process({'status':{'state':'connected','generation':123},'samples':[[1000,sensors]]})
         self.assertEqual(out.messages,[[0xb0+4-i,1,v] for i,v in enumerate([127,64,0,32,95]) if v])
-        out.messages.clear();self.request('/cc1',{'enabled':False})
-        self.assertEqual(out.messages,[[0xb0+i,1,100] for i in range(5)])
         out.messages.clear();self.request('/finger-mapping',{'mapping':[2,1,4,3,0]})
-        self.assertEqual(out.messages,[])
-        self.request('/cc1',{'enabled':True})
         self.assertEqual(out.messages,[[0xb0+i,1,v] for i,v in enumerate([0,64,95,32,127])])
+        self.assertEqual(r.sounding_chord,[48,55,60,64,67])
         self.request('/stop',{})
 
     def test_invalid_mapping_does_not_change_playback(self):
@@ -145,28 +142,6 @@ class ExplorerIntegrationTests(unittest.TestCase):
             self.assertFalse(r.pending_releases)
             for i,n in enumerate([61,60,64,67,69]):self.assertIn([0x80+i,n,0],out.messages)
 
-    def test_cc1_toggle_preserves_notes_and_restores_live_expression(self):
-        r, out = self.router, self.output
-        r.silence(); r.set_cc1_enabled(True); out.messages.clear()
-        sensors=[[i,3,0,0,math.sqrt(1-z*z),0,z,0,0,0] for i,z in enumerate([1,.5,0,.25,.75])]
-        sample={'status':{'state':'connected','generation':123},'samples':[[1000,sensors]]}
-        r.sensor_reset();r.process(sample);out.messages.clear()
-        self.request('/cc1', {'enabled':False})
-        self.assertFalse(json.loads(self.request('/status')[1])['cc1_enabled'])
-        self.assertEqual(out.messages,[[0xb0+i,1,100] for i in range(5)])
-        out.messages.clear();self.request('/cc1', {'enabled':False})
-        self.assertEqual(out.messages,[])
-        self.request('/play', {'voice_notes':[67,64,60,55,48]})
-        self.assertEqual([m for m in out.messages if m[0]&0xf0==0x90],[[0x90+i,n,100] for i,n in enumerate([67,64,60,55,48])])
-        self.assertFalse(any(m[0]&0xf0==0xb0 for m in out.messages))
-        out.messages.clear();r.sensor_reset();r.process(sample)
-        with patch.object(module.time, 'monotonic', return_value=max(r.last_sensor)+1):r.watchdog()
-        self.assertEqual(out.messages,[])
-        r.process(sample)
-        self.request('/cc1', {'enabled':True})
-        self.assertEqual(out.messages,[[0xb0+i,1,v] for i,v in enumerate([127,64,0,32,95])])
-        self.assertEqual(r.sounding_chord,[67,64,60,55,48])
-        self.request('/stop', {})
 
 
 if __name__ == '__main__': unittest.main()
