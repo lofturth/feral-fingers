@@ -44,19 +44,29 @@ const catalog={
 };
 Object.values(catalog).flat().forEach(chord=>{chord.tones=[...new Set(chord.pitches.map(p=>p%12))]});
 const chords=[{name:'C major',referenceName:'C',root:0,tones:[0,4,7],role:'CHORD',pitches:[48,55,60,64,67]}];
-const mappingKey='feral-fingers.harmonic-explorer.mapping.v1';
+const workspaceKey='feral-fingers.harmonic-explorer.workspace.v1';
+const legacyMappingKey='feral-fingers.harmonic-explorer.mapping.v1';
 let mapping=[0,1,2,3,4],mappingMode='normal';
-try{const saved=JSON.parse(localStorage.getItem(mappingKey));if(saved&&['normal','reverse','custom'].includes(saved.mode)&&Array.isArray(saved.mapping)&&saved.mapping.length===5&&saved.mapping.every(Number.isInteger)&&[...saved.mapping].sort().join(',')==='0,1,2,3,4'&&(saved.mode==='custom'||saved.mapping.join(',')===(saved.mode==='normal'?'0,1,2,3,4':'4,3,2,1,0'))){mapping=saved.mapping;mappingMode=saved.mode}}catch(e){}
+try{const saved=JSON.parse(localStorage.getItem(legacyMappingKey));if(saved&&['normal','reverse','custom'].includes(saved.mode)&&Array.isArray(saved.mapping)&&saved.mapping.length===5&&saved.mapping.every(Number.isInteger)&&[...saved.mapping].sort().join(',')==='0,1,2,3,4'&&(saved.mode==='custom'||saved.mapping.join(',')===(saved.mode==='normal'?'0,1,2,3,4':'4,3,2,1,0'))){mapping=saved.mapping;mappingMode=saved.mode}}catch(e){}
 let selected=null, selectedKeyboard=0, selectedVoice=0;
 const selectorButtons=new Map();
 const VOICE_THRESHOLD=.30, VOICE_MARGIN=.08;
-const pitchModeKey='feral-fingers.harmonic-explorer.pitch-mode.v1', scalePitchClasses=[0,2,4,5,7,9,11];
+const legacyPitchModeKey='feral-fingers.harmonic-explorer.pitch-mode.v1', scalePitchClasses=[0,2,4,5,7,9,11];
 let pitchMode='diatonic';
-try{const saved=localStorage.getItem(pitchModeKey);if(saved==='diatonic'||saved==='chromatic')pitchMode=saved}catch(e){}
-function setPitchMode(mode){pitchMode=mode;document.getElementById('pitch-diatonic').checked=mode==='diatonic';document.getElementById('pitch-chromatic').checked=mode==='chromatic';try{localStorage.setItem(pitchModeKey,mode)}catch(e){document.getElementById('error').textContent='Could not save pitch editing mode in this browser.'}}
+try{const saved=localStorage.getItem(legacyPitchModeKey);if(saved==='diatonic'||saved==='chromatic')pitchMode=saved}catch(e){}
+function setPitchMode(mode){pitchMode=mode;document.getElementById('pitch-diatonic').checked=mode==='diatonic';document.getElementById('pitch-chromatic').checked=mode==='chromatic';scheduleSave()}
 document.getElementById('pitch-diatonic').addEventListener('change',()=>setPitchMode('diatonic'));
 document.getElementById('pitch-chromatic').addEventListener('change',()=>setPitchMode('chromatic'));
 function nextPitch(pitch,direction,mode,scale){let next=pitch+direction;while(next>=first&&next<=last&&mode==='diatonic'&&!scale.includes(next%12))next+=direction;return next}
+
+// Store musical state only; never restore sound, sensor readings or UI animation.
+function validMapping(mode,values){return ['normal','reverse','custom'].includes(mode)&&Array.isArray(values)&&values.length===5&&values.every(Number.isInteger)&&[...values].sort().join(',')==='0,1,2,3,4'&&(mode==='custom'||values.join(',')===(mode==='normal'?'0,1,2,3,4':'4,3,2,1,0'))}
+function validChord(chord){return chord&&typeof chord.name==='string'&&chord.name.length>0&&Number.isInteger(chord.root)&&chord.root>=0&&chord.root<12&&Array.isArray(chord.pitches)&&chord.pitches.length===5&&chord.pitches.every(p=>Number.isInteger(p)&&p>=48&&p<=71)&&Array.isArray(chord.tones)&&chord.tones.length>0&&chord.tones.every(p=>Number.isInteger(p)&&p>=0&&p<12)&&new Set(chord.tones).size===chord.tones.length&&['referenceName','roman','quality'].every(k=>chord[k]===undefined||typeof chord[k]==='string')&&(chord.edited===undefined||typeof chord.edited==='boolean')}
+try{const saved=JSON.parse(localStorage.getItem(workspaceKey));if(saved&&saved.version===1&&Array.isArray(saved.chords)&&saved.chords.length>0&&saved.chords.every(validChord)&&Number.isInteger(saved.active)&&saved.active>=0&&saved.active<saved.chords.length&&validMapping(saved.mappingMode,saved.mapping)&&['diatonic','chromatic'].includes(saved.pitchMode)){chords.splice(0,chords.length,...saved.chords.map(c=>({name:c.name,referenceName:c.referenceName,root:c.root,tones:[...c.tones],pitches:[...c.pitches],roman:c.roman,quality:c.quality,edited:c.edited,role:'CHORD'})));selectedKeyboard=saved.active;mapping=[...saved.mapping];mappingMode=saved.mappingMode;pitchMode=saved.pitchMode}}catch(e){}
+let saveTimer=null;
+function saveWorkspace(){if(saveTimer!==null){clearTimeout(saveTimer);saveTimer=null}try{localStorage.setItem(workspaceKey,JSON.stringify({version:1,chords:chords.map(({name,referenceName,root,tones,pitches,roman,quality,edited})=>({name,referenceName,root,tones,pitches,roman,quality,edited})),active:selectedKeyboard,mappingMode,mapping:[...mapping],pitchMode}))}catch(e){}}
+function scheduleSave(immediate=false){if(saveTimer!==null)clearTimeout(saveTimer);if(immediate){saveTimer=null;saveWorkspace()}else saveTimer=setTimeout(saveWorkspace,250)}
+window.addEventListener?.('pagehide',()=>{if(saveTimer!==null)saveWorkspace()});
 
 const svg=document.getElementById('landscape'), ns='http://www.w3.org/2000/svg';
 const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -107,7 +117,7 @@ function draw(){
 }
 let targetGates=[0,0,0,0,0],displayGates=[0,0,0,0,0],lastFrame=null;
 function selectKeyboard(index){
- selectedKeyboard=index;
+ const changed=index!==selectedKeyboard;selectedKeyboard=index;if(changed)scheduleSave();
  syncSelector();
  document.getElementById('edit-status').textContent=`Editing ${voices[selectedVoice].name} · ← / → change note · ↑ / ↓ select keyboard · Enter inserts · Backspace removes`;
  chords.forEach((chord,row)=>{const active=row===index;chord.node.classList.toggle('active',active);chord.node.setAttribute('aria-pressed',String(active));chord.meters.forEach((meter,i)=>{meter.base.setAttribute('style',active?`fill:${voices[i].color};fill-opacity:.28;stroke:${voices[i].color}`:`fill:${voices[i].color}`);meter.glass.setAttribute('opacity',active?1:0);meter.marker.setAttribute('opacity',active&&i===selectedVoice?1:0);if(!active){meter.liquid.setAttribute('height',0);meter.liquid.setAttribute('y',keyY+meter.height);meter.surface.setAttribute('opacity',0)}})});
@@ -128,7 +138,7 @@ function syncSelector(){
 function renderChoices(){
  for(const [category,id] of [['triads','triad-choices'],['sevenths','seventh-choices']]){
   const container=document.getElementById(id);container.replaceChildren();
-  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;button.append(title);button.onclick=()=>{const index=selectedKeyboard;removeChordView(chords[index]);chords[index]={...chord,referenceName:chord.name,pitches:[...chord.pitches],tones:[...chord.tones],role:'CHORD'};draw();play(chords[index])};container.append(button);selectorButtons.set(chord,button)});
+  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;button.append(title);button.onclick=event=>{const index=selectedKeyboard;removeChordView(chords[index]);chords[index]={...chord,referenceName:chord.name,pitches:[...chord.pitches],tones:[...chord.tones],role:'CHORD'};scheduleSave(true);draw();play(chords[index]);if(event?.detail>0)chords[index].node.focus({preventScroll:true})};container.append(button);selectorButtons.set(chord,button)});
  }
  syncSelector();
 }
@@ -143,7 +153,7 @@ function renderMapping(){
 }
 function changeMapping(mode,next){
  mappingMode=mode;mapping=next;
- try{localStorage.setItem(mappingKey,JSON.stringify({mode:mappingMode,mapping}))}catch(e){error.textContent='Could not save finger mapping in this browser.'}
+ scheduleSave();
  draw();renderMapping();
  remapPlayingChord([...mapping]);
 }
@@ -161,7 +171,7 @@ function remapPlayingChord(next){actionQueue=actionQueue.then(async()=>{try{cons
 function canPlay(){if(!currentStatus){error.textContent='Router unavailable. Check that it is running.';return false}if(!currentStatus.voice_channel_mapping_supported){error.textContent='Restart the router to enable voice editing.';return false}if(currentStatus.live_melody){error.textContent='Turn off Live Melody in the chord player to play all five voices.';return false}if(!currentStatus.output_available){error.textContent='MIDI output unavailable. Check the router connection.';return false}return true}
 function play(chord){if(!canPlay())return;selectKeyboard(chords.indexOf(chord));action('/play',{voice_notes:voiceNotes(chord),mapping:[...mapping]})}
 function chooseVoice(gates){const ranked=gates.map((value,i)=>({value,i})).sort((a,b)=>b.value-a.value);if(ranked[0].value>=VOICE_THRESHOLD&&ranked[0].value-ranked[1].value>=VOICE_MARGIN&&selectedVoice!==ranked[0].i){selectedVoice=ranked[0].i;selectKeyboard(selectedKeyboard)}}
-function editVoice(delta){if(!canPlay())return;const chord=chords[selectedKeyboard],position=mapping.indexOf(selectedVoice),pitch=nextPitch(chord.pitches[position],delta,pitchMode,scalePitchClasses);if(pitch<first||pitch>last){error.textContent='Note is at the edge of the displayed keyboard.';return}chord.pitches[position]=pitch;chord.edited=true;draw();action('/play',{voice_notes:voiceNotes(chord),mapping:[...mapping]})}
+function editVoice(delta){if(!canPlay())return;const chord=chords[selectedKeyboard],position=mapping.indexOf(selectedVoice),pitch=nextPitch(chord.pitches[position],delta,pitchMode,scalePitchClasses);if(pitch<first||pitch>last){error.textContent='Note is at the edge of the displayed keyboard.';return}chord.pitches[position]=pitch;chord.edited=true;scheduleSave();draw();action('/play',{voice_notes:voiceNotes(chord),mapping:[...mapping]})}
 let navigationFrame=null;
 function centerKeyboard(chord){
  if(navigationFrame!==null)cancelAnimationFrame(navigationFrame);
@@ -170,8 +180,8 @@ function centerKeyboard(chord){
  function step(now){const progress=Math.min(1,Math.max(0,(now-started)/180)),eased=1-Math.pow(1-progress,3);window.scrollTo({top:start+(target-start)*eased,behavior:'auto'});navigationFrame=progress<1?requestAnimationFrame(step):null}
  navigationFrame=requestAnimationFrame(step);
 }
-function appendKeyboard(){const source=chords[selectedKeyboard];const {name,referenceName,root,roman,quality,edited}=source;const copy={name,referenceName,root,roman,quality,edited,pitches:[...source.pitches],tones:[...source.tones],role:'CHORD'};const index=selectedKeyboard+1;chords.splice(index,0,copy);selectedKeyboard=index;draw();play(copy);centerKeyboard(copy);}
-function deleteKeyboard(){if(chords.length===1)return;const index=selectedKeyboard;removeChordView(chords[index]);chords.splice(index,1);selectedKeyboard=Math.max(0,index-1);draw();play(chords[selectedKeyboard]);chords[selectedKeyboard].node.scrollIntoView({block:'nearest',inline:'nearest'});}
+function appendKeyboard(){const source=chords[selectedKeyboard];const {name,referenceName,root,roman,quality,edited}=source;const copy={name,referenceName,root,roman,quality,edited,pitches:[...source.pitches],tones:[...source.tones],role:'CHORD'};const index=selectedKeyboard+1;chords.splice(index,0,copy);selectedKeyboard=index;scheduleSave(true);draw();play(copy);centerKeyboard(copy);}
+function deleteKeyboard(){if(chords.length===1)return;const index=selectedKeyboard;removeChordView(chords[index]);chords.splice(index,1);selectedKeyboard=Math.max(0,index-1);scheduleSave(true);draw();play(chords[selectedKeyboard]);chords[selectedKeyboard].node.scrollIntoView({block:'nearest',inline:'nearest'});}
 document.addEventListener('keydown',e=>{if(e.defaultPrevented||e.ctrlKey||e.metaKey||e.altKey||e.target?.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target?.tagName)||e.target?.closest?.('input,select,textarea,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="spinbutton"],[role="listbox"],[role="radiogroup"],[role="tablist"],[role="menu"],[role="tree"],[role="grid"]'))return;if((e.key==='Enter'||e.key==='Backspace')&&(['BUTTON','A','SUMMARY'].includes(e.target?.tagName)||e.target?.closest?.('button,a,summary,[role="button"]:not(.chord)')))return;if(e.key==='Enter'){e.preventDefault();appendKeyboard()}else if(e.key==='Backspace'){e.preventDefault();deleteKeyboard()}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();editVoice(e.key==='ArrowLeft'?-1:1)}else if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();const next=Math.max(0,Math.min(chords.length-1,selectedKeyboard+(e.key==='ArrowUp'?-1:1)));if(next!==selectedKeyboard){play(chords[next]);centerKeyboard(chords[next])}}});
 document.getElementById('stop').addEventListener('click',()=>action('/stop',{}));document.getElementById('pitch-diatonic').checked=pitchMode==='diatonic';document.getElementById('pitch-chromatic').checked=pitchMode==='chromatic';draw();renderChoices();renderMapping();pollStatus();requestAnimationFrame(animate);
 </script></body></html>

@@ -10,6 +10,7 @@ class Element {
   addEventListener(k,fn){this[k]=fn}
   remove(){if(this.parent)this.parent.children=this.parent.children.filter(c=>c!==this)}
   scrollIntoView(){this.scrolled=true}
+  focus(){this.focused=true}
   getBoundingClientRect(){return {top:300,height:100}}
 }
 const elements={},radios=['normal','reverse','custom'].map(value=>Object.assign(new Element(),{value}));
@@ -17,7 +18,7 @@ const document={getElementById(id){return elements[id]??=new Element()},createEl
 const sent=[];
 const scrolls=[],navigationFrames=new Map();let frameId=0,scheduledNavigation=0;
 let status={voice_channel_mapping_supported:true,output_available:true,sensor_fresh:[true,true,true,true,true],gates:[0,0,0,0,0],live_melody:false,assigned_notes:null,chord_source:null};
-const context={document,window:{innerHeight:800,scrollY:200,scrollTo(options){scrolls.push(options)}},performance:{now(){return 0}},localStorage:{getItem(){return null},setItem(){}},fetch:async(path,opts)=>{if(opts?.method==='POST'){const data=JSON.parse(opts.body);sent.push({path,data});if(path==='/play')status={...status,chord_source:'explorer',voice_notes:data.voice_notes,assigned_notes:[...data.voice_notes].sort((a,b)=>a-b)}}return {ok:true,json:async()=>opts?.method==='POST'?{ok:true}:status}},setTimeout(){},requestAnimationFrame(fn){if(fn.name!=='step')return 0;const id=++frameId;navigationFrames.set(id,fn);scheduledNavigation++;return id},cancelAnimationFrame(id){navigationFrames.delete(id)}};
+const context={document,window:{innerHeight:800,scrollY:200,scrollTo(options){scrolls.push(options)}},performance:{now(){return 0}},localStorage:{getItem(){return null},setItem(){}},fetch:async(path,opts)=>{if(opts?.method==='POST'){const data=JSON.parse(opts.body);sent.push({path,data});if(path==='/play')status={...status,chord_source:'explorer',voice_notes:data.voice_notes,assigned_notes:[...data.voice_notes].sort((a,b)=>a-b)}}return {ok:true,json:async()=>opts?.method==='POST'?{ok:true}:status}},setTimeout(){return 1},clearTimeout(){},requestAnimationFrame(fn){if(fn.name!=='step')return 0;const id=++frameId;navigationFrames.set(id,fn);scheduledNavigation++;return id},cancelAnimationFrame(id){navigationFrames.delete(id)}};
 vm.createContext(context);vm.runInContext(html.split('<script>')[1].split('</script>')[0],context);
 const run=code=>vm.runInContext(code,context);
 function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({key,target:{tagName,...extra},preventDefault(){prevented=true}});return prevented}
