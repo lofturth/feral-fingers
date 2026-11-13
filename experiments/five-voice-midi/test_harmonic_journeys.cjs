@@ -24,7 +24,9 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
 (async()=>{
  await new Promise(r=>setImmediate(r));
  assert.equal(run('chords.length'),1);assert.equal(run('selectedKeyboard'),0);assert.equal(run('lines.children.length'),0);assert.equal(sent.length,0);
- assert(html.includes('.chooser{position:sticky;'));assert(html.indexOf('<section class="chooser"')<html.indexOf('<section class="landscape"'));
+ assert(html.includes('.workspace-toolbar{position:sticky;'));assert(html.indexOf('<section class="chooser"')<html.indexOf('<section class="landscape"'));
+ assert(html.includes('<details class="settings"><summary>Settings &amp; Info</summary>'));
+ assert(!html.includes('<details class="settings" open'));
  assert.equal(document.getElementById('triad-choices').children.length,7);assert.equal(document.getElementById('seventh-choices').children.length,7);
  assert(document.getElementById('triad-choices').children.every(button=>button.children.length===1));
  assert.equal(document.getElementById('triad-choices').children[0].attrs['aria-pressed'],'true');
@@ -103,6 +105,15 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  key('Enter');assert.equal(run('selectedKeyboard'),2);assert.equal(run('chords[3]'),originalMiddle);assert.equal(run('chords[4]'),originalLast);assert.equal(run('lines.children.length'),20);
  run('selectKeyboard(chords.length-1)');key('Enter');assert.equal(run('selectedKeyboard'),5);assert.equal(run('chords.length'),6);assert.equal(scrolls.at(-1).behavior,'smooth');
  await run('actionQueue');assert.deepEqual(sent.at(-1).data.voice_notes,Array.from(run('chords[5].pitches')));
+ // Ordinary button and Settings focus retain musical arrows; form fields do not.
+ assert.equal(key('ArrowUp','BUTTON'),true);assert.equal(run('selectedKeyboard'),4);
+ assert.equal(key('ArrowDown','SUMMARY'),true);assert.equal(run('selectedKeyboard'),5);
+ const beforeButtonEdit=Array.from(run('chords[5].pitches'));const beforeButtonScroll=scrolls.length;
+ run("selectedVoice=0;setPitchMode('chromatic')");assert.equal(key('ArrowRight','BUTTON'),true);
+ assert.notDeepEqual(Array.from(run('chords[5].pitches')),beforeButtonEdit);assert.equal(scrolls.length,beforeButtonScroll);
+ assert.equal(key('ArrowUp','SELECT'),false);assert.equal(key('ArrowLeft','INPUT'),false);
+ assert.equal(key('Enter','SUMMARY'),false);assert.equal(run('selectedKeyboard'),5);
+ assert.equal(run('chords.filter(c=>c.node.attrs["aria-pressed"]==="true").length'),1);
  await run('actionQueue');assert(sent.some(x=>x.path==='/play'&&x.data.voice_notes[0]===61));
  console.log('Journey duplication, editing, navigation, roots, mappings, unisons and controls passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
