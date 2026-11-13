@@ -15,9 +15,12 @@
 /* Compact workspace toolbar; the native details panel opens only on request. */
 main{padding:12px clamp(12px,3vw,32px) 24px}.workspace-toolbar{position:sticky;top:0;z-index:20;background:#080B12;padding:6px 0}header{gap:10px;align-items:center;justify-content:flex-start}header h1{font-size:18px;letter-spacing:-.02em;margin:0;white-space:nowrap}.compact-status{font-size:12px;color:#AABFDA;margin-right:auto}.stop,.settings summary{font:inherit;font-size:12px;padding:7px 12px;border:1px solid #7895BA;box-shadow:inset 0 0 0 1px #7895BA;border-radius:18px;color:#F0F4FF;cursor:pointer}.settings{position:relative}.settings summary{list-style:none;white-space:nowrap}.settings summary::-webkit-details-marker{display:none}.settings-body{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:min(600px,90vw);max-height:70vh;overflow:auto;padding:14px;background:#0D111A;border:1px solid #293347;border-radius:12px;box-shadow:none}.mapping{margin:0;padding:0;border:0;background:none}.mapping-order{margin:8px 0}.pitch-modes{margin-top:12px}.legend{margin-top:14px}.footer{margin-top:14px}.hint{margin:10px 0 0}.chooser{position:relative;top:auto;z-index:auto;max-height:none;margin-top:6px}.landscape{margin-top:8px;padding:12px 16px}.canvas{margin-top:0}.error{margin:4px 0;min-height:0}.error:empty{display:none}
 </style>
+<style>
+.selector-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.voicing-controls{display:flex;align-items:center;gap:5px;font-size:12px;color:#AABFDA}.voicing-controls[hidden]{display:none}.voicing-controls button{background:#121824;border:1px solid #7895BA;border-radius:6px;padding:1px 8px;line-height:1.4}.voicing-controls button:disabled{opacity:.35;cursor:default}
+</style>
 </head>
 <body><main>
-<div class="workspace-toolbar" id="workspace-toolbar"><header><h1>Harmonic Explorer</h1><span class="compact-status" id="compact-status" role="status">Connecting…</span><button class="stop" id="stop" type="button">Stop notes</button><details class="settings"><summary>Settings &amp; Info</summary><div class="settings-body"><section class="mapping" aria-labelledby="mapping-title"><h2 id="mapping-title">Finger Mapping</h2><div class="mapping-modes" role="radiogroup" aria-label="Finger mapping mode"><label><input type="radio" name="mapping" value="normal"> Normal</label><label><input type="radio" name="mapping" value="reverse"> Reverse</label><label><input type="radio" name="mapping" value="custom"> Custom</label></div><p class="mapping-order" id="mapping-order"></p><div class="mapping-custom" id="mapping-custom" hidden><label>Finger<select id="mapping-finger"></select></label><label>Voice slot<select id="mapping-position"></select></label></div></section><div class="pitch-modes" role="radiogroup" aria-label="Pitch editing mode"><strong>Pitch editing</strong><label><input type="radio" id="pitch-diatonic" name="pitch-mode" value="diatonic"> Diatonic (within key)</label><label><input type="radio" id="pitch-chromatic" name="pitch-mode" value="chromatic"> Chromatic</label></div><div class="legend" id="legend" aria-label="Finger colors"></div><div class="footer"><div class="status"><span id="router-status">Connecting to router…</span><span id="sensor-status">Sensors: checking…</span></div><span id="active-status">No chord selected</span></div><p class="hint" id="edit-status"></p><p class="hint" id="hint">Each finger color follows its voice through the journey.</p></div></details></header><section class="chooser" id="chord-selector" aria-label="Choose a chord for the selected keyboard"><div class="panel" id="chord-panel"><p class="row-label" id="selected-chord-label">Selected chord</p><div class="chord-rows"><div class="chord-row"><div class="choices" id="triad-choices" role="group" aria-label="Triads"></div></div><div class="chord-row"><div class="choices" id="seventh-choices" role="group" aria-label="Seventh chords"></div></div></div></div></section></div><p class="error" id="error" role="alert"></p>
+<div class="workspace-toolbar" id="workspace-toolbar"><header><h1>Harmonic Explorer</h1><span class="compact-status" id="compact-status" role="status">Connecting…</span><button class="stop" id="stop" type="button">Stop notes</button><details class="settings"><summary>Settings &amp; Info</summary><div class="settings-body"><section class="mapping" aria-labelledby="mapping-title"><h2 id="mapping-title">Finger Mapping</h2><div class="mapping-modes" role="radiogroup" aria-label="Finger mapping mode"><label><input type="radio" name="mapping" value="normal"> Normal</label><label><input type="radio" name="mapping" value="reverse"> Reverse</label><label><input type="radio" name="mapping" value="custom"> Custom</label></div><p class="mapping-order" id="mapping-order"></p><div class="mapping-custom" id="mapping-custom" hidden><label>Finger<select id="mapping-finger"></select></label><label>Voice slot<select id="mapping-position"></select></label></div></section><div class="pitch-modes" role="radiogroup" aria-label="Pitch editing mode"><strong>Pitch editing</strong><label><input type="radio" id="pitch-diatonic" name="pitch-mode" value="diatonic"> Diatonic (within key)</label><label><input type="radio" id="pitch-chromatic" name="pitch-mode" value="chromatic"> Chromatic</label></div><div class="legend" id="legend" aria-label="Finger colors"></div><div class="footer"><div class="status"><span id="router-status">Connecting to router…</span><span id="sensor-status">Sensors: checking…</span></div><span id="active-status">No chord selected</span></div><p class="hint" id="edit-status"></p><p class="hint" id="hint">Each finger color follows its voice through the journey.</p></div></details></header><section class="chooser" id="chord-selector" aria-label="Choose a chord for the selected keyboard"><div class="panel" id="chord-panel"><div class="selector-heading"><p class="row-label" id="selected-chord-label">Selected chord</p><div class="voicing-controls" id="voicing-controls" hidden><button type="button" id="voicing-prev" aria-label="Previous voicing">‹</button><span id="voicing-count"></span><button type="button" id="voicing-next" aria-label="Next voicing">›</button></div></div><div class="chord-rows"><div class="chord-row"><div class="choices" id="triad-choices" role="group" aria-label="Triads"></div></div><div class="chord-row"><div class="choices" id="seventh-choices" role="group" aria-label="Seventh chords"></div></div></div></div></section></div><p class="error" id="error" role="alert"></p>
 <section class="landscape" aria-label="Chord progression landscape"><div class="canvas"><svg id="landscape" viewBox="0 0 900 470" role="group" aria-label="Select a chord to play"></svg></div></section>
 </main><script>
 // Each position in mapping identifies the finger controlling that fixed musical voice.
@@ -45,6 +48,34 @@ const catalog={
 Object.values(catalog).flat().forEach(chord=>{chord.tones=[...new Set(chord.pitches.map(p=>p%12))]});
 const chords=[{name:'C major',referenceName:'C',root:0,tones:[0,4,7],role:'CHORD',pitches:[48,55,60,64,67]}];
 const first=48,last=84; // C3–C6 inclusive
+// Keep the best partial paths for each covered-tone set. Costs are additive,
+// so this includes the exact minimum while bounding the search for alternatives.
+function generateVoicings(reference,tones){
+ const legal=[];for(let pitch=first;pitch<=last;pitch++)if(tones.includes(pitch%12))legal.push(pitch);
+ const compare=(a,b)=>a.cost-b.cost||a.pitches.reduce((result,pitch,i)=>result||pitch-b.pitches[i],0);
+ let states=new Map([[0,[{pitches:[],cost:0}]]]);
+ for(let voice=0;voice<5;voice++){
+  const next=new Map();
+  for(const [mask,paths] of states)for(const path of paths)for(const pitch of legal){
+   const covered=mask|(1<<tones.indexOf(pitch%12));
+   if(!next.has(covered))next.set(covered,[]);
+   next.get(covered).push({pitches:[...path.pitches,pitch],cost:path.cost+Math.abs(pitch-reference[voice])});
+  }
+  for(const paths of next.values()){paths.sort(compare);paths.length=Math.min(paths.length,128)}
+  states=next;
+ }
+ const candidates=states.get((1<<tones.length)-1)||[];
+ if(!candidates.length)return [];
+ const chosen=[candidates[0]];
+ // Prefer alternatives that differ across voices; relax the separation if needed.
+ for(const separation of [8,4,1]){
+  for(const candidate of candidates){
+   if(chosen.length===8)break;
+   if(!chosen.includes(candidate)&&chosen.every(other=>candidate.pitches.reduce((sum,pitch,i)=>sum+Math.abs(pitch-other.pitches[i]),0)>=separation))chosen.push(candidate);
+  }
+ }
+ return chosen.sort(compare).map(candidate=>candidate.pitches);
+}
 const workspaceKey='feral-fingers.harmonic-explorer.workspace.v1';
 const legacyMappingKey='feral-fingers.harmonic-explorer.mapping.v1';
 let mapping=[0,1,2,3,4],mappingMode='normal';
@@ -134,15 +165,26 @@ function syncSelector(){
  const active=chords[selectedKeyboard];
  selected=Object.values(catalog).flat().find(chord=>chord.name===(active.referenceName||active.name)&&chord.root===active.root)||null;
  document.getElementById('selected-chord-label').textContent=`Selected chord · Keyboard ${selectedKeyboard+1} · ${active.name}${active.edited?' · edited':''}`;
+ const alternatives=active.voicings||[];document.getElementById('voicing-controls').hidden=!alternatives.length;
+ document.getElementById('voicing-count').textContent=alternatives.length?`${active.voicingIndex+1} / ${alternatives.length}`:'';
+ document.getElementById('voicing-prev').disabled=!alternatives.length||active.voicingIndex===0;document.getElementById('voicing-next').disabled=!alternatives.length||active.voicingIndex===alternatives.length-1;
  for(const [chord,button] of selectorButtons)button.setAttribute('aria-pressed',String(chord===selected));
 }
 function renderChoices(){
  for(const [category,id] of [['triads','triad-choices'],['sevenths','seventh-choices']]){
   const container=document.getElementById(id);container.replaceChildren();
-  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;button.append(title);button.onclick=event=>{const index=selectedKeyboard;removeChordView(chords[index]);chords[index]={...chord,referenceName:chord.name,pitches:[...chord.pitches],tones:[...chord.tones],role:'CHORD'};scheduleSave(true);draw();play(chords[index]);if(event?.detail>0)chords[index].node.focus({preventScroll:true})};container.append(button);selectorButtons.set(chord,button)});
+  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;button.append(title);button.onclick=event=>{const index=selectedKeyboard,reference=index?chords[index-1].pitches:chord.pitches,voicings=generateVoicings(reference,chord.tones);removeChordView(chords[index]);chords[index]={...chord,referenceName:chord.name,pitches:[...voicings[0]],tones:[...chord.tones],voicings,voicingIndex:0,role:'CHORD'};scheduleSave(true);draw();play(chords[index]);if(event?.detail>0)chords[index].node.focus({preventScroll:true})};container.append(button);selectorButtons.set(chord,button)});
  }
  syncSelector();
 }
+function browseVoicing(delta){
+ const chord=chords[selectedKeyboard],index=chord.voicingIndex+delta;
+ if(!chord.voicings||index<0||index>=chord.voicings.length)return;
+ chord.voicingIndex=index;chord.pitches=[...chord.voicings[index]];chord.edited=false;
+ scheduleSave(true);draw();play(chord);
+}
+document.getElementById('voicing-prev').addEventListener('click',()=>browseVoicing(-1));
+document.getElementById('voicing-next').addEventListener('click',()=>browseVoicing(1));
 let currentStatus=null,actionQueue=Promise.resolve(),statusSequence=0;
 const fingerSelect=document.getElementById('mapping-finger'),positionSelect=document.getElementById('mapping-position');
 voices.forEach((voice,i)=>{const option=document.createElement('option');option.value=String(i);option.textContent=voice.name;fingerSelect.append(option);const position=document.createElement('option');position.value=String(i);position.textContent=['1 · Initially lowest','2','3','4','5 · Initially highest'][i];positionSelect.append(position)});
