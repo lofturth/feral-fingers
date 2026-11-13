@@ -11,6 +11,7 @@ class Element {
   addEventListener(key, fn) { this[key] = fn; }
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
   scrollIntoView() {}
+  getBoundingClientRect() { return {top:300,height:100}; }
 }
 const elements = {}, radios = ['normal','reverse','custom'].map(value => Object.assign(new Element(), {value}));
 const document = {
@@ -19,7 +20,7 @@ const document = {
   querySelectorAll() { return radios; }, addEventListener(key, fn) { this[key] = fn; }
 };
 const status = { voice_channel_mapping_supported:true, output_available:true, sensor_fresh:[true,true,true,true,true], gates:[0,0,0,0,0], live_melody:false, assigned_notes:null, chord_source:null };
-const context = {document, localStorage:{getItem(){return null},setItem(){}}, fetch:async () => ({ok:true,json:async()=>status}), setTimeout(){}, requestAnimationFrame(){}};
+const context = {document, window:{innerHeight:800,scrollY:0,scrollTo(){}}, localStorage:{getItem(){return null},setItem(){}}, fetch:async () => ({ok:true,json:async()=>status}), setTimeout(){}, requestAnimationFrame(){}};
 vm.createContext(context);
 vm.runInContext(source, context);
 const run = code => vm.runInContext(code, context);
