@@ -30,6 +30,11 @@ function page(storage, unavailable=false){
  const spread=Array.from(p.run("transformVoicing(labWorking,labSource.tones,'spread',1)")),compressed=Array.from(p.run("transformVoicing(labWorking,labSource.tones,'spread',-1)"));
  assert.ok(span(spread)>base);assert.ok(span(compressed)<base);for(const pitches of [spread,compressed])pitches.forEach((n,i)=>assert.equal(n%12,original[i]%12));
  assert.deepEqual(Array.from(p.run("transformVoicing(labWorking,labSource.tones,'spread',0)")),original);
+ const doubled=[43,43,48,48,52];const step1=Array.from(p.run("transformVoicing([43,43,48,48,52],[0,4,7],'spread',1)")),step2=Array.from(p.run("transformVoicing([43,43,48,48,52],[0,4,7],'spread',2)"));
+ assert.ok(step1.some((n,i)=>n!==doubled[i]));assert.ok(step2.filter((n,i)=>n!==doubled[i]).length>=2);assert.ok(new Set(step2).size>new Set(doubled).size);step2.forEach((n,i)=>{assert.equal(n%12,doubled[i]%12);assert.ok(n>=36&&n<=84)});
+ assert.notDeepEqual(step2,[43,43,48,48,76]);assert.ok(span(step2)>=span(step1));
+ assert.ok(html.indexOf('id="lab-reset"')<html.indexOf('class="lab-sliders"'));assert.ok(html.indexOf('id="lab-start"')>html.indexOf('class="lab-sliders"'));
+
  for(const mode of ['parallel','inversion','octave','spread']){const [min,max]=Array.from(p.run(`labBounds('${mode}')`));for(const step of [min,max])assert.ok(Array.from(p.run(`transformVoicing(labWorking,labSource.tones,'${mode}',${step})`)).every(n=>n>=36&&n<=84));assert.ok(p.run(`transformVoicing(labWorking,labSource.tones,'${mode}',${max+1})`)===null||Array.from(p.run(`transformVoicing(labWorking,labSource.tones,'${mode}',${max+1})`)).some(n=>n>84||n<36));}
  p.document.getElementById('lab-start').click();assert.equal(p.key('ArrowRight'),true);const first=Array.from(p.run('labPitches'));assert.notDeepEqual(first,original);
  assert.equal(p.key('ArrowDown'),true);assert.equal(p.run('labMode'),'inversion');assert.deepEqual(Array.from(p.run('labPitches')),first);assert.equal(p.run("document.getElementById('lab-parallel').value"),'1');assert.equal(p.run("document.getElementById('lab-value-parallel').textContent"),'1');

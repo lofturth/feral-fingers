@@ -23,7 +23,7 @@ main{padding:12px clamp(12px,3vw,32px) 24px}.workspace-toolbar{position:sticky;t
 <body><main>
 <div class="workspace-toolbar" id="workspace-toolbar"><header><h1>Harmonic Explorer</h1><nav class="surface-switch" aria-label="Surface"><button id="surface-explorer" type="button" aria-pressed="true">Explorer</button><button id="surface-lab" type="button" aria-pressed="false">Voicing Roll Lab</button></nav><span class="compact-status" id="compact-status" role="status">Connecting…</span><button class="stop" id="stop" type="button">Stop notes</button><details class="settings"><summary>Settings &amp; Info</summary><div class="settings-body"><section class="mapping" aria-labelledby="mapping-title"><h2 id="mapping-title">Finger Mapping</h2><div class="mapping-modes" role="radiogroup" aria-label="Finger mapping mode"><label><input type="radio" name="mapping" value="normal"> Normal</label><label><input type="radio" name="mapping" value="reverse"> Reverse</label><label><input type="radio" name="mapping" value="custom"> Custom</label></div><p class="mapping-order" id="mapping-order"></p><div class="mapping-custom" id="mapping-custom" hidden><label>Finger<select id="mapping-finger"></select></label><label>Voice slot<select id="mapping-position"></select></label></div></section><div class="pitch-modes" role="radiogroup" aria-label="Pitch editing mode"><strong>Pitch editing</strong><label><input type="radio" id="pitch-diatonic" name="pitch-mode" value="diatonic"> Diatonic (within key)</label><label><input type="radio" id="pitch-chromatic" name="pitch-mode" value="chromatic"> Chromatic</label></div><div class="legend" id="legend" aria-label="Finger colors"></div><div class="footer"><div class="status"><span id="router-status">Connecting to router…</span><span id="sensor-status">Sensors: checking…</span></div><span id="active-status">No chord selected</span></div><p class="hint" id="edit-status"></p><p class="hint" id="hint">Each finger color follows its voice through the journey.</p></div></details></header><section class="chooser" id="chord-selector" aria-label="Choose a chord for the selected keyboard"><div class="panel" id="chord-panel"><div class="selector-heading"><p class="row-label" id="selected-chord-label">Selected chord</p><div class="voicing-controls" id="voicing-controls" hidden><button type="button" id="voicing-prev" aria-label="Previous voicing">‹</button><span id="voicing-count"></span><button type="button" id="voicing-next" aria-label="Next voicing">›</button></div></div><div class="chord-rows"><div class="chord-row"><div class="choices" id="triad-choices" role="group" aria-label="Triads"></div></div><div class="chord-row"><div class="choices" id="seventh-choices" role="group" aria-label="Seventh chords"></div></div></div></div></section></div><p class="error" id="error" role="alert"></p>
 <section class="landscape" id="explorer-surface" aria-label="Chord progression landscape"><div class="canvas"><svg id="landscape" viewBox="0 0 900 470" role="group" aria-label="Select a chord to play"></svg></div></section>
-<section id="lab-surface" hidden aria-label="Voicing Roll Lab"><p class="lab-description" id="lab-source"></p><div class="lab-controls"><div class="lab-sliders" role="group" aria-label="Voicing transformations"><label class="lab-slider" id="lab-label-parallel">Parallel <input id="lab-parallel" type="range" min="0" max="0" value="0" step="1"><output id="lab-value-parallel">0</output></label><label class="lab-slider" id="lab-label-inversion">Inversion <input id="lab-inversion" type="range" min="0" max="0" value="0" step="1"><output id="lab-value-inversion">0</output></label><label class="lab-slider" id="lab-label-octave">Octave <input id="lab-octave" type="range" min="0" max="0" value="0" step="1"><output id="lab-value-octave">0</output></label><label class="lab-slider" id="lab-label-spread">Spread / Compress <input id="lab-spread" type="range" min="0" max="0" value="0" step="1"><output id="lab-value-spread">0</output></label></div><button type="button" id="lab-reset">Reset All</button><button type="button" id="lab-start">Start audition</button><button type="button" id="lab-stop">Stop audition</button></div><div class="lab-canvas"><svg id="lab-keyboard" viewBox="0 0 900 145" role="img" aria-label="Transformed voicing"></svg></div><p class="lab-pitches" id="lab-pitches"></p></section>
+<section id="lab-surface" hidden aria-label="Voicing Roll Lab"><p class="lab-description" id="lab-source"></p><button class="stop" type="button" id="lab-reset">Reset All</button><div class="lab-controls"><div class="lab-sliders" role="group" aria-label="Voicing transformations"><label class="lab-slider" id="lab-label-parallel">Parallel <input id="lab-parallel" type="range" min="0" max="0" value="0" step="1"><output id="lab-value-parallel">0</output></label><label class="lab-slider" id="lab-label-inversion">Inversion <input id="lab-inversion" type="range" min="0" max="0" value="0" step="1"><output id="lab-value-inversion">0</output></label><label class="lab-slider" id="lab-label-octave">Octave <input id="lab-octave" type="range" min="0" max="0" value="0" step="1"><output id="lab-value-octave">0</output></label><label class="lab-slider" id="lab-label-spread">Spread / Compress <input id="lab-spread" type="range" min="0" max="0" value="0" step="1"><output id="lab-value-spread">0</output></label></div><button type="button" id="lab-start">Start audition</button><button type="button" id="lab-stop">Stop audition</button></div><div class="lab-canvas"><svg id="lab-keyboard" viewBox="0 0 900 145" role="img" aria-label="Transformed voicing"></svg></div><p class="lab-pitches" id="lab-pitches"></p></section>
 </main><script>
 // Each position in mapping identifies the finger controlling that fixed musical voice.
 const voices=[{name:'Thumb',color:'#f3a990'},{name:'Index',color:'#f2d58d'},{name:'Middle',color:'#a9d9ac'},{name:'Ring',color:'#92cadc'},{name:'Pinky',color:'#c4afe0'}];
@@ -234,26 +234,23 @@ const labFirst=36; // C2; the Explorer retains its own C3–C6 range.
 const labModes=['parallel','inversion','octave','spread'];
 let surface='explorer',labSource=null,labWorking=null,labPitches=null,labAuditioning=false,labMode='parallel',labAnchor=0;
 function transformVoicing(source,tones,mode,steps){
- const result=[...source],direction=Math.sign(steps);
+ const result=[...source],direction=Math.sign(steps),moves=[0,0,0,0,0];
  if(mode==='octave')return result.map(p=>p+12*steps);
  for(let step=0;step<Math.abs(steps);step++){
   if(mode==='parallel')for(let i=0;i<result.length;i++){do{result[i]+=direction}while(!tones.includes(((result[i]%12)+12)%12))}
   else if(mode==='spread'){
-   const low=Math.min(...result),high=Math.max(...result),span=high-low,candidates=[];
-   for(const [edge,side] of [[low,-1],[high,1]]){
-    const indices=result.map((p,i)=>p===edge?i:-1).filter(i=>i>=0);
-    for(const group of direction>0?indices.map(i=>[i]):[indices]){
-     const move=direction*side*12,next=[...result];group.forEach(i=>next[i]+=move);
-     if(next.some(p=>p<labFirst||p>last))continue;
-     const nextSpan=Math.max(...next)-Math.min(...next);
-     if(direction*(nextSpan-span)<=0)continue;
-     let crossings=0;for(const i of group)for(let j=0;j<result.length;j++)if(!group.includes(j)&&(result[i]-result[j])*(next[i]-next[j])<0)crossings++;
-     candidates.push({next,crossings,span:nextSpan,index:group[0]});
-    }
+   // Reward useful span without rewarding a single large gap or doubled notes.
+   const spacing=notes=>{const sorted=[...notes].sort((a,b)=>a-b),gaps=sorted.slice(1).map((p,i)=>p-sorted[i]);return {span:sorted[4]-sorted[0],score:sorted[4]-sorted[0]-Math.max(...gaps)-3*gaps.filter(g=>g===0).length}};
+   const current=spacing(result),candidates=[];
+   for(let i=0;i<result.length;i++)for(const shift of [-12,12]){
+    const next=[...result];next[i]+=shift;if(next[i]<labFirst||next[i]>last)continue;
+    const value=spacing(next);if(direction*(value.score-current.score)<=0||direction*(value.span-current.span)<0)continue;
+    let crossings=0;for(let j=0;j<result.length;j++)if(i!==j&&(result[i]-result[j])*(next[i]-next[j])<0)crossings++;
+    candidates.push({next,score:value.score,crossings,moved:moves[i],index:i,shift});
    }
-   candidates.sort((a,b)=>a.crossings-b.crossings||direction*(a.span-b.span)||a.index-b.index);
+   candidates.sort((a,b)=>direction*(b.score-a.score)||a.crossings-b.crossings||a.moved-b.moved||a.index-b.index||a.shift-b.shift);
    if(!candidates.length)return null;
-   result.splice(0,result.length,...candidates[0].next);
+   moves[candidates[0].index]++;result.splice(0,result.length,...candidates[0].next);
   }
   else {let selected=0;for(let i=1;i<result.length;i++)if(direction>0?result[i]<result[selected]:result[i]>result[selected])selected=i;result[selected]+=12*direction}
  }
