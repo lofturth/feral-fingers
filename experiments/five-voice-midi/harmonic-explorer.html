@@ -232,7 +232,28 @@ document.addEventListener('keydown',e=>{if(surface==='lab'){handleLabKey(e);retu
 // The lab never stores its snapshot in the Explorer journey.
 const labFirst=36; // C2; the Explorer retains its own C3–C6 range.
 const labModes=['parallel','inversion','octave','spread'];
-let surface='explorer',labSource=null,labWorking=null,labPitches=null,labAuditioning=false,labMode='parallel',labAnchor=0;
+let surface='explorer',labSource=null,labWorking=null,labPitches=null,labAuditioning=false,labMode='parallel',labAnchor=0,inversionHistory=new Map();
+// Keep a small beam of voice-slot assignments for each covered-tone set.
+function harmonicRevoice(source,tones,direction){
+ const lowest=Math.min(...source);let bass=lowest+direction;
+ while(bass>=labFirst&&bass<=last&&!tones.includes(((bass%12)+12)%12))bass+=direction;
+ if(bass<labFirst||bass>last)return null;
+ const legal=Array.from({length:last-bass+1},(_,i)=>bass+i).filter(p=>tones.includes(p%12));
+ const full=(1<<tones.length)-1,bassBit=1<<tones.length,compare=(a,b)=>a.cost-b.cost||a.notes.reduce((v,n,i)=>v||n-b.notes[i],0);
+ let states=new Map([[0,[{notes:[],cost:0}]]]);
+ for(let voice=0;voice<5;voice++){
+  const next=new Map();
+  for(const [mask,paths] of states)for(const path of paths)for(const pitch of legal){
+   const key=mask|(1<<tones.indexOf(pitch%12))|(pitch===bass?bassBit:0);
+   if(!next.has(key))next.set(key,[]);
+   next.get(key).push({notes:[...path.notes,pitch],cost:path.cost+Math.abs(pitch-source[voice])});
+  }
+  for(const paths of next.values()){paths.sort(compare);if(paths.length>16)paths.length=16}states=next;
+ }
+ const choices=states.get(full|bassBit)||[];
+ for(const choice of choices){const notes=[...choice.notes].sort((a,b)=>a-b),gaps=notes.slice(1).map((p,i)=>p-notes[i]);choice.cost+=gaps.reduce((sum,g,i)=>sum+(g===0?5:0)+Math.max(0,g-12)*2+(i===0?Math.max(0,5-g):0),0)}
+ choices.sort(compare);return choices.length?choices[0].notes:null;
+}
 function transformVoicing(source,tones,mode,steps){
  const result=[...source],direction=Math.sign(steps),moves=[0,0,0,0,0];
  if(mode==='octave')return result.map(p=>p+12*steps);
@@ -252,12 +273,18 @@ function transformVoicing(source,tones,mode,steps){
    if(!candidates.length)return null;
    moves[candidates[0].index]++;result.splice(0,result.length,...candidates[0].next);
   }
-  else {let selected=0;for(let i=1;i<result.length;i++)if(direction>0?result[i]<result[selected]:result[i]>result[selected])selected=i;result[selected]+=12*direction}
+  else {const next=harmonicRevoice(result,tones,direction);if(!next)return null;result.splice(0,result.length,...next)}
  }
  return result;
 }
+function inversionAt(position){
+ if(inversionHistory.has(position))return inversionHistory.get(position);
+ const direction=Math.sign(position-labAnchor);let index=labAnchor,notes=inversionHistory.get(index);
+ while(index!==position){const next=index+direction;if(inversionHistory.has(next))notes=inversionHistory.get(next);else{notes=harmonicRevoice(notes,labSource.tones,direction);if(!notes)return null;inversionHistory.set(next,notes)}index=next}
+ return notes;
+}
 function labBounds(mode){
- const valid=step=>{const pitches=transformVoicing(labWorking,labSource.tones,mode,step);return pitches&&pitches.every(p=>p>=labFirst&&p<=last)};
+ const valid=step=>{const pitches=mode==='inversion'&&labMode==='inversion'?inversionAt(labAnchor+step):transformVoicing(labWorking,labSource.tones,mode,step);return pitches&&pitches.every(p=>p>=labFirst&&p<=last)};
  let min=0,max=0;while(min>-37&&valid(min-1))min--;while(max<37&&valid(max+1))max++;return [min,max];
 }
 function renderLab(){
@@ -273,7 +300,7 @@ function renderLab(){
 function updateLab(){
  const mode=labMode,slider=document.getElementById('lab-'+mode),[min,max]=labBounds(mode);
  const position=Number(slider.value)||0;slider.min=String(labAnchor+min);slider.max=String(labAnchor+max);const value=Math.max(labAnchor+min,Math.min(labAnchor+max,position));slider.value=String(value);document.getElementById('lab-value-'+mode).textContent=String(value);
- const previous=labPitches;labPitches=transformVoicing(labWorking,labSource.tones,mode,value-labAnchor);renderLab();
+ const previous=labPitches;labPitches=mode==='inversion'?inversionAt(value):transformVoicing(labWorking,labSource.tones,mode,value-labAnchor);if(mode!=='inversion'&&previous&&labPitches.some((pitch,i)=>pitch!==previous[i]))inversionHistory.clear();renderLab();
  if(labAuditioning&&(!previous||labPitches.some((pitch,i)=>pitch!==previous[i])))action('/play',{voice_notes:[...labPitches],mapping:[...mapping],release_first:true});
 }
 function switchSurface(next){
@@ -285,8 +312,8 @@ function switchSurface(next){
 }
 document.getElementById('surface-explorer').addEventListener('click',()=>switchSurface('explorer'));
 document.getElementById('surface-lab').addEventListener('click',()=>switchSurface('lab'));
-function resetLabSliders(){labAnchor=0;for(const mode of labModes){const slider=document.getElementById('lab-'+mode);slider.min='0';slider.max='0';slider.value='0';document.getElementById('lab-value-'+mode).textContent='0';document.getElementById('lab-label-'+mode).classList.toggle('active',mode===labMode)}}
-function selectLabMode(mode){if(mode===labMode)return;labWorking=[...labPitches];labMode=mode;labAnchor=Number(document.getElementById('lab-'+mode).value)||0;for(const item of labModes)document.getElementById('lab-label-'+item).classList.toggle('active',item===mode);updateLab()}
+function resetLabSliders(){labAnchor=0;inversionHistory.clear();if(labMode==='inversion')inversionHistory.set(0,[...labWorking]);for(const mode of labModes){const slider=document.getElementById('lab-'+mode);slider.min='0';slider.max='0';slider.value='0';document.getElementById('lab-value-'+mode).textContent='0';document.getElementById('lab-label-'+mode).classList.toggle('active',mode===labMode)}}
+function selectLabMode(mode){if(mode===labMode)return;labWorking=[...labPitches];labMode=mode;labAnchor=Number(document.getElementById('lab-'+mode).value)||0;if(mode==='inversion'){const saved=inversionHistory.get(labAnchor);if(!saved||saved.some((pitch,i)=>pitch!==labPitches[i])){inversionHistory.clear();inversionHistory.set(labAnchor,[...labPitches])}}for(const item of labModes)document.getElementById('lab-label-'+item).classList.toggle('active',item===mode);updateLab()}
 for(const mode of labModes){const slider=document.getElementById('lab-'+mode);slider.addEventListener('pointerdown',()=>selectLabMode(mode));slider.addEventListener('focus',()=>selectLabMode(mode));slider.addEventListener('input',()=>updateLab())}
 document.getElementById('lab-reset').addEventListener('click',()=>{labWorking=[...labSource.pitches];resetLabSliders();updateLab()});
 function handleLabKey(e){
