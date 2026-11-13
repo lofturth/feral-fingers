@@ -380,7 +380,7 @@ class Router:
             if self.pending_releases.get(key) is not timer:return
             del self.pending_releases[key]
             self.send([0x80+key[0],key[1],0])
-    def play(self, notes, preset=None, voicing=None, source='player', mapping=None, voice_notes=None):
+    def play(self, notes, preset=None, voicing=None, source='player', mapping=None, voice_notes=None, release_first=False):
         with self.lock:
             if voice_notes is not None:
                 if not isinstance(voice_notes,list) or len(voice_notes)!=5 or any(type(n) is not int or not 0<=n<=127 for n in voice_notes):
@@ -407,6 +407,16 @@ class Router:
             for i,note in enumerate(new):
                 previous=old[i] if i<len(old) else None
                 if previous==note:continue
+                if release_first:
+                    for pending_key,timer in list(self.pending_releases.items()):
+                        if pending_key[0]==i:
+                            timer.cancel();del self.pending_releases[pending_key]
+                            self.send([0x80+i,pending_key[1],0])
+                    if previous is not None:self.send([0x80+i,previous,0])
+                    finger=self.finger_mapping[i]
+                    self.send([0xb0+i,1,self.cc[finger] if self.cc[finger] is not None else 0])
+                    self.send([0x90+i,note,100])
+                    continue
                 key=(i,note)
                 pending=self.pending_releases.pop(key,None)
                 if pending is not None:
@@ -752,7 +762,7 @@ def main():
                         voice_notes=data.get('voice_notes')
                         if voice_notes is not None:
                             if not isinstance(voice_notes,list) or len(voice_notes)!=5 or any(type(n) is not int or not 0<=n<=127 for n in voice_notes):raise ValueError('Voice notes must contain five MIDI pitches.')
-                            router.play(sorted(voice_notes),source='explorer',voice_notes=voice_notes,mapping=data.get('mapping'))
+                            router.play(sorted(voice_notes),source='explorer',voice_notes=voice_notes,mapping=data.get('mapping'),release_first=data.get('release_first') is True)
                         else:
                             notes=data.get('notes')
                             if not isinstance(notes,str):raise ValueError('Enter five note names.')

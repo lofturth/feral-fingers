@@ -99,6 +99,17 @@ class ExplorerIntegrationTests(unittest.TestCase):
             self.assertFalse(r.pending_releases)
             for i,n in enumerate([69,55,60,64,67]):self.assertIn([0x80+i,n,0],out.messages)
 
+    def test_lab_releases_changed_voice_before_replacement(self):
+        r, out = self.router, self.output
+        r.silence(); r.cc=[10,20,30,40,50]
+        self.request('/play', {'voice_notes':[48,55,60,64,67], 'mapping':[0,1,2,3,4], 'release_first':True})
+        out.messages.clear()
+        self.request('/play', {'voice_notes':[36,55,60,64,67], 'mapping':[0,1,2,3,4], 'release_first':True})
+        self.assertEqual(out.messages, [[0x80,48,0],[0xb0,1,10],[0x90,36,100]])
+        out.messages.clear();self.request('/stop', {})
+        self.assertIn([0x80,36,0],out.messages)
+        self.assertFalse(r.pending_releases)
+
     def test_mapped_live_cc_continues_after_remapping(self):
         r,out=self.router,self.output
         r.silence();r.sensor_reset()

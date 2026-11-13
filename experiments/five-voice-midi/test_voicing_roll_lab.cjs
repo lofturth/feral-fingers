@@ -24,38 +24,20 @@ function page(storage, unavailable=false){
  return {document,handlers,sent,run,key};
 }
 (async()=>{
- const storage={},p=page(storage);await new Promise(r=>setImmediate(r));
- const transform=(mode,steps,source='[48,55,60,64,67]')=>Array.from(p.run(`transformVoicing(${source},[0,4,7],"${mode}",${steps})`));
- assert.deepEqual(transform('parallel',1),[52,60,64,67,72]);assert.deepEqual(transform('parallel',-1),[43,52,55,60,64]);
- assert.deepEqual(transform('inversion',1),[60,55,60,64,67]);assert.deepEqual(transform('inversion',-1),[48,55,60,64,55]);
- assert.deepEqual(transform('octave',1),[60,67,72,76,79]);assert.deepEqual(transform('octave',-1),[36,43,48,52,55]);
- for(const mode of ['parallel','inversion','octave'])assert.deepEqual(transform(mode,0),[48,55,60,64,67]);
- assert.deepEqual(transform('inversion',1,'[60,60,64,67,72]'),[72,60,64,67,72]);
- assert.deepEqual(transform('parallel',1,'[49,55,60,64,67]'),[52,60,64,67,72]);
- const snapshot=p.run('JSON.stringify(chords.map(c=>c.pitches))');p.run("switchSurface('lab')");assert.equal(p.sent.length,0);
- assert.equal(p.run('JSON.stringify(chords.map(c=>c.pitches))'),snapshot);
- for(const mode of ['parallel','inversion','octave']){p.run(`document.getElementById('lab-mode').value='${mode}';updateLab()`);const [min,max]=Array.from(p.run(`labBounds('${mode}')`));for(const step of [min,max])assert.ok(Array.from(p.run(`transformVoicing(labSource.pitches,labSource.tones,'${mode}',${step})`)).every(n=>n>=36&&n<=84));}
- assert.deepEqual(Array.from(p.run("labBounds('octave')")),[-1,1]);
- for(const mode of ['parallel','inversion','octave']){const [min,max]=Array.from(p.run(`labBounds('${mode}')`));assert.ok(min<0);assert.ok(Array.from(p.run(`transformVoicing(labSource.pitches,labSource.tones,'${mode}',${min-1})`)).some(n=>n<36));assert.ok(Array.from(p.run(`transformVoicing(labSource.pitches,labSource.tones,'${mode}',${max+1})`)).some(n=>n>84));}
- assert.equal(p.run('first'),48);assert.equal(p.run('last'),84);assert.equal(p.document.getElementById('lab-keyboard').children.filter(c=>c.tagName==='rect').length,49);
- p.run("document.getElementById('lab-mode').value='octave';document.getElementById('lab-position').value='-1';updateLab()");assert.deepEqual(Array.from(p.run('labPitches')),[36,43,48,52,55]);
- p.run("document.getElementById('lab-mode').value='parallel';document.getElementById('lab-position').value='1';updateLab()");
- p.run("mapping=[4,3,2,1,0];document.getElementById('lab-position').value='1';updateLab();document.getElementById('lab-position').value='0';updateLab()");assert.deepEqual(Array.from(p.run('labPitches')),[48,55,60,64,67]);
- p.run("document.getElementById('lab-mode').value='octave';document.getElementById('lab-position').value='-1';updateLab()");p.document.getElementById('lab-start').click();p.run("document.getElementById('lab-position').value='0';updateLab()");p.run("switchSurface('explorer')");await p.run('actionQueue');
- assert.deepEqual(p.sent.filter(x=>x.path==='/play'||x.path==='/stop').map(x=>x.path),['/play','/play','/stop']);assert.deepEqual(p.sent.find(x=>x.path==='/play').data.mapping,[4,3,2,1,0]);assert.deepEqual(p.sent.find(x=>x.path==='/play').data.voice_notes,[36,43,48,52,55]);
- assert.equal(p.run('JSON.stringify(chords.map(c=>c.pitches))'),snapshot);assert.equal(p.run('selectedKeyboard'),0);
- p.run('saveWorkspace()');const q=page(storage);await new Promise(r=>setImmediate(r));assert.equal(q.sent.length,0);assert.equal(q.run('JSON.stringify(chords.map(c=>c.pitches))'),snapshot);
- const chain=page({});await new Promise(r=>setImmediate(r));chain.run("switchSurface('lab')");chain.document.getElementById('lab-start').click();
- chain.run("document.getElementById('lab-mode').value='inversion';document.getElementById('lab-mode').change();document.getElementById('lab-position').value='1';updateLab()");
- assert.deepEqual(Array.from(chain.run('labPitches')),[60,55,60,64,67]);
- chain.run("document.getElementById('lab-mode').value='octave';document.getElementById('lab-mode').change()");
- assert.equal(chain.run("document.getElementById('lab-position').value"),'0');assert.deepEqual(Array.from(chain.run('labPitches')),[60,55,60,64,67]);
- assert.deepEqual(Array.from(chain.run("labBounds('octave')")),[-1,1]);
- chain.run("document.getElementById('lab-position').value='1';updateLab();document.getElementById('lab-mode').value='parallel';document.getElementById('lab-mode').change();document.getElementById('lab-position').value='-1';updateLab()");
- assert.deepEqual(Array.from(chain.run('labPitches')),[67,64,67,72,76]);
- chain.run("document.getElementById('lab-position').value='0';updateLab();document.getElementById('lab-position').value='-1';updateLab()");assert.deepEqual(Array.from(chain.run('labPitches')),[67,64,67,72,76]);
- chain.document.getElementById('lab-reset').click();assert.deepEqual(Array.from(chain.run('labPitches')),[48,55,60,64,67]);assert.deepEqual(Array.from(chain.run('labWorking')),[48,55,60,64,67]);
- chain.run("switchSurface('explorer')");await chain.run('actionQueue');
- const calls=chain.sent.filter(x=>x.path==='/play'||x.path==='/stop');assert.equal(calls.length,8);assert.deepEqual(calls.at(-2).data.voice_notes,[48,55,60,64,67]);assert.equal(calls.at(-1).path,'/stop');assert.equal(chain.run('JSON.stringify(chords.map(c=>c.pitches))'),snapshot);
- console.log('Lab transformations, bounds, snapshot, MIDI release and persistence passed');
+ const storage={},p=page(storage);await new Promise(r=>setImmediate(r));const original=[48,55,60,64,67];
+ p.run("switchSurface('lab')");assert.equal(p.sent.length,0);assert.equal(p.run('labMode'),'parallel');
+ const span=a=>Math.max(...a)-Math.min(...a),base=span(original);
+ const spread=Array.from(p.run("transformVoicing(labWorking,labSource.tones,'spread',1)")),compressed=Array.from(p.run("transformVoicing(labWorking,labSource.tones,'spread',-1)"));
+ assert.ok(span(spread)>base);assert.ok(span(compressed)<base);for(const pitches of [spread,compressed])pitches.forEach((n,i)=>assert.equal(n%12,original[i]%12));
+ assert.deepEqual(Array.from(p.run("transformVoicing(labWorking,labSource.tones,'spread',0)")),original);
+ for(const mode of ['parallel','inversion','octave','spread']){const [min,max]=Array.from(p.run(`labBounds('${mode}')`));for(const step of [min,max])assert.ok(Array.from(p.run(`transformVoicing(labWorking,labSource.tones,'${mode}',${step})`)).every(n=>n>=36&&n<=84));assert.ok(p.run(`transformVoicing(labWorking,labSource.tones,'${mode}',${max+1})`)===null||Array.from(p.run(`transformVoicing(labWorking,labSource.tones,'${mode}',${max+1})`)).some(n=>n>84||n<36));}
+ p.document.getElementById('lab-start').click();assert.equal(p.key('ArrowRight'),true);const first=Array.from(p.run('labPitches'));assert.notDeepEqual(first,original);
+ assert.equal(p.key('ArrowDown'),true);assert.equal(p.run('labMode'),'inversion');assert.deepEqual(Array.from(p.run('labPitches')),first);assert.equal(p.run("document.getElementById('lab-parallel').value"),'0');
+ p.key('ArrowRight');const second=Array.from(p.run('labPitches'));p.key('ArrowDown');p.key('ArrowRight');const third=Array.from(p.run('labPitches'));p.key('ArrowDown');assert.equal(p.run('labMode'),'spread');p.key('ArrowRight');const fourth=Array.from(p.run('labPitches'));assert.ok(span(fourth)>span(third));fourth.forEach((n,i)=>assert.equal(n%12,third[i]%12));
+ p.key('ArrowLeft');assert.deepEqual(Array.from(p.run('labPitches')),third);p.key('ArrowRight');assert.deepEqual(Array.from(p.run('labPitches')),fourth);
+ const field={tagName:'INPUT',type:'text'};assert.equal(p.key('ArrowRight',field),false);
+ p.document.getElementById('lab-reset').click();assert.deepEqual(Array.from(p.run('labPitches')),original);for(const mode of ['parallel','inversion','octave','spread'])assert.equal(p.run(`document.getElementById('lab-${mode}').value`),'0');
+ p.run("switchSurface('explorer')");await p.run('actionQueue');const calls=p.sent.filter(x=>x.path==='/play'||x.path==='/stop');assert.equal(calls.length,9);assert.ok(calls.filter(x=>x.path==='/play').every(x=>x.data.release_first===true));assert.deepEqual(calls.at(-2).data.voice_notes,original);assert.equal(calls.at(-1).path,'/stop');assert.deepEqual(Array.from(p.run('chords[0].pitches')),original);
+ p.run('saveWorkspace()');const q=page(storage);await new Promise(r=>setImmediate(r));assert.equal(q.sent.length,0);assert.deepEqual(Array.from(q.run('chords[0].pitches')),original);
+ console.log('Spread, slider chaining, navigation, bounds, MIDI and persistence passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
