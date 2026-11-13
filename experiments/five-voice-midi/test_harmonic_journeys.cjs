@@ -21,7 +21,9 @@ const run=code=>vm.runInContext(code,context);
 function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({key,target:{tagName,...extra},preventDefault(){prevented=true}});return prevented}
 (async()=>{
  await new Promise(r=>setImmediate(r));
- assert.equal(run('chords.length'),2);assert.equal(run('selectedKeyboard'),0);assert.equal(sent.length,0);
+ assert.equal(run('chords.length'),1);assert.equal(run('selectedKeyboard'),0);assert.equal(run('lines.children.length'),0);assert.equal(sent.length,0);
+ assert(html.includes('.chooser{position:sticky;'));assert(html.indexOf('<section class="chooser"')<html.indexOf('<section class="landscape"'));
+ assert.equal(document.getElementById('triad-choices').children[0].attrs['aria-pressed'],'true');
  assert.deepEqual(Array.from(run('chords[0].tones')),[0,4,7]);
  assert.deepEqual(Array.from(run('catalog.triads[1].tones')).sort((a,b)=>a-b),[2,5,9]);
  assert.deepEqual(Array.from(run('catalog.triads[6].tones')).sort((a,b)=>a-b),[2,5,11]);
@@ -30,7 +32,7 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.equal(run('isChordTone(50,chords[0].tones)'),false);assert.equal(run('isChordTone(49,chords[0].tones)'),false);
  assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="tone-indicator chord-tone").length'),5);
  const original=Array.from(run('chords[0].pitches'));const firstNode=run('chords[0].node');
- for(let i=0;i<3;i++)assert.equal(key('Enter'),true);
+ for(let i=0;i<4;i++)assert.equal(key('Enter'),true);
  assert.equal(run('chords.length'),5);assert.equal(run('selectedKeyboard'),4);assert.equal(run('chords[4].root'),0);assert(run('chords[4].node.scrolled'));assert.equal(run('lines.children.length'),20);
  assert.equal(run('chords[0].node'),firstNode);assert.deepEqual(Array.from(run('chords[4].pitches')),original);
  run("setPitchMode('chromatic');selectedVoice=4");key('ArrowRight');
@@ -73,6 +75,28 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  key('ArrowUp');assert.equal(run('selectedKeyboard'),1);key('ArrowDown');assert.equal(run('selectedKeyboard'),2);
  key('Backspace');key('Backspace');assert.equal(run('chords.length'),1);assert.equal(run('selectedKeyboard'),0);
  await run('actionQueue');const sentBefore=sent.length;assert.equal(key('Backspace'),true);await run('actionQueue');assert.equal(run('chords.length'),1);assert.equal(sent.length,sentBefore);
+ // The selector follows the active keyboard, including edited voicings.
+ document.getElementById('triad-choices').children[0].onclick();
+ key('Enter');key('Enter');assert.equal(run('chords.length'),3);
+ document.getElementById('triad-choices').children[6].onclick();assert.equal(run('chords[2].root'),11);
+ key('ArrowUp');document.getElementById('triad-choices').children[1].onclick();assert.equal(run('chords[1].root'),2);assert.equal(run('chords[2].root'),11);
+ key('ArrowUp');document.getElementById('seventh-choices').children[0].onclick();assert.equal(run('chords[0].root'),0);assert.equal(run('chords[1].root'),2);
+ assert.equal(document.getElementById('seventh-choices').children[0].attrs['aria-pressed'],'true');
+ key('ArrowDown');assert.equal(document.getElementById('triad-choices').children[1].attrs['aria-pressed'],'true');
+ run("selectedVoice=0;setPitchMode('chromatic')");key('ArrowRight');assert.equal(run('chords[1].edited'),true);
+ assert.equal(document.getElementById('triad-choices').children[1].attrs['aria-pressed'],'true');assert(document.getElementById('selected-chord-label').textContent.includes('edited'));
+ key('ArrowDown');assert.equal(document.getElementById('triad-choices').children[6].attrs['aria-pressed'],'true');
+ key('ArrowUp');assert.equal(run('chords[1].edited'),true);assert.equal(document.getElementById('triad-choices').children[1].attrs['aria-pressed'],'true');
+ await run('actionQueue');assert.deepEqual(sent.at(-1).data.voice_notes,Array.from(run('chords[1].pitches')));
+ // Insert after the first, then the middle, then the end without changing later chords.
+ const originalMiddle=run('chords[1]'),originalLast=run('chords[2]');
+ run('selectKeyboard(0)');key('Enter');assert.equal(run('selectedKeyboard'),1);assert.equal(run('chords.length'),4);
+ assert.equal(run('chords[2]'),originalMiddle);assert.equal(run('chords[3]'),originalLast);
+ assert.deepEqual(Array.from(run('chords[1].pitches')),Array.from(run('chords[0].pitches')));assert.notEqual(run('chords[1].pitches'),run('chords[0].pitches'));
+ assert.deepEqual(Array.from(run('chords[1].tones')),Array.from(run('chords[0].tones')));assert.equal(run('chords[1].root'),run('chords[0].root'));
+ key('Enter');assert.equal(run('selectedKeyboard'),2);assert.equal(run('chords[3]'),originalMiddle);assert.equal(run('chords[4]'),originalLast);assert.equal(run('lines.children.length'),20);
+ run('selectKeyboard(chords.length-1)');key('Enter');assert.equal(run('selectedKeyboard'),5);assert.equal(run('chords.length'),6);assert(run('chords[5].node.scrolled'));
+ await run('actionQueue');assert.deepEqual(sent.at(-1).data.voice_notes,Array.from(run('chords[5].pitches')));
  await run('actionQueue');assert(sent.some(x=>x.path==='/play'&&x.data.voice_notes[0]===61));
  console.log('Journey duplication, editing, navigation, roots, mappings, unisons and controls passed');
 })().catch(e=>{console.error(e);process.exitCode=1});

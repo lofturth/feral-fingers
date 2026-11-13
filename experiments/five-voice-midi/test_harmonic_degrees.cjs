@@ -42,6 +42,8 @@ const run = code => vm.runInContext(code, context);
   }
   run("chords[0].pitches=[60,60,59,64,67];draw()");
   assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="degree-label").length'),4);
+  run('appendKeyboard()');
+  run('selectKeyboard(1)');
   document.getElementById('triad-choices').children[1].onclick();
   assert.equal(run('chords[1].root'),2);
   document.getElementById('triad-choices').children[6].onclick();

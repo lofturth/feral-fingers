@@ -54,8 +54,7 @@ class ExplorerIntegrationTests(unittest.TestCase):
         self.assertIn('text/html', headers['Content-Type'])
         self.assertEqual(headers['Cache-Control'], 'no-store')
         self.assertIn(b'Harmonic Explorer', page)
-        self.assertIn(b"name:'C major',root:0,tones:[0,4,7],role:'STARTING CHORD',pitches:[48,55,60,64,67]", page)
-        self.assertIn(b'[48,53,57,64,67]', page)
+        self.assertIn(b"name:'C major',referenceName:'C',root:0,tones:[0,4,7],role:'CHORD',pitches:[48,55,60,64,67]", page)
         self.assertIn(b'Five-voice chord player', self.request('/')[1])
 
     def test_play_switch_status_and_stop_keep_expression(self):
