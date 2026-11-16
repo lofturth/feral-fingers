@@ -62,6 +62,28 @@ function page(storage, unavailable=false){
   const expected=[...original];expected.splice(index,0,original[index]);assert.deepEqual(JSON.parse(JSON.stringify(trial.run('chords.map(c=>({name:c.name,pitches:c.pitches,root:c.root,tones:c.tones}))'))),expected);
   assert.equal(trial.run('lines.children.length'),15);
  }
+ // Internal clipboard and undo/redo preserve identity, pitches, selection and saved state.
+ const histStorage={},h=page(histStorage);await new Promise(r=>setImmediate(r));
+ h.document.getElementById('triad-choices').children[1].onclick({detail:0});const copied=JSON.parse(JSON.stringify(h.run('copyChord(chords[0])')));
+ assert.equal(h.key('c',h.document.activeElement,{metaKey:true}),true);assert(h.document.getElementById('clipboard-indicator').textContent.includes(copied.name));
+ h.key('Enter');h.document.getElementById('seventh-choices').children[0].onclick({detail:0});const changed=h.run('chords[1].name');
+ h.key('v',h.document.activeElement,{metaKey:true});assert.deepEqual(JSON.parse(JSON.stringify(h.run('copyChord(chords[1])'))),copied);
+ h.key('z',h.document.activeElement,{metaKey:true});assert.equal(h.run('chords[1].name'),changed);
+ h.key('z',h.document.activeElement,{metaKey:true,shiftKey:true});assert.deepEqual(JSON.parse(JSON.stringify(h.run('copyChord(chords[1])'))),copied);
+ h.key('v',h.document.activeElement,{metaKey:true,shiftKey:true});assert.equal(h.run('chords.length'),3);assert.equal(h.run('selectedKeyboard'),2);
+ h.key('z',h.document.activeElement,{metaKey:true});assert.equal(h.run('chords.length'),2);h.key('z',h.document.activeElement,{metaKey:true,shiftKey:true});assert.equal(h.run('chords.length'),3);
+ h.key('Backspace');assert.equal(h.run('chords.length'),2);h.key('z',h.document.activeElement,{metaKey:true});assert.equal(h.run('chords.length'),3);
+ // Animations are interruptible and disabled under reduced motion.
+ const animations=[];h.run('var animated={getAnimations(){return [{cancel(){animationCancelled=true}}]},animate(frames,options){animationFrames=frames;animationOptions=options;return {}}};var animationCancelled=false,animationFrames=null,animationOptions=null');
+ h.run("motion(animated,[{opacity:0},{opacity:1}])");assert.equal(h.run('animationCancelled'),true);assert.equal(h.run('animationOptions.duration'),180);
+ h.run("window.matchMedia=()=>({matches:true});animationFrames=null;motion(animated,[{opacity:0},{opacity:1}])");assert.equal(h.run('animationFrames'),null);h.run('window.matchMedia=()=>({matches:false})');
+ const hp=page(histStorage);assert.equal(hp.run('chords.length'),3);assert.equal(hp.run('selectedKeyboard'),2);assert.deepEqual(JSON.parse(JSON.stringify(hp.run('chords[2].pitches'))),copied.pitches);
+ for(const tagName of ['INPUT','TEXTAREA','SELECT'])for(const key of ['c','v','z'])assert.equal(h.key(key,{tagName},{metaKey:true}),false);
+ assert.equal(h.key('v',{tagName:'DIV',isContentEditable:true},{metaKey:true}),false);
+ // New edits clear redo; undo restores chord and voicing edits.
+ h.document.getElementById('triad-choices').children[2].onclick({detail:0});const selected=h.run('chords[2].name');h.document.getElementById('voicing-next').click();const voice=h.run('chords[2].voicingIndex');assert.equal(voice,1);
+ h.key('z',h.document.activeElement,{metaKey:true});assert.equal(h.run('chords[2].voicingIndex'),0);h.key('z',h.document.activeElement,{metaKey:true});assert.notEqual(h.run('chords[2].name'),selected);
+ h.key('z',h.document.activeElement,{metaKey:true,shiftKey:true});assert.equal(h.run('chords[2].name'),selected);h.key('Enter');assert.equal(h.run('redoStack.length'),0);
  for(const bad of ['{',JSON.stringify({version:2}),JSON.stringify({version:1,chords:[],active:0})]){const q=page({[keyName]:bad});await new Promise(r=>setImmediate(r));assert.equal(q.run('chords.length'),1);assert.equal(q.run('chords[0].name'),'C major');assert.equal(q.sent.length,0)}
  const legacy=page({'feral-fingers.harmonic-explorer.mapping.v1':JSON.stringify({mode:'reverse',mapping:[4,3,2,1,0]}),'feral-fingers.harmonic-explorer.pitch-mode.v1':'chromatic'});await new Promise(r=>setImmediate(r));assert.equal(legacy.run('mappingMode'),'reverse');assert.equal(legacy.run('pitchMode'),'chromatic');assert.equal(legacy.sent.length,0);
  const q=page({},true);await new Promise(r=>setImmediate(r));assert.doesNotThrow(()=>q.key('Enter'));assert.equal(q.run('chords.length'),2);
