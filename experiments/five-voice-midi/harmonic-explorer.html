@@ -50,33 +50,16 @@ const catalog={
 Object.values(catalog).flat().forEach(chord=>{chord.tones=[...new Set(chord.pitches.map(p=>p%12))]});
 const chords=[{name:'C major',referenceName:'C',root:0,tones:[0,4,7],role:'CHORD',pitches:[48,55,60,64,67]}];
 const first=48,last=84; // C3–C6 inclusive
-// Keep the best partial paths for each covered-tone set. Costs are additive,
-// so this includes the exact minimum while bounding the search for alternatives.
-function generateVoicings(reference,tones){
- const legal=[];for(let pitch=first;pitch<=last;pitch++)if(tones.includes(pitch%12))legal.push(pitch);
- const compare=(a,b)=>a.cost-b.cost||a.pitches.reduce((result,pitch,i)=>result||pitch-b.pitches[i],0);
- let states=new Map([[0,[{pitches:[],cost:0}]]]);
- for(let voice=0;voice<5;voice++){
-  const next=new Map();
-  for(const [mask,paths] of states)for(const path of paths)for(const pitch of legal){
-   const covered=mask|(1<<tones.indexOf(pitch%12));
-   if(!next.has(covered))next.set(covered,[]);
-   next.get(covered).push({pitches:[...path.pitches,pitch],cost:path.cost+Math.abs(pitch-reference[voice])});
-  }
-  for(const paths of next.values()){paths.sort(compare);paths.length=Math.min(paths.length,128)}
-  states=next;
- }
- const candidates=states.get((1<<tones.length)-1)||[];
- if(!candidates.length)return [];
- const chosen=[candidates[0]];
- // Prefer alternatives that differ across voices; relax the separation if needed.
- for(const separation of [8,4,1]){
-  for(const candidate of candidates){
-   if(chosen.length===8)break;
-   if(!chosen.includes(candidate)&&chosen.every(other=>candidate.pitches.reduce((sum,pitch,i)=>sum+Math.abs(pitch-other.pitches[i]),0)>=separation))chosen.push(candidate);
-  }
- }
- return chosen.sort(compare).map(candidate=>candidate.pitches);
+// Enumerate playable ordered voicings, then favor differing ranges and spacing.
+function generateVoicings(reference,tones,offered=[]){
+ const legal=[];for(let p=first;p<=last;p++)if(tones.includes(p%12))legal.push(p);
+ const seen=new Set(offered),pool=[];
+ function walk(notes,start){if(notes.length===5){if(tones.every(t=>notes.some(p=>p%12===t))&&!seen.has(notes.join(',')))pool.push([...notes]);return}for(let i=start;i<legal.length;i++){notes.push(legal[i]);walk(notes,i);notes.pop()}}
+ walk([],0);if(!pool.length)return [];
+ const distance=(a,b)=>a.reduce((sum,p,i)=>sum+Math.abs(p-b[i]),0);
+ const chosen=[];let previous=offered.slice(-64).map(x=>x.split(',').map(Number));
+ while(chosen.length<8&&pool.length){let best=0,bestScore=-Infinity;for(let i=0;i<pool.length;i++){const p=pool[i],span=p[4]-p[0],mean=p.reduce((a,b)=>a+b,0)/5,nearest=[...chosen,...previous].reduce((v,x)=>Math.min(v,distance(p,x)),Infinity);let score;if(!chosen.length&&!previous.length)score=-distance(p,reference);else score=Math.min(nearest,60)*3+(chosen.length%3===0?span:chosen.length%3===1?Math.abs(mean-66):0)-p.filter((n,j)=>j&&n===p[j-1]).length*3;if(score>bestScore){bestScore=score;best=i}}chosen.push(pool.splice(best,1)[0])}
+ return chosen;
 }
 const workspaceKey='feral-fingers.harmonic-explorer.workspace.v1';
 const legacyMappingKey='feral-fingers.harmonic-explorer.mapping.v1';
@@ -95,22 +78,23 @@ function nextPitch(pitch,direction,mode,scale){let next=pitch+direction;while(ne
 
 // Store musical state only; never restore sound, sensor readings or UI animation.
 function validMapping(mode,values){return ['normal','reverse','custom'].includes(mode)&&Array.isArray(values)&&values.length===5&&values.every(Number.isInteger)&&[...values].sort().join(',')==='0,1,2,3,4'&&(mode==='custom'||values.join(',')===(mode==='normal'?'0,1,2,3,4':'4,3,2,1,0'))}
+function validSuggestions(c){return Array.isArray(c.voicings)&&c.voicings.length>0&&c.voicings.length<=8&&c.voicings.every(v=>Array.isArray(v)&&v.length===5&&v.every(p=>Number.isInteger(p)&&p>=first&&p<=last&&c.tones.includes(p%12))&&c.tones.every(t=>v.some(p=>p%12===t)))&&Number.isInteger(c.voicingIndex)&&c.voicingIndex>=-1&&c.voicingIndex<c.voicings.length&&Array.isArray(c.offered)&&c.offered.every(x=>typeof x==='string'&&/^\d+,\d+,\d+,\d+,\d+$/.test(x))}
 function validChord(chord){return chord&&typeof chord.name==='string'&&chord.name.length>0&&Number.isInteger(chord.root)&&chord.root>=0&&chord.root<12&&Array.isArray(chord.pitches)&&chord.pitches.length===5&&chord.pitches.every(p=>Number.isInteger(p)&&p>=first&&p<=last)&&Array.isArray(chord.tones)&&chord.tones.length>0&&chord.tones.every(p=>Number.isInteger(p)&&p>=0&&p<12)&&new Set(chord.tones).size===chord.tones.length&&['referenceName','roman','quality'].every(k=>chord[k]===undefined||typeof chord[k]==='string')&&(chord.edited===undefined||typeof chord.edited==='boolean')}
-try{const saved=JSON.parse(localStorage.getItem(workspaceKey));if(saved&&saved.version===1&&Array.isArray(saved.chords)&&saved.chords.length>0&&saved.chords.every(validChord)&&Number.isInteger(saved.active)&&saved.active>=0&&saved.active<saved.chords.length&&validMapping(saved.mappingMode,saved.mapping)&&['diatonic','chromatic'].includes(saved.pitchMode)){chords.splice(0,chords.length,...saved.chords.map(c=>({name:c.name,referenceName:c.referenceName,root:c.root,tones:[...c.tones],pitches:[...c.pitches],roman:c.roman,quality:c.quality,edited:c.edited,role:'CHORD'})));selectedKeyboard=saved.active;mapping=[...saved.mapping];mappingMode=saved.mappingMode;pitchMode=saved.pitchMode}}catch(e){}
+try{const saved=JSON.parse(localStorage.getItem(workspaceKey));if(saved&&saved.version===1&&Array.isArray(saved.chords)&&saved.chords.length>0&&saved.chords.every(validChord)&&Number.isInteger(saved.active)&&saved.active>=0&&saved.active<saved.chords.length&&validMapping(saved.mappingMode,saved.mapping)&&['diatonic','chromatic'].includes(saved.pitchMode)){chords.splice(0,chords.length,...saved.chords.map(c=>({name:c.name,referenceName:c.referenceName,root:c.root,tones:[...c.tones],pitches:[...c.pitches],roman:c.roman,quality:c.quality,edited:c.edited,role:'CHORD',...(validSuggestions(c)?{voicings:c.voicings.map(v=>[...v]),voicingIndex:c.voicingIndex,offered:[...c.offered]}:{})})));selectedKeyboard=saved.active;mapping=[...saved.mapping];mappingMode=saved.mappingMode;pitchMode=saved.pitchMode}}catch(e){}
 let saveTimer=null;
-function saveWorkspace(){if(saveTimer!==null){clearTimeout(saveTimer);saveTimer=null}try{localStorage.setItem(workspaceKey,JSON.stringify({version:1,chords:chords.map(({name,referenceName,root,tones,pitches,roman,quality,edited})=>({name,referenceName,root,tones,pitches,roman,quality,edited})),active:selectedKeyboard,mappingMode,mapping:[...mapping],pitchMode}))}catch(e){}}
+function saveWorkspace(){if(saveTimer!==null){clearTimeout(saveTimer);saveTimer=null}try{localStorage.setItem(workspaceKey,JSON.stringify({version:1,chords:chords.map(({name,referenceName,root,tones,pitches,roman,quality,edited,voicings,voicingIndex,offered})=>({name,referenceName,root,tones,pitches,roman,quality,edited,voicings,voicingIndex,offered})),active:selectedKeyboard,mappingMode,mapping:[...mapping],pitchMode}))}catch(e){}}
 function scheduleSave(immediate=false){if(saveTimer!==null)clearTimeout(saveTimer);if(immediate){saveTimer=null;saveWorkspace()}else saveTimer=setTimeout(saveWorkspace,250)}
 // Snapshots contain musical state only, not DOM or sound state.
 const undoStack=[],redoStack=[];let chordClipboard=null;
-function copyChord(c){const {name,referenceName,root,roman,quality,edited}=c;return {name,referenceName,root,roman,quality,edited,pitches:[...c.pitches],tones:[...c.tones],role:'CHORD',...(c.voicings?{voicings:c.voicings.map(v=>[...v]),voicingIndex:c.voicingIndex}:{})}}
+function copyChord(c){const {name,referenceName,root,roman,quality,edited}=c;return {name,referenceName,root,roman,quality,edited,pitches:[...c.pitches],tones:[...c.tones],role:'CHORD',...(c.voicings?{voicings:c.voicings.map(v=>[...v]),voicingIndex:c.voicingIndex,offered:[...(c.offered||[])]}:{})}}
 function snapshot(){return {chords:chords.map(copyChord),active:selectedKeyboard}}
 function remember(){undoStack.push(snapshot());if(undoStack.length>100)undoStack.shift();redoStack.length=0}
 function reducedMotion(){return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true}
 function motion(node,frames){if(reducedMotion()||!node?.animate)return;node.getAnimations?.().forEach(animation=>animation.cancel());return node.animate(frames,{duration:180,easing:'ease-out'})}
-function collapse(chord,row){if(reducedMotion()||!chord.node?.cloneNode)return;const ghost=chord.node.cloneNode(true);ghost.setAttribute('pointer-events','none');ghost.setAttribute('aria-hidden','true');svg.append(ghost);const animation=motion(ghost,[{opacity:1,transform:`translateY(${row*rowHeight}px) scaleY(1)`},{opacity:0,transform:`translateY(${row*rowHeight}px) scaleY(.75)`}]);if(animation)animation.finished.then(()=>ghost.remove(),()=>ghost.remove());else ghost.remove()}
+function collapse(chord,row){if(reducedMotion()||!chord.node?.cloneNode)return;const ghost=chord.node.cloneNode(true);ghost.setAttribute('pointer-events','none');ghost.setAttribute('aria-hidden','true');svg.append(ghost);const animation=motion(ghost,[{opacity:1,transform:`translateY(${rowY(row)}px) scaleY(1)`},{opacity:0,transform:`translateY(${rowY(row)}px) scaleY(.75)`}]);if(animation)animation.finished.then(()=>ghost.remove(),()=>ghost.remove());else ghost.remove()}
 function flash(chord,color){motion(chord?.node?.children?.[0],[{stroke:color,strokeWidth:'6px'},{stroke:color,strokeWidth:'6px'},{stroke:'#72B8FF',strokeWidth:'4px'}])}
-function captureLayout(){return chords.map((c,i)=>({chord:c,row:i,pitches:[...c.pitches]}))}
-function animateChange(before,added=null){for(const item of before){const row=chords.indexOf(item.chord);if(row<0)continue;const c=item.chord;if(row!==item.row)motion(c.node,[{transform:`translateY(${item.row*rowHeight}px)`},{transform:`translateY(${row*rowHeight}px)`}]);for(let i=0;i<5;i++){const delta=xFor(item.pitches[i])-xFor(c.pitches[i]);if(delta)motion(c.meters?.[mapping[i]]?.base,[{transform:`translateX(${delta}px)`},{transform:'translateX(0px)'}])}}if(added){const y=chords.indexOf(added)*rowHeight;motion(added.node,[{opacity:0,transform:`translateY(${y}px) scaleY(.75)`},{opacity:1,transform:`translateY(${y}px) scaleY(1)`}])}}
+function captureLayout(){return chords.map((c,i)=>({chord:c,row:i,y:rowY(i),pitches:[...c.pitches]}))}
+function animateChange(before,added=null){for(const item of before){const row=chords.indexOf(item.chord);if(row<0)continue;const c=item.chord;if(row!==item.row)motion(c.node,[{transform:`translateY(${item.y}px)`},{transform:`translateY(${rowY(row)}px)`}]);for(let i=0;i<5;i++){const delta=xFor(item.pitches[i])-xFor(c.pitches[i]);if(delta)motion(c.meters?.[mapping[i]]?.base,[{transform:`translateX(${delta}px)`},{transform:'translateX(0px)'}])}}if(added){const y=rowY(chords.indexOf(added));motion(added.node,[{opacity:0,transform:`translateY(${y}px) scaleY(.75)`},{opacity:1,transform:`translateY(${y}px) scaleY(1)`}])}}
 function copySelected(){chordClipboard=copyChord(chords[selectedKeyboard]);document.getElementById('clipboard-indicator').textContent=`Copied ${chordClipboard.name} · ${chordClipboard.pitches.map(noteName).join(' ')}`;flash(chords[selectedKeyboard],'#72B8FF')}
 function syncSoundAfterEdit(){if(currentStatus?.chord_source==='explorer'&&currentStatus.voice_notes?.join(',')!==voiceNotes(chords[selectedKeyboard]).join(','))action('/play',{voice_notes:voiceNotes(chords[selectedKeyboard]),mapping:[...mapping]})}
 function pasteChord(insert){if(!chordClipboard)return;const before=captureLayout();remember();const copy=copyChord(chordClipboard),index=selectedKeyboard+(insert?1:0);if(!insert)removeChordView(chords[index]);chords.splice(index,insert?0:1,copy);selectedKeyboard=index;scheduleSave(true);draw();animateChange(before,insert?copy:null);if(!insert)flash(copy,'#65d99b');copy.node.focus({preventScroll:true});if(insert)centerKeyboard(copy);syncSoundAfterEdit()}
@@ -130,13 +114,16 @@ function xFor(p){if(!black(p))return startX+whitePitches.indexOf(p)*whiteWidth+w
 function element(tag,attrs,parent=svg){const e=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attrs))e.setAttribute(key,value);parent.append(e);return e}
 function shade(color, amount){const n=parseInt(color.slice(1),16);return '#'+[16,8,0].map(shift=>{const v=(n>>shift)&255;return Math.round(amount>=0?v+(255-v)*amount:v*(1+amount)).toString(16).padStart(2,'0')}).join('')}
 function voiceX(chord,finger){const position=mapping.indexOf(finger),pitch=chord.pitches[position],positions=chord.pitches.map((p,i)=>p===pitch?i:-1).filter(i=>i>=0),width=black(pitch)?blackWidth:whiteWidth;return xFor(pitch)-width/2+width*(positions.indexOf(position)+.5)/positions.length}
-let gradientDefs, lines;
+let gradientDefs, lines, galleryNode, lineClip;let galleryOpen=true;
+const galleryHeight=390;
+function rowY(row){return row*rowHeight+(galleryOpen&&row>selectedKeyboard?galleryHeight:0)}
 function removeChordView(chord){if(chord.node)chord.node.remove();if(chord.clipDefs)chord.clipDefs.remove();chord.node=null;chord.clipDefs=null;chord.renderKey=null}
 function draw(){
- svg.setAttribute('viewBox',`0 0 900 ${(chords.length-1)*rowHeight+180}`);
- if(!gradientDefs){gradientDefs=element('defs',{});voices.forEach((voice,i)=>{const gradient=element('linearGradient',{id:`liquid-gradient-${i}`,x1:'0%',y1:'0%',x2:'0%',y2:'100%'},gradientDefs);element('stop',{offset:'0%','stop-color':shade(voice.color,.1)},gradient);element('stop',{offset:'45%','stop-color':voice.color},gradient);element('stop',{offset:'100%','stop-color':shade(voice.color,-.27)},gradient)});lines=element('g',{'aria-hidden':'true'});}else lines.replaceChildren();
- for(let row=0;row<chords.length-1;row++)voices.forEach((voice,i)=>element('line',{x1:voiceX(chords[row],i),y1:row*rowHeight+keyY+keyHeight,x2:voiceX(chords[row+1],i),y2:(row+1)*rowHeight+keyY,stroke:voice.color,class:'voice-line'},lines));
- chords.forEach((chord,row)=>{const renderKey=JSON.stringify([row,chord.name,chord.role,chord.roman,chord.root,chord.edited,chord.pitches,chord.tones,mapping]);if(chord.renderKey===renderKey)return;removeChordView(chord);chord.renderKey=renderKey;const defs=element('defs',{});chord.clipDefs=defs;const y=row*rowHeight,g=element('g',{class:'chord',tabindex:'0',role:'button','aria-label':'Play '+chord.name,'aria-pressed':'false',transform:`translate(0 ${y})`});chord.node=g;chord.meters=[];
+ svg.setAttribute('viewBox',`0 0 900 ${rowY(chords.length-1)+205+(galleryOpen&&selectedKeyboard===chords.length-1?galleryHeight:0)}`);
+ if(!gradientDefs){gradientDefs=element('defs',{});voices.forEach((voice,i)=>{const gradient=element('linearGradient',{id:`liquid-gradient-${i}`,x1:'0%',y1:'0%',x2:'0%',y2:'100%'},gradientDefs);element('stop',{offset:'0%','stop-color':shade(voice.color,.1)},gradient);element('stop',{offset:'45%','stop-color':voice.color},gradient);element('stop',{offset:'100%','stop-color':shade(voice.color,-.27)},gradient)});lineClip=element('clipPath',{id:'journey-line-clip',clipPathUnits:'userSpaceOnUse'},gradientDefs);lines=element('g',{'aria-hidden':'true'});}else lines.replaceChildren();
+ lineClip.replaceChildren();if(galleryOpen){const gapTop=rowY(selectedKeyboard)+176,gapBottom=gapTop+galleryHeight;element('rect',{x:0,y:0,width:900,height:gapTop},lineClip);element('rect',{x:0,y:gapBottom,width:900,height:rowY(chords.length-1)+galleryHeight+205},lineClip);lines.setAttribute('clip-path','url(#journey-line-clip)')}else lines.setAttribute('clip-path','none');
+ for(let row=0;row<chords.length-1;row++)voices.forEach((voice,i)=>element('line',{x1:voiceX(chords[row],i),y1:rowY(row)+keyY+keyHeight,x2:voiceX(chords[row+1],i),y2:rowY(row+1)+keyY,stroke:voice.color,class:'voice-line'},lines));
+ chords.forEach((chord,row)=>{const renderKey=JSON.stringify([row,rowY(row),chord.name,chord.role,chord.roman,chord.root,chord.edited,chord.pitches,chord.tones,mapping]);if(chord.renderKey===renderKey)return;removeChordView(chord);chord.renderKey=renderKey;const defs=element('defs',{});chord.clipDefs=defs;const y=rowY(row),g=element('g',{class:'chord',tabindex:'0',role:'button','aria-label':'Play '+chord.name,'aria-pressed':'false',transform:`translate(0 ${y})`});chord.node=g;chord.meters=[];
   element('rect',{x:0,y:0,width:900,height:172,rx:14,class:'frame'},g);
   const number=element('text',{x:22,y:125,class:'chord-number','aria-hidden':'true'},g);number.textContent=String(row+1);
   let t=element('text',{x:22,y:34,class:'chord-sub'},g);t.textContent=chord.roman?'CHORD · '+chord.roman:'CHORD';
@@ -162,11 +149,12 @@ function draw(){
   g.addEventListener('click',()=>play(chord));g.addEventListener('keydown',e=>{if(e.key===' '){e.preventDefault();play(chord)}});
  });
  selectKeyboard(selectedKeyboard);
+ renderGallery();
  document.getElementById('legend').innerHTML=voices.map(v=>`<span><i class="dot" style="background:${v.color}"></i>${v.name}</span>`).join('');
 }
 let targetGates=[0,0,0,0,0],displayGates=[0,0,0,0,0],lastFrame=null;
 function selectKeyboard(index){
- const changed=index!==selectedKeyboard;selectedKeyboard=index;if(changed)scheduleSave();
+ const changed=index!==selectedKeyboard;selectedKeyboard=index;if(changed){scheduleSave();draw();return}
  syncSelector();
  document.getElementById('edit-status').textContent=`Editing ${voices[selectedVoice].name} · ← / → change note · ↑ / ↓ select keyboard · Enter duplicates below · Shift+Enter duplicates above · Backspace removes`;
  chords.forEach((chord,row)=>{const active=row===index;chord.node.classList.toggle('active',active);chord.node.setAttribute('aria-pressed',String(active));chord.meters.forEach((meter,i)=>{meter.base.setAttribute('style',active?`fill:${voices[i].color};fill-opacity:.28;stroke:${voices[i].color}`:`fill:${voices[i].color}`);meter.glass.setAttribute('opacity',active?1:0);meter.marker.setAttribute('opacity',active&&i===selectedVoice?1:0);if(!active){meter.liquid.setAttribute('height',0);meter.liquid.setAttribute('y',keyY+meter.height);meter.surface.setAttribute('opacity',0)}})});
@@ -177,6 +165,23 @@ function animate(now){
  const chord=chords[selectedKeyboard];
  chord.meters.forEach((meter,i)=>{displayGates[i]+=(targetGates[i]-displayGates[i])*blend;const value=displayGates[i];meter.liquid.setAttribute('height',meter.height*value);meter.liquid.setAttribute('y',keyY+meter.height*(1-value));const y=keyY+meter.height*(1-value);meter.surface.setAttribute('y1',y);meter.surface.setAttribute('y2',y);meter.surface.setAttribute('opacity',value>.005?.8:0)});
  requestAnimationFrame(animate);
+}
+function selectVoicing(index){const chord=chords[selectedKeyboard];if(!chord.voicings||index<0||index>=chord.voicings.length)return;const before=captureLayout();remember();chord.voicingIndex=index;chord.pitches=[...chord.voicings[index]];chord.edited=false;scheduleSave(true);draw();animateChange(before);play(chord)}
+function regenerateVoicings(){const c=chords[selectedKeyboard];const next=generateVoicings(c.pitches,c.tones,c.offered||[]);if(!next.length){document.getElementById('error').textContent='No more distinct voicings available.';return}c.voicings=next;c.offered=[...(c.offered||[]),...next.map(v=>v.join(','))];c.voicingIndex=-1;document.getElementById('error').textContent=next.length<8?'Only '+next.length+' distinct voicings remain.':'';scheduleSave(true);draw()}
+function character(p){const span=p[4]-p[0],mean=p.reduce((a,b)=>a+b,0)/5;return span<15?'Close':span>27?'Open':mean<59?'Low':mean>70?'High':'Balanced'}
+function renderGallery(){
+ if(galleryNode)galleryNode.remove();const c=chords[selectedKeyboard];
+ if(!c.voicings){c.voicings=generateVoicings(c.pitches,c.tones);c.offered=c.voicings.map(v=>v.join(','));c.voicingIndex=c.voicings.findIndex(v=>v.join(',')===c.pitches.join(','))}
+ galleryNode=element('g',{class:'voicing-gallery',transform:`translate(0 ${rowY(selectedKeyboard)+178})`});
+ const toggle=element('g',{role:'button',tabindex:'0','aria-label':galleryOpen?'Collapse voicing gallery':'Expand voicing gallery'},galleryNode);let label=element('text',{x:8,y:17,fill:'#AABFDA','font-size':14},toggle);label.textContent=galleryOpen?'▾ Voicings · 1–8 select · R more':'▸ Voicings';const toggleGallery=()=>{galleryOpen=!galleryOpen;draw()};toggle.addEventListener('click',toggleGallery);toggle.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();e.stopPropagation();toggleGallery()}});
+ if(!galleryOpen)return;
+ c.voicings.forEach((p,index)=>{const x=8+(index%2)*444,y=28+Math.floor(index/2)*90,g=element('g',{role:'button',tabindex:'0','aria-label':`Voicing ${index+1}, ${character(p)}`,'aria-pressed':String(index===c.voicingIndex),transform:`translate(${x} ${y})`,style:'cursor:pointer'},galleryNode);element('rect',{x:0,y:0,width:432,height:84,rx:6,fill:'#121824',stroke:index===c.voicingIndex?'#72B8FF':'#52657f','stroke-width':index===c.voicingIndex?3:1},g);const title=element('text',{x:7,y:14,fill:'#c5d5eb','font-size':11},g);title.textContent=`${index+1} · ${character(p)}`;
+ const scale=q=>8+(xFor(q)-startX)*416/(whiteWidth*whitePitches.length),prior=chords[selectedKeyboard-1],markerX=(notes,position)=>{const q=notes[position],slots=notes.map((n,i)=>n===q?i:-1).filter(i=>i>=0);return scale(q)+(slots.indexOf(position)-(slots.length-1)/2)*3};
+ if(prior)voices.forEach((v,i)=>{const position=mapping.indexOf(i);element('line',{x1:markerX(prior.pitches,position),y1:18,x2:markerX(p,position),y2:36,stroke:v.color,'stroke-width':2,class:'gallery-voice-line'},g)});
+ const top=prior?39:27,w=416/whitePitches.length;whitePitches.forEach(q=>element('rect',{x:scale(q)-w/2,y:top,width:w,height:36,fill:'#e4e9e3',stroke:'#889991','stroke-width':.5},g));for(let q=first;q<=last;q++)if(black(q))element('rect',{x:scale(q)-w*.3,y:top,width:w*.6,height:23,fill:'#172235'},g);
+ p.forEach((q,i)=>element('circle',{cx:markerX(p,i),cy:top+29,r:3.5,fill:voices[mapping[i]].color,stroke:'#111','stroke-width':.6},g));
+ const choose=()=>{selectVoicing(index);chords[selectedKeyboard].node.focus({preventScroll:true})};g.addEventListener('click',choose);g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();choose()}});
+ });
 }
 function syncSelector(){
  const active=chords[selectedKeyboard];
@@ -191,15 +196,12 @@ function syncSelector(){
 function renderChoices(){
  for(const [category,id] of [['triads','triad-choices'],['sevenths','seventh-choices']]){
   const container=document.getElementById(id);container.replaceChildren();
-  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;button.append(title);button.onclick=event=>{const index=selectedKeyboard,reference=index?chords[index-1].pitches:chord.pitches,voicings=generateVoicings(reference,chord.tones),before=captureLayout(),old=chords[index];remember();removeChordView(chords[index]);chords[index]={...chord,referenceName:chord.name,pitches:[...voicings[0]],tones:[...chord.tones],voicings,voicingIndex:0,role:'CHORD'};scheduleSave(true);draw();before.find(item=>item.chord===old).chord=chords[index];animateChange(before);play(chords[index]);chords[index].node.focus({preventScroll:true})};container.append(button);selectorButtons.set(chord,button)});
+  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;button.append(title);button.onclick=event=>{const index=selectedKeyboard,reference=chord.pitches,voicings=generateVoicings(reference,chord.tones),before=captureLayout(),old=chords[index];remember();removeChordView(chords[index]);chords[index]={...chord,referenceName:chord.name,pitches:[...voicings[0]],tones:[...chord.tones],voicings,offered:voicings.map(v=>v.join(',')),voicingIndex:0,role:'CHORD'};scheduleSave(true);draw();before.find(item=>item.chord===old).chord=chords[index];animateChange(before);play(chords[index]);chords[index].node.focus({preventScroll:true})};container.append(button);selectorButtons.set(chord,button)});
  }
  syncSelector();
 }
 function browseVoicing(delta){
- const chord=chords[selectedKeyboard],index=chord.voicingIndex+delta;
- if(!chord.voicings||index<0||index>=chord.voicings.length)return;
- const before=captureLayout();remember();chord.voicingIndex=index;chord.pitches=[...chord.voicings[index]];chord.edited=false;
- scheduleSave(true);draw();animateChange(before);play(chord);
+ const chord=chords[selectedKeyboard],index=chord.voicingIndex<0?(delta>0?0:chord.voicings.length-1):chord.voicingIndex+delta;selectVoicing(index);
 }
 document.getElementById('voicing-prev').addEventListener('click',()=>{browseVoicing(-1);chords[selectedKeyboard].node.focus({preventScroll:true})});
 document.getElementById('voicing-next').addEventListener('click',()=>{browseVoicing(1);chords[selectedKeyboard].node.focus({preventScroll:true})});
@@ -233,7 +235,7 @@ function remapPlayingChord(next){actionQueue=actionQueue.then(async()=>{try{cons
 function canPlay(){if(!currentStatus){error.textContent='Router unavailable. Check that it is running.';return false}if(!currentStatus.voice_channel_mapping_supported){error.textContent='Restart the router to enable voice editing.';return false}if(currentStatus.live_melody){error.textContent='Turn off Live Melody in the chord player to play all five voices.';return false}if(!currentStatus.output_available){error.textContent='MIDI output unavailable. Check the router connection.';return false}return true}
 function play(chord){if(!canPlay())return;selectKeyboard(chords.indexOf(chord));action('/play',{voice_notes:voiceNotes(chord),mapping:[...mapping]})}
 function chooseVoice(gates){const ranked=gates.map((value,i)=>({value,i})).sort((a,b)=>b.value-a.value);if(ranked[0].value>=VOICE_THRESHOLD&&ranked[0].value-ranked[1].value>=VOICE_MARGIN&&selectedVoice!==ranked[0].i){selectedVoice=ranked[0].i;selectKeyboard(selectedKeyboard)}}
-function editVoice(delta){if(!canPlay())return;const chord=chords[selectedKeyboard],position=mapping.indexOf(selectedVoice),pitch=nextPitch(chord.pitches[position],delta,pitchMode,scalePitchClasses);if(pitch<first||pitch>last){error.textContent='Note is at the edge of the displayed keyboard.';return}const before=captureLayout();remember();chord.pitches[position]=pitch;chord.edited=true;scheduleSave();draw();animateChange(before);action('/play',{voice_notes:voiceNotes(chord),mapping:[...mapping]})}
+function editVoice(delta){if(!canPlay())return;const chord=chords[selectedKeyboard],position=mapping.indexOf(selectedVoice),pitch=nextPitch(chord.pitches[position],delta,pitchMode,scalePitchClasses);if(pitch<first||pitch>last){error.textContent='Note is at the edge of the displayed keyboard.';return}const before=captureLayout();remember();chord.pitches[position]=pitch;chord.edited=true;chord.voicingIndex=-1;scheduleSave();draw();animateChange(before);action('/play',{voice_notes:voiceNotes(chord),mapping:[...mapping]})}
 let navigationFrame=null;
 function centerKeyboard(chord){
  if(navigationFrame!==null)cancelAnimationFrame(navigationFrame);
@@ -248,7 +250,7 @@ function deleteKeyboard(){if(chords.length===1)return;const before=captureLayout
 document.getElementById('duplicate-above').addEventListener('click',()=>appendKeyboard(true));
 document.getElementById('duplicate-below').addEventListener('click',()=>appendKeyboard());
 document.getElementById('delete-keyboard').addEventListener('click',deleteKeyboard);
-document.addEventListener('keydown',e=>{if(surface==='lab'){handleLabKey(e);return}if(e.defaultPrevented||e.ctrlKey||e.altKey||e.target?.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target?.tagName)||e.target?.closest?.('input,select,textarea,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="spinbutton"],[role="listbox"],[role="radiogroup"],[role="tablist"],[role="menu"],[role="tree"],[role="grid"]'))return;if(e.metaKey){const key=e.key.toLowerCase();if(key==='c'&&!e.shiftKey){e.preventDefault();copySelected()}else if(key==='v'){e.preventDefault();pasteChord(e.shiftKey)}else if(key==='z'){e.preventDefault();e.shiftKey?historyMove(redoStack,undoStack):historyMove(undoStack,redoStack)}return}if((e.key==='Enter'||e.key==='Backspace')&&(['BUTTON','A','SUMMARY'].includes(e.target?.tagName)||e.target?.closest?.('button,a,summary,[role="button"]:not(.chord)')))return;if(e.key==='Enter'){e.preventDefault();appendKeyboard(e.shiftKey)}else if(e.key==='Backspace'){e.preventDefault();deleteKeyboard()}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();editVoice(e.key==='ArrowLeft'?-1:1)}else if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();const next=Math.max(0,Math.min(chords.length-1,selectedKeyboard+(e.key==='ArrowUp'?-1:1)));if(next!==selectedKeyboard){play(chords[next]);centerKeyboard(chords[next])}}});
+document.addEventListener('keydown',e=>{if(surface==='lab'){handleLabKey(e);return}if(e.defaultPrevented||e.ctrlKey||e.altKey||e.target?.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target?.tagName)||e.target?.closest?.('input,select,textarea,[contenteditable]:not([contenteditable="false"]),[role="slider"],[role="spinbutton"],[role="listbox"],[role="radiogroup"],[role="tablist"],[role="menu"],[role="tree"],[role="grid"]'))return;if(e.metaKey){const key=e.key.toLowerCase();if(key==='c'&&!e.shiftKey){e.preventDefault();copySelected()}else if(key==='v'){e.preventDefault();pasteChord(e.shiftKey)}else if(key==='z'){e.preventDefault();e.shiftKey?historyMove(redoStack,undoStack):historyMove(undoStack,redoStack)}return}if((e.key==='Enter'||e.key==='Backspace')&&(['BUTTON','A','SUMMARY'].includes(e.target?.tagName)||e.target?.closest?.('button,a,summary,[role="button"]:not(.chord)')))return;if(/^[1-8]$/.test(e.key)){e.preventDefault();selectVoicing(Number(e.key)-1)}else if(e.key===','||e.key==='.'){e.preventDefault();browseVoicing(e.key===','?-1:1)}else if(e.key.toLowerCase()==='r'&&!e.shiftKey){e.preventDefault();regenerateVoicings()}else if(e.key==='Enter'){e.preventDefault();appendKeyboard(e.shiftKey)}else if(e.key==='Backspace'){e.preventDefault();deleteKeyboard()}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();editVoice(e.key==='ArrowLeft'?-1:1)}else if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();const next=Math.max(0,Math.min(chords.length-1,selectedKeyboard+(e.key==='ArrowUp'?-1:1)));if(next!==selectedKeyboard){play(chords[next]);centerKeyboard(chords[next])}}});
 // The lab never stores its snapshot in the Explorer journey.
 const labFirst=36; // C2; the Explorer retains its own C3–C6 range.
 const labModes=['parallel','inversion','octave','spread'];

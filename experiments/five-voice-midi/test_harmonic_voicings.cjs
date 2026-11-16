@@ -27,33 +27,28 @@ function page(storage, unavailable=false){
  const storage={},p=page(storage);await new Promise(r=>setImmediate(r));
  const cases=[['triads',0],['triads',1],['triads',6],['sevenths',1],['sevenths',6]];
  for(const [category,index] of cases){
-  const result=JSON.parse(p.run(`JSON.stringify(generateVoicings([48,55,60,64,67],catalog.${category}[${index}].tones))`));
-  const tones=Array.from(p.run(`catalog.${category}[${index}].tones`));
-  assert.ok(result.length>1&&result.length<=8);
-  assert.equal(new Set(result.map(x=>x.join(','))).size,result.length);
-  assert.equal(JSON.stringify(result),p.run(`JSON.stringify(generateVoicings([48,55,60,64,67],catalog.${category}[${index}].tones))`));
-  for(const pitches of result){assert.ok(pitches.every(n=>n>=48&&n<=84&&tones.includes(n%12)));assert.ok(tones.every(t=>pitches.some(n=>n%12===t)))}
-  const cost=a=>a.reduce((v,n,i)=>v+Math.abs(n-[48,55,60,64,67][i]),0);
-  assert.ok(result.every((v,i)=>!i||cost(result[i-1])<=cost(v)));
-  // Independent exhaustive minimum, without assuming ordered voices.
-  const legal=Array.from({length:37},(_,i)=>i+48).filter(n=>tones.includes(n%12));let best=Infinity;
-  function walk(notes){if(notes.length===5){if(tones.every(t=>notes.some(n=>n%12===t)))best=Math.min(best,cost(notes));return}for(const n of legal)walk([...notes,n])}walk([]);
-  assert.equal(cost(result[0]),best);
-  assert.ok(result.slice(1).some(v=>v.reduce((sum,n,i)=>sum+Math.abs(n-result[0][i]),0)>=4));
+  const result=JSON.parse(p.run(`JSON.stringify(generateVoicings(catalog.${category}[${index}].pitches,catalog.${category}[${index}].tones))`));
+  const tones=Array.from(p.run(`catalog.${category}[${index}].tones`));assert.equal(result.length,8);assert.equal(new Set(result.map(x=>x.join(','))).size,8);
+  for(const v of result){assert(v.every(n=>n>=48&&n<=84&&tones.includes(n%12)));assert(tones.every(t=>v.some(n=>n%12===t)))}
+  assert(result.some(v=>v[4]-v[0]>=24));assert(result.some(v=>v.reduce((a,b)=>a+b,0)<310));
  }
- assert.deepEqual(JSON.parse(p.run('JSON.stringify(generateVoicings([72,48,64,55,60],[0,4,7])[0])')),[72,48,64,55,60]);
- p.document.getElementById('triad-choices').children[0].onclick({detail:0});
- assert.deepEqual(Array.from(p.run('chords[0].pitches')),[48,52,55,60,64]);
- p.key('Enter');const before=Array.from(p.run('chords[0].pitches'));
- p.document.getElementById('seventh-choices').children[1].onclick({detail:0});
- assert.deepEqual(Array.from(p.run('chords[1].pitches')),Array.from(p.run('generateVoicings(chords[0].pitches,catalog.sevenths[1].tones)[0]')));
- p.run("mapping=[4,3,2,1,0];mappingMode='reverse';selectedVoice=0;pitchMode='chromatic';editVoice(1)");
- assert.equal(p.run('chords[1].edited'),true);const edited=Array.from(p.run('chords[1].pitches'));
- assert.notDeepEqual(edited,Array.from(p.run('chords[1].voicings[0]')));
- p.document.getElementById('voicing-next').click();assert.equal(p.run('chords[1].voicingIndex'),1);assert.equal(p.run('chords[1].edited'),false);
- assert.deepEqual(Array.from(p.run('chords[0].pitches')),before);
- const selected=Array.from(p.run('chords[1].pitches'));assert.deepEqual(JSON.parse(storage[keyName]).chords[1].pitches,selected);
- await new Promise(r=>setImmediate(r));await p.run('actionQueue');assert.deepEqual(p.sent.filter(x=>x.path==='/play').at(-1).data.voice_notes,selected);
- const restored=page(storage);await new Promise(r=>setImmediate(r));assert.deepEqual(Array.from(restored.run('chords[1].pitches')),selected);assert.equal(restored.sent.length,0);assert.equal(restored.document.getElementById('voicing-controls').hidden,true);
- console.log('Voicing coverage, minimum movement, variety, crossings, browsing and persistence passed');
+ // Chord selection uses the chord's own reference, independent of the preceding chord.
+ p.key('Enter');p.run('chords[0].pitches=[72,73,74,75,76]');p.document.getElementById('seventh-choices').children[1].onclick({detail:0});
+ assert.deepEqual(Array.from(p.run('chords[1].pitches')),Array.from(p.run('generateVoicings(catalog.sevenths[1].pitches,catalog.sevenths[1].tones)[0]')));
+ assert.equal(p.run('galleryNode.children.length'),9);assert.equal(p.run('galleryNode.children[1].children.filter(x=>x.attrs.class==="gallery-voice-line").length'),5);
+ const old=Array.from(p.run('chords[1].pitches'));const priorBatch=JSON.parse(p.run('JSON.stringify(chords[1].voicings)'));
+ for(let i=0;i<8;i++){assert.equal(p.key(String(i+1)),true);assert.deepEqual(Array.from(p.run('chords[1].pitches')),priorBatch[i])}
+ p.key(',');assert.deepEqual(Array.from(p.run('chords[1].pitches')),priorBatch[6]);p.key('.');assert.deepEqual(Array.from(p.run('chords[1].pitches')),priorBatch[7]);
+ const current=Array.from(p.run('chords[1].pitches'));const sentBefore=p.sent.length;p.key('r');assert.deepEqual(Array.from(p.run('chords[1].pitches')),current);assert.equal(p.run('chords[1].voicingIndex'),-1);
+ const nextBatch=JSON.parse(p.run('JSON.stringify(chords[1].voicings)'));assert.equal(nextBatch.length,8);assert.equal(new Set([...priorBatch,...nextBatch].map(v=>v.join(','))).size,16);
+ await p.run('actionQueue');const plays=p.sent.filter(x=>x.path==='/play');assert.deepEqual(plays.at(-1).data.voice_notes,current);const count=plays.length;p.key('r');await p.run('actionQueue');assert.equal(p.sent.filter(x=>x.path==='/play').length,count);
+ p.key('1');await p.run('actionQueue');assert.deepEqual(p.sent.filter(x=>x.path==='/play').at(-1).data.voice_notes,Array.from(p.run('chords[1].pitches')));
+ for(const tagName of ['INPUT','TEXTAREA','SELECT'])for(const key of ['1',',','.','r'])assert.equal(p.key(key,{tagName}),false);
+ const selected=Array.from(p.run('chords[1].pitches'));const restored=page(storage);await new Promise(r=>setImmediate(r));assert.deepEqual(Array.from(restored.run('chords[1].pitches')),selected);assert.equal(restored.run('chords[1].offered.length'),24);assert.equal(restored.sent.length,0);
+ // Lines use the same scaled pitch positions as each colored marker.
+ const g=p.run('galleryNode.children[1]');const lines=g.children.filter(x=>x.attrs.class==='gallery-voice-line'),dots=g.children.filter(x=>x.tagName==='circle');assert.equal(dots.length,5);for(let i=0;i<5;i++)assert.equal(lines[i].attrs.x2,dots[p.run(`mapping.indexOf(${i})`)].attrs.cx);
+ p.run('selectKeyboard(0)');assert.equal(p.run('galleryNode.children[1].children.filter(x=>x.attrs.class==="gallery-voice-line").length'),0);
+ p.run('galleryNode.children[0].click()');assert.equal(p.run('galleryNode.children.length'),1);p.run('galleryNode.children[0].click()');assert.equal(p.run('galleryNode.children.length'),9);
+ let offered=[];while(true){p.run(`var testedOffered=${JSON.stringify(offered)}`);const batch=JSON.parse(p.run('JSON.stringify(generateVoicings([48,60,72,84,84],[0],testedOffered))'));if(!batch.length)break;offered.push(...batch.map(v=>v.join(',')));assert.equal(new Set(offered).size,offered.length);assert(offered.length<=56)}assert.equal(offered.length,56);
+ console.log('Gallery diversity, navigation, regeneration, lines, MIDI and persistence passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
