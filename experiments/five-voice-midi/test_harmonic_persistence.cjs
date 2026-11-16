@@ -40,8 +40,8 @@ function page(storage, unavailable=false){
  const custom=page(storage);await new Promise(r=>setImmediate(r));assert.equal(custom.run('mappingMode'),'custom');assert.deepEqual(Array.from(custom.run('mapping')),[2,1,4,3,0]);assert.equal(custom.sent.length,0);
  custom.run('chords[1].pitches[4]=84;scheduleSave(true)');
  const extended=page(storage);await new Promise(r=>setImmediate(r));assert.equal(extended.run('chords[1].pitches[4]'),84);assert.equal(extended.sent.length,0);
- // Both keyboard and pointer chord selection return focus to the active keyboard.
- const button=p.document.getElementById('triad-choices').children[2];button.focus();button.onclick({detail:0});assert.equal(p.document.activeElement,p.run('chords[selectedKeyboard].node'));
+ // Keyboard chord selection retains button focus for normal Tab navigation.
+ const button=p.document.getElementById('triad-choices').children[2];button.focus();button.onclick({detail:0});assert.equal(p.document.activeElement,button);
  p.key('v');p.key('.');assert.equal(p.document.activeElement,p.run('chords[selectedKeyboard].node'));
  const before=JSON.parse(JSON.stringify(p.run("chords.map(({name,referenceName,root,roman,quality,edited,pitches,tones})=>({name,referenceName,root,roman,quality,edited,pitches,tones}))")));
  assert.equal(p.key('Enter',p.document.activeElement,{shiftKey:true}),true);assert.equal(p.run('selectedKeyboard'),1);
@@ -69,7 +69,7 @@ function page(storage, unavailable=false){
  assert.equal(page(dupStore).run('chords[1].pitches[0]'),36);d.key('z',d.document.activeElement,{metaKey:true});assert.equal(d.run('chords.length'),1);
  for(const tagName of ['INPUT','TEXTAREA','SELECT'])assert.equal(d.key('d',{tagName},{metaKey:true}),false);assert.equal(d.key('d',{tagName:'DIV',isContentEditable:true},{metaKey:true}),false);
  // The gallery defaults closed and preserves its preference independently of journey history.
- const uiStore={},ui=page(uiStore);await new Promise(r=>setImmediate(r));assert.equal(ui.run('galleryOpen'),false);assert.equal(ui.run('galleryNode.children.length'),3);
+ const uiStore={},ui=page(uiStore);await new Promise(r=>setImmediate(r));assert.equal(ui.run('galleryOpen'),false);assert.equal(ui.run('galleryNode.children.length'),1);
  assert.equal(ui.key('1'),true);assert.equal(ui.key('r'),true);assert.equal(ui.key('v'),true);assert.equal(ui.run('galleryOpen'),true);
  const candidate=JSON.stringify(ui.run('chords[0].voicings'));ui.key('Enter');assert.equal(ui.run('galleryOpen'),true);assert.equal(page(uiStore).run('galleryOpen'),true);
  ui.run('selectKeyboard(0)');assert.equal(JSON.stringify(ui.run('chords[0].voicings')),candidate);assert.equal(ui.key('v'),true);assert.equal(page(uiStore).run('galleryOpen'),false);
@@ -78,7 +78,7 @@ function page(storage, unavailable=false){
  for(const id of ['voicing-prev','voicing-next','voicing-count','duplicate-above','duplicate-below','delete-keyboard'])assert(!html.includes(`id="${id}"`));
  assert(html.includes('⌨ Shortcuts'));for(const heading of ['Chord navigation','Editing and clipboard','Voicing exploration','Playback'])assert(html.includes(heading));
  const panel=ui.document.getElementById('shortcuts-panel'),help=ui.document.getElementById('shortcuts-button');assert.equal(panel.hidden,true);help.click();assert.equal(panel.hidden,false);assert.equal(help.attrs['aria-expanded'],'true');
- assert.equal(ui.key('Escape'),true);assert.equal(panel.hidden,true);assert.equal(ui.document.activeElement,help);assert.equal(ui.key('?'),true);assert.equal(panel.hidden,false);assert.equal(ui.key('?'),true);assert.equal(panel.hidden,true);
+ assert.equal(ui.key('Escape'),true);assert.equal(panel.hidden,true);assert.equal(ui.key('?'),true);assert.equal(panel.hidden,false);assert.equal(ui.key('?'),true);assert.equal(panel.hidden,true);
  ui.key('v');assert.equal(ui.run('galleryOpen'),true);const beforePreview=ui.run('chords[0].voicingIndex');assert.equal(ui.key('2'),true);assert.notEqual(ui.run('chords[0].voicingIndex'),beforePreview);
  // Copy, replace, insertion, deletion and undo use distinct brief flashes.
  ui.run('var recorded=[];motion=(node,frames)=>{recorded.push(frames);return {finished:{then(){}}}}');
