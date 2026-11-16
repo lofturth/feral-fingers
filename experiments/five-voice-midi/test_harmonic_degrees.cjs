@@ -40,10 +40,10 @@ const run = code => vm.runInContext(code, context);
     run("mapping=map;chords[0].pitches=[48,55,60,64,67];selectedKeyboard=0;selectedVoice=map[0];draw();setPitchMode('chromatic');editVoice(1)");
     assert.equal(run('chords[0].root'),0);
     assert.equal(run('degreeName(chords[0].pitches[0],chords[0].root)'),'♭2');
-    assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="degree-label").length'),5);
+    assert.equal(run('chords[0].content.children.filter(e=>e.attrs.class==="degree-label").length'),5);
   }
   run("chords[0].pitches=[60,60,59,64,67];draw()");
-  assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="degree-label").length'),4);
+  assert.equal(run('chords[0].content.children.filter(e=>e.attrs.class==="degree-label").length'),4);
   run('appendKeyboard()');
   run('selectKeyboard(1)');
   document.getElementById('triad-choices').children[1].onclick();

@@ -4,9 +4,12 @@ const vm = require('node:vm');
 const html = fs.readFileSync(__dirname + '/harmonic-explorer.html','utf8');
 const keyName='feral-fingers.harmonic-explorer.workspace.v1';
 function page(storage, unavailable=false){
- const elements={}, radios=['normal','reverse','custom'].map(value=>Object.assign(new Element('INPUT'),{value})),handlers={},timers=new Map(),sent=[];let timerId=0;
+ const elements={}, radios=['normal','reverse','custom'].map(value=>Object.assign(new Element('INPUT'),{value})),handlers={},timers=new Map(),sent=[],animations=[];let timerId=0;
  function Element(tag='DIV'){this.tagName=tag;this.attrs={};this.children=[];this.value='0';this.classList={toggle(){},remove(){}}}
  Element.prototype.setAttribute=function(k,v){this.attrs[k]=v};
+ Element.prototype.cloneNode=function(deep){const copy=new Element(this.tagName);copy.attrs={...this.attrs};if(deep)for(const child of this.children)copy.append(child.cloneNode(true));return copy};
+ Element.prototype.animate=function(frames,options){const animation={node:this,frames,options,cancelled:false,cancel(){this.cancelled=true},finished:{then(){}}};(this.animations??=[]).push(animation);animations.push(animation);return animation};
+ Element.prototype.getAnimations=function(){return this.animations||[]};
  Element.prototype.append=function(...children){for(const c of children){c.parent=this;this.children.push(c)}};
  Element.prototype.replaceChildren=function(){this.children=[]};
  Element.prototype.addEventListener=function(k,fn){this[k]=fn};
@@ -21,10 +24,23 @@ function page(storage, unavailable=false){
  vm.createContext(context);vm.runInContext(html.split('<script>')[1].split('</script>')[0],context);
  const run=code=>vm.runInContext(code,context);
  const key=(value,target=document.activeElement)=>{let prevented=false;handlers.keydown({key:value,target,preventDefault(){prevented=true}});return prevented};
- return {document,handlers,sent,run,key};
+ return {document,handlers,sent,run,key,timers,animations};
 }
 (async()=>{
  const storage={},p=page(storage);await new Promise(r=>setImmediate(r));
+ // Closed-gallery browsing uses the same selection path and coalesces rapid auditions.
+ const c=page({});await new Promise(r=>setImmediate(r));assert.equal(c.run('galleryOpen'),false);
+ const batch=JSON.parse(c.run('JSON.stringify(chords[0].voicings)'));const originalIndex=c.run('chords[0].voicingIndex');
+ assert.equal(c.key('n'),true);let index=originalIndex<0?0:(originalIndex+1)%batch.length;assert.equal(c.run('chords[0].voicingIndex'),index);assert.equal(c.run('galleryOpen'),false);
+ assert.equal(c.run('carouselIndicator.textContent'),`${index+1} / 8`);let incoming=c.animations.filter(a=>a.node.attrs.class==='voicing-content').at(-1);assert.equal(incoming.frames[0].transform,'translateX(100px)');assert.equal(incoming.options.duration,150);
+ const outgoing=c.run('carouselGhost');assert(outgoing);const outAnim=c.animations.find(a=>a.node===outgoing);assert.equal(outAnim.frames[1].transform,'translateX(-100px)');assert.equal(c.run('chords[0].content.children.filter(e=>e.attrs.class==="white").length'),29);
+ assert.equal(c.key('p'),true);assert(outAnim.cancelled);index=(index+7)%8;assert.equal(c.run('chords[0].voicingIndex'),index);incoming=c.animations.filter(a=>a.node.attrs.class==='voicing-content').at(-1);assert.equal(incoming.frames[0].transform,'translateX(-100px)');assert.equal(c.run('carouselIndicator.textContent'),`${index+1} / 8`);
+ c.key('n');c.key('n');c.key('p');index=(index+1)%8;assert.equal(c.run('chords[0].voicingIndex'),index);assert.equal(c.run('galleryOpen'),false);await c.run('actionQueue');assert.deepEqual(c.sent.filter(x=>x.path==='/play').at(-1).data.voice_notes,batch[index]);assert.equal(c.sent.filter(x=>x.path==='/play').length,1);
+ assert.equal(JSON.parse(c.run('localStorage.getItem(workspaceKey)')).chords[0].voicingIndex,index);const timer=c.run('carouselTimer');c.timers.get(timer).fn();assert.equal(c.run('carouselIndicator'),null);
+ c.run('window.matchMedia=()=>({matches:true})');const beforeReduced=c.animations.length;c.key('n');assert.equal(c.animations.length,beforeReduced);assert.equal(c.run('carouselGhost'),null);assert(c.run('carouselIndicator.textContent').endsWith('/ 8'));
+ c.key(',');assert.equal(c.run('galleryOpen'),false);c.key('.');assert.equal(c.run('galleryOpen'),false);assert.equal(c.key('n',{tagName:'INPUT'}),false);assert.equal(c.key('p',{tagName:'DIV',isContentEditable:true}),false);
+ // Wrap at both ends while closed, keeping neighboring keyboards and lines stable.
+ const journey=page({});await new Promise(r=>setImmediate(r));journey.key('Enter');const neighbor=journey.run('chords[0].node');journey.run('selectVoicing(7)');journey.key('n');assert.equal(journey.run('chords[1].voicingIndex'),0);journey.key('p');assert.equal(journey.run('chords[1].voicingIndex'),7);assert.equal(journey.run('chords[0].node'),neighbor);assert.equal(journey.run('lines.children.length'),5);for(let i=0;i<5;i++){journey.run(`var voiceIndex=${i}`);assert.equal(journey.run('lines.children[voiceIndex].attrs.x2'),journey.run('voiceX(chords[1],voiceIndex)'))}assert.equal(journey.run('carouselIndicator.textContent'),'8 / 8');assert.equal(journey.run('galleryOpen'),false);
  const cases=[['triads',0],['triads',1],['triads',6],['sevenths',1],['sevenths',6]];
  for(const [category,index] of cases){
   const result=JSON.parse(p.run(`JSON.stringify(generateVoicings(catalog.${category}[${index}].pitches,catalog.${category}[${index}].tones))`));

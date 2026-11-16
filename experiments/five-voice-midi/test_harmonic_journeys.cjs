@@ -26,11 +26,11 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  await new Promise(r=>setImmediate(r));
  assert.equal(run('chords.length'),1);assert.equal(run('selectedKeyboard'),0);assert.equal(run('lines.children.length'),0);assert.equal(sent.length,0);
  assert.equal(run('last-first+1'),49);assert.equal(run('first'),36);assert.equal(run('last'),84);
- assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="white").length'),29);
- assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="black").length'),20);
+ assert.equal(run('chords[0].content.children.filter(e=>e.attrs.class==="white").length'),29);
+ assert.equal(run('chords[0].content.children.filter(e=>e.attrs.class==="black").length'),20);
  assert(run('xFor(last)+whiteWidth/2<=900'));assert.equal(run('whitePitches.length'),29);assert.equal(run('noteName(first)'),'C2');
  assert.equal(run('xFor(first)-whiteWidth/2'),run('startX'));
- run("chords[0].pitches[0]=36;draw()");assert(run('chords[0].node.children.some(e=>e.attrs.class==="key-label"&&e.textContent==="C2")'));assert.equal(run('voiceX(chords[0],mapping[0])'),run('xFor(36)'));run("selectedVoice=mapping[0];pitchMode='chromatic';editVoice(-1)");assert.equal(run('chords[0].pitches[0]'),36);
+ run("chords[0].pitches[0]=36;draw()");assert(run('chords[0].content.children.some(e=>e.attrs.class==="key-label"&&e.textContent==="C2")'));assert.equal(run('voiceX(chords[0],mapping[0])'),run('xFor(36)'));run("selectedVoice=mapping[0];pitchMode='chromatic';editVoice(-1)");assert.equal(run('chords[0].pitches[0]'),36);
  run("chords[0].pitches[0]=48;draw()");
  assert(html.includes('.workspace-toolbar{position:sticky;'));assert(html.indexOf('<section class="chooser"')<html.indexOf('<section class="landscape"'));
  assert(html.includes('<details class="settings"><summary>Settings &amp; Info</summary>'));
@@ -44,7 +44,7 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.deepEqual(Array.from(run('catalog.sevenths[0].tones')).sort((a,b)=>a-b),[0,4,7,11]);
  assert.equal(run('isChordTone(48,chords[0].tones)'),true);assert.equal(run('isChordTone(72,chords[0].tones)'),true);
  assert.equal(run('isChordTone(50,chords[0].tones)'),false);assert.equal(run('isChordTone(49,chords[0].tones)'),false);
- assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="tone-indicator chord-tone").length'),5);
+ assert.equal(run('chords[0].content.children.filter(e=>e.attrs.class==="tone-indicator chord-tone").length'),5);
  const original=Array.from(run('chords[0].pitches'));const firstNode=run('chords[0].node');
  for(let i=0;i<4;i++)assert.equal(key('Enter'),true);
  assert.equal(run('chords.length'),5);assert.equal(run('selectedKeyboard'),4);assert.equal(run('chords[4].root'),0);assert.equal(navigationFrames.size,1);assert.equal(run('lines.children.length'),20);
@@ -54,7 +54,7 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.equal(run('chords[0].node'),firstNode);assert.deepEqual(Array.from(run('chords[4].pitches')),original);
  run("setPitchMode('chromatic');selectedVoice=4");const beforeEditScrolls=scrolls.length;key('ArrowRight');assert.equal(scrolls.length,beforeEditScrolls);
  assert.equal(run('chords[4].pitches[4]'),68);assert.deepEqual(Array.from(run('chords[0].pitches')),original);assert.equal(run('chords[0].node'),firstNode);
- assert.equal(run('chords[4].node.children.filter(e=>e.attrs.class==="tone-indicator non-chord-tone").length'),1);
+ assert.equal(run('chords[4].content.children.filter(e=>e.attrs.class==="tone-indicator non-chord-tone").length'),1);
  assert.deepEqual(Array.from(run('chords[4].tones')),[0,4,7]);
  assert.equal(run('degreeName(chords[4].pitches[4],chords[4].root)'),'♭6');
  const beforeNavigation=scheduledNavigation;for(let i=0;i<4;i++)key('ArrowUp');assert.equal(run('selectedKeyboard'),0);assert.equal(scheduledNavigation,beforeNavigation+4);assert.equal(navigationFrames.size,1);
@@ -64,7 +64,7 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.equal(run('chords.length'),5);assert.equal(run('chords[4].root'),2);assert.deepEqual(Array.from(run('chords[3].pitches')),earlier);
  assert.deepEqual(Array.from(run('chords[4].tones')).sort((a,b)=>a-b),[2,5,9]);assert.deepEqual(Array.from(run('chords[3].tones')),[0,4,7]);
  for(const map of [[0,1,2,3,4],[4,3,2,1,0],[2,1,4,3,0]]){context.map=map;run('mapping=map;draw();selectedVoice=map[0]');const before=run('chords[4].pitches[0]');key('ArrowRight');assert.equal(run('chords[4].pitches[0]'),before+1)}
- run("mapping=[0,1,2,3,4];chords[4].pitches=[59,60,64,67,69];selectedVoice=0;draw();editVoice(1)");assert.deepEqual(Array.from(run('chords[4].pitches')),[60,60,64,67,69]);assert.equal(run('chords[4].node.children.filter(e=>e.attrs.class?.startsWith("tone-indicator")).length'),4);key('ArrowRight');assert.deepEqual(Array.from(run('chords[4].pitches')),[61,60,64,67,69]);
+ run("mapping=[0,1,2,3,4];chords[4].pitches=[59,60,64,67,69];selectedVoice=0;draw();editVoice(1)");assert.deepEqual(Array.from(run('chords[4].pitches')),[60,60,64,67,69]);assert.equal(run('chords[4].content.children.filter(e=>e.attrs.class?.startsWith("tone-indicator")).length'),4);key('ArrowRight');assert.deepEqual(Array.from(run('chords[4].pitches')),[61,60,64,67,69]);
  for(const tag of ['INPUT','BUTTON','SELECT','TEXTAREA','A'])assert.equal(key('Enter',tag),false);
  assert.equal(key('Enter','DIV',{isContentEditable:true}),false);assert.equal(key('Enter','SPAN',{closest:()=>({})}),false);assert.equal(run('chords.length'),5);
  run('selectedKeyboard=4;appendKeyboard()');assert.equal(run('chords.length'),6);
@@ -76,11 +76,11 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  run("chords[5]={name:'Fmaj9',root:5,tones:[0,4,5,7,9],role:'DESTINATION CHORD',pitches:[60,65,69,64,71]};selectedKeyboard=5;mapping=[0,1,2,3,4];selectedVoice=4;draw()");
  for(const pitch of [60,65,69,64]){context.pitch=pitch;assert.equal(run('isChordTone(pitch,chords[5].tones)'),true)}
  assert.equal(run('isChordTone(71,chords[5].tones)'),false);
- assert.equal(run('chords[5].node.children.filter(e=>e.attrs.class==="tone-indicator chord-tone").length'),4);
- assert.equal(run('chords[5].node.children.filter(e=>e.attrs.class==="tone-indicator non-chord-tone").length'),1);
- assert(run('chords[5].node.children.filter(e=>e.attrs.class?.startsWith("tone-indicator")).every(e=>e.attrs.y1+2.5<172)'));
+ assert.equal(run('chords[5].content.children.filter(e=>e.attrs.class==="tone-indicator chord-tone").length'),4);
+ assert.equal(run('chords[5].content.children.filter(e=>e.attrs.class==="tone-indicator non-chord-tone").length'),1);
+ assert(run('chords[5].content.children.filter(e=>e.attrs.class?.startsWith("tone-indicator")).every(e=>e.attrs.y1+2.5<172)'));
  run("setPitchMode('chromatic');editVoice(-1);editVoice(-1)");
- assert.equal(run('chords[5].node.children.filter(e=>e.attrs.class==="tone-indicator non-chord-tone").length'),0);
+ assert.equal(run('chords[5].content.children.filter(e=>e.attrs.class==="tone-indicator non-chord-tone").length'),0);
  const snapshot=Array.from(run('chords.map(c=>({pitches:[...c.pitches],root:c.root,tones:[...c.tones]}))'),c=>({pitches:Array.from(c.pitches),root:c.root,tones:Array.from(c.tones)}));
  run('selectKeyboard(2)');assert.equal(key('Backspace'),true);assert.equal(run('selectedKeyboard'),1);assert.equal(run('chords.length'),5);assert.equal(run('lines.children.length'),20);
  assert.deepEqual(Array.from(run('chords.map(c=>c.node.children.find(e=>e.attrs.class==="chord-number").textContent)')),['1','2','3','4','5']);
@@ -117,8 +117,8 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  await run('actionQueue');assert.deepEqual(sent.at(-1).data.voice_notes,Array.from(run('chords[5].pitches')));
  run("mapping=[0,1,2,3,4];selectedVoice=0;setPitchMode('chromatic');chords[selectedKeyboard].pitches[0]=83;draw();editVoice(1)");
  assert.equal(run('chords[selectedKeyboard].pitches[0]'),84);assert.equal(run('noteName(84)'),'C6');
- assert(run('chords[selectedKeyboard].node.children.some(e=>e.attrs.class==="key-label"&&e.textContent==="C6")'));
- assert(run('chords[selectedKeyboard].node.children.some(e=>e.attrs.class?.startsWith("tone-indicator")&&e.attrs.x1===xFor(84)-11)'));
+ assert(run('chords[selectedKeyboard].content.children.some(e=>e.attrs.class==="key-label"&&e.textContent==="C6")'));
+ assert(run('chords[selectedKeyboard].content.children.some(e=>e.attrs.class?.startsWith("tone-indicator")&&e.attrs.x1===xFor(84)-11)'));
  assert.equal(run('lines.children[(selectedKeyboard-1)*5].attrs.x2'),run('voiceX(chords[selectedKeyboard],0)'));
  run('editVoice(1)');assert.equal(run('chords[selectedKeyboard].pitches[0]'),84);
  assert.equal(run("nextPitch(84,-1,'diatonic',scalePitchClasses)"),83);
