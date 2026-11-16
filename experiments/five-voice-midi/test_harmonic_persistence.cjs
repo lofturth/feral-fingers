@@ -20,7 +20,7 @@ function page(storage, unavailable=false){
  const context={document,window:{innerHeight:800,scrollY:0,scrollTo(){},addEventListener(k,fn){handlers[k]=fn}},performance:{now(){return 0}},localStorage:{getItem(k){if(unavailable)throw Error('unavailable');return storage[k]??null},setItem(k,v){if(unavailable)throw Error('unavailable');storage[k]=v}},fetch:async(path,opts)=>{if(opts?.method==='POST')sent.push({path,data:JSON.parse(opts.body)});return {ok:true,json:async()=>opts?.method==='POST'?{ok:true}:status}},setTimeout(fn,ms){const id=++timerId;timers.set(id,{fn,ms});return id},clearTimeout(id){timers.delete(id)},requestAnimationFrame(){return 1},cancelAnimationFrame(){}};
  vm.createContext(context);vm.runInContext(html.split('<script>')[1].split('</script>')[0],context);
  const run=code=>vm.runInContext(code,context);
- const key=(value,target=document.activeElement)=>{let prevented=false;handlers.keydown({key:value,target,preventDefault(){prevented=true}});return prevented};
+ const key=(value,target=document.activeElement,extra={})=>{let prevented=false;handlers.keydown({key:value,target,...extra,preventDefault(){prevented=true}});return prevented};
  return {document,handlers,sent,run,key};
 }
 (async()=>{
@@ -39,8 +39,29 @@ function page(storage, unavailable=false){
  const custom=page(storage);await new Promise(r=>setImmediate(r));assert.equal(custom.run('mappingMode'),'custom');assert.deepEqual(Array.from(custom.run('mapping')),[2,1,4,3,0]);assert.equal(custom.sent.length,0);
  custom.run('chords[1].pitches[4]=84;scheduleSave(true)');
  const extended=page(storage);await new Promise(r=>setImmediate(r));assert.equal(extended.run('chords[1].pitches[4]'),84);assert.equal(extended.sent.length,0);
- // Keyboard activation of a chord button keeps normal control focus.
- const button=p.document.getElementById('triad-choices').children[2];button.focus();button.onclick({detail:0});assert.equal(p.document.activeElement,button);assert.equal(p.key('Enter'),false);
+ // Both keyboard and pointer chord selection return focus to the active keyboard.
+ const button=p.document.getElementById('triad-choices').children[2];button.focus();button.onclick({detail:0});assert.equal(p.document.activeElement,p.run('chords[selectedKeyboard].node'));
+ p.document.getElementById('voicing-next').click();assert.equal(p.document.activeElement,p.run('chords[selectedKeyboard].node'));
+ const before=JSON.parse(JSON.stringify(p.run("chords.map(({name,referenceName,root,roman,quality,edited,pitches,tones})=>({name,referenceName,root,roman,quality,edited,pitches,tones}))")));
+ assert.equal(p.key('Enter',p.document.activeElement,{shiftKey:true}),true);assert.equal(p.run('selectedKeyboard'),1);
+ let after=JSON.parse(JSON.stringify(p.run("chords.map(({name,referenceName,root,roman,quality,edited,pitches,tones})=>({name,referenceName,root,roman,quality,edited,pitches,tones}))")));
+ assert.deepEqual(after,[before[0],before[1],before[1]]);assert.equal(p.run('lines.children.length'),10);
+ for(let row=0;row<2;row++)for(let voice=0;voice<5;voice++){p.run(`var checkRow=${row}, checkVoice=${voice}`);assert.equal(p.run('lines.children[checkRow*5+checkVoice].attrs.x1'),p.run('voiceX(chords[checkRow],checkVoice)'));assert.equal(p.run('lines.children[checkRow*5+checkVoice].attrs.x2'),p.run('voiceX(chords[checkRow+1],checkVoice)'))}
+ const reloaded=page(storage);assert.equal(reloaded.run('selectedKeyboard'),1);assert.deepEqual(JSON.parse(JSON.stringify(reloaded.run("chords.map(({name,referenceName,root,roman,quality,edited,pitches,tones})=>({name,referenceName,root,roman,quality,edited,pitches,tones}))"))),after);
+ for(const tagName of ['INPUT','TEXTAREA','SELECT']){assert.equal(p.key('Enter',{tagName},{shiftKey:true}),false);assert.equal(p.key('Enter',{tagName}),false)}
+ assert.equal(p.key('Enter',{tagName:'DIV',isContentEditable:true},{shiftKey:true}),false);
+ // Visible controls insert above at the beginning, below at the end, and delete.
+ p.run('selectKeyboard(0)');p.document.getElementById('duplicate-above').click();assert.equal(p.run('selectedKeyboard'),0);assert.equal(p.run('chords[0].name'),p.run('chords[1].name'));
+ p.run('selectKeyboard(chords.length-1)');const last=p.run('chords[selectedKeyboard]');p.document.getElementById('duplicate-below').click();assert.equal(p.run('selectedKeyboard'),p.run('chords.length-1'));assert.equal(p.run('chords[chords.length-2]'),last);
+ p.document.getElementById('delete-keyboard').click();assert.equal(p.run('chords.length'),4);
+ // Shift+Enter inserts before the first, middle and last selections without reordering.
+ for(const index of [0,1,2]){
+  const trial=page({});trial.key('Enter');trial.key('Enter');trial.run(`selectKeyboard(${index});chords[0].name='First';chords[1].name='Middle';chords[2].name='Last'`);
+  const original=JSON.parse(JSON.stringify(trial.run('chords.map(c=>({name:c.name,pitches:c.pitches,root:c.root,tones:c.tones}))')));
+  assert.equal(trial.key('Enter',trial.document.activeElement,{shiftKey:true}),true);assert.equal(trial.run('selectedKeyboard'),index);
+  const expected=[...original];expected.splice(index,0,original[index]);assert.deepEqual(JSON.parse(JSON.stringify(trial.run('chords.map(c=>({name:c.name,pitches:c.pitches,root:c.root,tones:c.tones}))'))),expected);
+  assert.equal(trial.run('lines.children.length'),15);
+ }
  for(const bad of ['{',JSON.stringify({version:2}),JSON.stringify({version:1,chords:[],active:0})]){const q=page({[keyName]:bad});await new Promise(r=>setImmediate(r));assert.equal(q.run('chords.length'),1);assert.equal(q.run('chords[0].name'),'C major');assert.equal(q.sent.length,0)}
  const legacy=page({'feral-fingers.harmonic-explorer.mapping.v1':JSON.stringify({mode:'reverse',mapping:[4,3,2,1,0]}),'feral-fingers.harmonic-explorer.pitch-mode.v1':'chromatic'});await new Promise(r=>setImmediate(r));assert.equal(legacy.run('mappingMode'),'reverse');assert.equal(legacy.run('pitchMode'),'chromatic');assert.equal(legacy.sent.length,0);
  const q=page({},true);await new Promise(r=>setImmediate(r));assert.doesNotThrow(()=>q.key('Enter'));assert.equal(q.run('chords.length'),2);

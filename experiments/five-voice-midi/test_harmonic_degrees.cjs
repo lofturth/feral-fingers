@@ -10,6 +10,7 @@ class Element {
   replaceChildren() { this.children = []; }
   addEventListener(key, fn) { this[key] = fn; }
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
+  focus(){}
   scrollIntoView() {}
   getBoundingClientRect() { return {top:300,height:100}; }
 }
