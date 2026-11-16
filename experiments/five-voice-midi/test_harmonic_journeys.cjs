@@ -45,13 +45,13 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.equal(run('isChordTone(48,chords[0].tones)'),true);assert.equal(run('isChordTone(72,chords[0].tones)'),true);
  assert.equal(run('isChordTone(50,chords[0].tones)'),false);assert.equal(run('isChordTone(49,chords[0].tones)'),false);
  assert.equal(run('chords[0].content.children.filter(e=>e.attrs.class==="tone-indicator chord-tone").length'),5);
- const original=Array.from(run('chords[0].pitches'));const firstNode=run('chords[0].node');
+ const original=Array.from(run('chords[0].pitches'));
  for(let i=0;i<4;i++)assert.equal(key('Enter'),true);
  assert.equal(run('chords.length'),5);assert.equal(run('selectedKeyboard'),4);assert.equal(run('chords[4].root'),0);assert.equal(navigationFrames.size,1);assert.equal(run('lines.children.length'),20);
  let [frame,step]=[...navigationFrames.entries()][0];navigationFrames.delete(frame);step(90);assert.equal(scrolls.at(-1).behavior,'auto');assert.equal(scrolls.at(-1).top,109);assert.equal(navigationFrames.size,1);
  [frame,step]=[...navigationFrames.entries()][0];navigationFrames.delete(frame);step(180);assert.equal(scrolls.at(-1).top,96);assert.equal(navigationFrames.size,0);assert.equal(run('navigationFrame'),null);
  assert.deepEqual(Array.from(run('chords.map(c=>c.node.children.find(e=>e.attrs.class==="chord-number").textContent)')),['1','2','3','4','5']);
- assert.equal(run('chords[0].node'),firstNode);assert.deepEqual(Array.from(run('chords[4].pitches')),original);
+ const firstNode=run('chords[0].node');assert.deepEqual(Array.from(run('chords[4].pitches')),original);
  run("setPitchMode('chromatic');selectedVoice=4");const beforeEditScrolls=scrolls.length;key('ArrowRight');assert.equal(scrolls.length,beforeEditScrolls);
  assert.equal(run('chords[4].pitches[4]'),68);assert.deepEqual(Array.from(run('chords[0].pitches')),original);assert.equal(run('chords[0].node'),firstNode);
  assert.equal(run('chords[4].content.children.filter(e=>e.attrs.class==="tone-indicator non-chord-tone").length'),1);
