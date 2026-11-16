@@ -69,7 +69,7 @@ function page(storage, unavailable=false){
  assert.equal(page(dupStore).run('chords[1].pitches[0]'),36);d.key('z',d.document.activeElement,{metaKey:true});assert.equal(d.run('chords.length'),1);
  for(const tagName of ['INPUT','TEXTAREA','SELECT'])assert.equal(d.key('d',{tagName},{metaKey:true}),false);assert.equal(d.key('d',{tagName:'DIV',isContentEditable:true},{metaKey:true}),false);
  // The gallery defaults closed and preserves its preference independently of journey history.
- const uiStore={},ui=page(uiStore);await new Promise(r=>setImmediate(r));assert.equal(ui.run('galleryOpen'),false);assert.equal(ui.run('galleryNode.children.length'),2);
+ const uiStore={},ui=page(uiStore);await new Promise(r=>setImmediate(r));assert.equal(ui.run('galleryOpen'),false);assert.equal(ui.run('galleryNode.children.length'),3);
  assert.equal(ui.key('1'),true);assert.equal(ui.key('r'),true);assert.equal(ui.key('v'),true);assert.equal(ui.run('galleryOpen'),true);
  const candidate=JSON.stringify(ui.run('chords[0].voicings'));ui.key('Enter');assert.equal(ui.run('galleryOpen'),true);assert.equal(page(uiStore).run('galleryOpen'),true);
  ui.run('selectKeyboard(0)');assert.equal(JSON.stringify(ui.run('chords[0].voicings')),candidate);assert.equal(ui.key('v'),true);assert.equal(page(uiStore).run('galleryOpen'),false);
