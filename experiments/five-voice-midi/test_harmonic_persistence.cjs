@@ -7,6 +7,7 @@ function page(storage, unavailable=false){
  const elements={}, radios=['normal','reverse','custom'].map(value=>Object.assign(new Element('INPUT'),{value})),handlers={},timers=new Map(),sent=[];let timerId=0;
  function Element(tag='DIV'){this.tagName=tag;this.attrs={};this.children=[];this.value='0';this.classList={toggle(){},remove(){}}}
  Element.prototype.setAttribute=function(k,v){this.attrs[k]=v};
+ Element.prototype.getAttribute=function(k){return this.attrs[k]};
  Element.prototype.append=function(...children){for(const c of children){c.parent=this;this.children.push(c)}};
  Element.prototype.replaceChildren=function(){this.children=[]};
  Element.prototype.addEventListener=function(k,fn){this[k]=fn};
@@ -68,8 +69,8 @@ function page(storage, unavailable=false){
  assert.equal(page(dupStore).run('chords[1].pitches[0]'),36);d.key('z',d.document.activeElement,{metaKey:true});assert.equal(d.run('chords.length'),1);
  for(const tagName of ['INPUT','TEXTAREA','SELECT'])assert.equal(d.key('d',{tagName},{metaKey:true}),false);assert.equal(d.key('d',{tagName:'DIV',isContentEditable:true},{metaKey:true}),false);
  // The gallery defaults closed and preserves its preference independently of journey history.
- const uiStore={},ui=page(uiStore);await new Promise(r=>setImmediate(r));assert.equal(ui.run('galleryOpen'),false);assert.equal(ui.run('galleryNode.children.length'),1);
- assert.equal(ui.key('1'),false);assert.equal(ui.key('r'),false);assert.equal(ui.key('v'),true);assert.equal(ui.run('galleryOpen'),true);
+ const uiStore={},ui=page(uiStore);await new Promise(r=>setImmediate(r));assert.equal(ui.run('galleryOpen'),false);assert.equal(ui.run('galleryNode.children.length'),2);
+ assert.equal(ui.key('1'),true);assert.equal(ui.key('r'),true);assert.equal(ui.key('v'),true);assert.equal(ui.run('galleryOpen'),true);
  const candidate=JSON.stringify(ui.run('chords[0].voicings'));ui.key('Enter');assert.equal(ui.run('galleryOpen'),true);assert.equal(page(uiStore).run('galleryOpen'),true);
  ui.run('selectKeyboard(0)');assert.equal(JSON.stringify(ui.run('chords[0].voicings')),candidate);assert.equal(ui.key('v'),true);assert.equal(page(uiStore).run('galleryOpen'),false);
  for(const tagName of ['INPUT','TEXTAREA','SELECT']){assert.equal(ui.key('v',{tagName}),false);assert.equal(ui.key('?',{tagName}),false)}assert.equal(ui.key('v',{tagName:'DIV',isContentEditable:true}),false);

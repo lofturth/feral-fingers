@@ -20,6 +20,16 @@ class Tests(unittest.TestCase):
         self.release(69)
         self.assertEqual(self.out.messages[-5:],[[128+i,n,0] for i,n in enumerate([60,64,67,69,72])])
         self.assertIsNone(self.r.chord)
+    def test_context_audition_stops_every_voice_before_new_notes(self):
+        first=[48,55,60,64,67]; second=[48,57,60,65,69]; mapping=[4,3,2,1,0]
+        self.r.play(first,source='explorer',voice_notes=first,mapping=mapping)
+        self.out.messages.clear()
+        self.r.silence()
+        self.r.play(second,source='explorer',voice_notes=second,mapping=mapping)
+        note_events=[m for m in self.out.messages if m[0]&0xf0 in (0x80,0x90)]
+        self.assertEqual(note_events[:5],[[0x80+i,n,0] for i,n in enumerate(first)])
+        self.assertEqual(note_events[5:],[[0x90+i,n,100] for i,n in enumerate(second)])
+        self.assertEqual(self.r.finger_mapping,mapping)
     def test_disconnect(self):
         for n in [1,2,3,4,5]:self.press(n)
         self.r.silence()
