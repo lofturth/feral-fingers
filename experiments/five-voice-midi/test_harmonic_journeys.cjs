@@ -25,10 +25,13 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
 (async()=>{
  await new Promise(r=>setImmediate(r));
  assert.equal(run('chords.length'),1);assert.equal(run('selectedKeyboard'),0);assert.equal(run('lines.children.length'),0);assert.equal(sent.length,0);
- assert.equal(run('last-first+1'),37);assert.equal(run('first'),48);assert.equal(run('last'),84);
- assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="white").length'),22);
- assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="black").length'),15);
- assert(run('xFor(last)+whiteWidth/2<=900'));
+ assert.equal(run('last-first+1'),49);assert.equal(run('first'),36);assert.equal(run('last'),84);
+ assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="white").length'),29);
+ assert.equal(run('chords[0].node.children.filter(e=>e.attrs.class==="black").length'),20);
+ assert(run('xFor(last)+whiteWidth/2<=900'));assert.equal(run('whitePitches.length'),29);assert.equal(run('noteName(first)'),'C2');
+ assert.equal(run('xFor(first)-whiteWidth/2'),run('startX'));
+ run("chords[0].pitches[0]=36;draw()");assert(run('chords[0].node.children.some(e=>e.attrs.class==="key-label"&&e.textContent==="C2")'));assert.equal(run('voiceX(chords[0],mapping[0])'),run('xFor(36)'));run("selectedVoice=mapping[0];pitchMode='chromatic';editVoice(-1)");assert.equal(run('chords[0].pitches[0]'),36);
+ run("chords[0].pitches[0]=48;draw()");
  assert(html.includes('.workspace-toolbar{position:sticky;'));assert(html.indexOf('<section class="chooser"')<html.indexOf('<section class="landscape"'));
  assert(html.includes('<details class="settings"><summary>Settings &amp; Info</summary>'));
  assert(!html.includes('<details class="settings" open'));
@@ -119,7 +122,7 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.equal(run('lines.children[(selectedKeyboard-1)*5].attrs.x2'),run('voiceX(chords[selectedKeyboard],0)'));
  run('editVoice(1)');assert.equal(run('chords[selectedKeyboard].pitches[0]'),84);
  assert.equal(run("nextPitch(84,-1,'diatonic',scalePitchClasses)"),83);
- assert.equal(run("nextPitch(48,-1,'diatonic',scalePitchClasses)"),47);
+ assert.equal(run("nextPitch(36,-1,'diatonic',scalePitchClasses)"),35);
  run('chords[selectedKeyboard].pitches[0]=83;draw()');
  // Ordinary button and Settings focus retain musical arrows; form fields do not.
  assert.equal(key('ArrowUp','BUTTON'),true);assert.equal(run('selectedKeyboard'),4);

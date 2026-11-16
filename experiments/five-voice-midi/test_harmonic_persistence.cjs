@@ -62,6 +62,11 @@ function page(storage, unavailable=false){
   const expected=[...original];expected.splice(index,0,original[index]);assert.deepEqual(JSON.parse(JSON.stringify(trial.run('chords.map(c=>({name:c.name,pitches:c.pitches,root:c.root,tones:c.tones}))'))),expected);
   assert.equal(trial.run('lines.children.length'),15);
  }
+ // Command+D uses the same duplicate path, survives reload, and supports undo.
+ const dupStore={},d=page(dupStore);d.run("chords[0].pitches=[36,48,55,60,84];scheduleSave(true)");
+ assert.equal(d.key('d',d.document.activeElement,{metaKey:true}),true);assert.equal(d.run('selectedKeyboard'),1);assert.deepEqual(Array.from(d.run('chords[1].pitches')),[36,48,55,60,84]);
+ assert.equal(page(dupStore).run('chords[1].pitches[0]'),36);d.key('z',d.document.activeElement,{metaKey:true});assert.equal(d.run('chords.length'),1);
+ for(const tagName of ['INPUT','TEXTAREA','SELECT'])assert.equal(d.key('d',{tagName},{metaKey:true}),false);assert.equal(d.key('d',{tagName:'DIV',isContentEditable:true},{metaKey:true}),false);
  // Internal clipboard and undo/redo preserve identity, pitches, selection and saved state.
  const histStorage={},h=page(histStorage);await new Promise(r=>setImmediate(r));
  h.document.getElementById('triad-choices').children[1].onclick({detail:0});const copied=JSON.parse(JSON.stringify(h.run('copyChord(chords[0])')));
