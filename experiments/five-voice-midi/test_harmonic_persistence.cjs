@@ -42,7 +42,7 @@ function page(storage, unavailable=false){
  const extended=page(storage);await new Promise(r=>setImmediate(r));assert.equal(extended.run('chords[1].pitches[4]'),84);assert.equal(extended.sent.length,0);
  // Keyboard chord selection retains button focus for normal Tab navigation.
  const button=p.document.getElementById('triad-choices').children[2];button.focus();button.onclick({detail:0});assert.equal(p.document.activeElement,button);
- p.key('v');p.key('.');assert.equal(p.document.activeElement,p.run('chords[selectedKeyboard].node'));
+ p.key('v');p.key('n');assert.equal(p.document.activeElement,p.run('chords[selectedKeyboard].node'));
  const before=JSON.parse(JSON.stringify(p.run("chords.map(({name,referenceName,root,roman,quality,edited,pitches,tones})=>({name,referenceName,root,roman,quality,edited,pitches,tones}))")));
  assert.equal(p.key('Enter',p.document.activeElement,{shiftKey:true}),true);assert.equal(p.run('selectedKeyboard'),1);
  let after=JSON.parse(JSON.stringify(p.run("chords.map(({name,referenceName,root,roman,quality,edited,pitches,tones})=>({name,referenceName,root,roman,quality,edited,pitches,tones}))")));
@@ -107,7 +107,7 @@ function page(storage, unavailable=false){
  for(const tagName of ['INPUT','TEXTAREA','SELECT'])for(const key of ['c','v','z'])assert.equal(h.key(key,{tagName},{metaKey:true}),false);
  assert.equal(h.key('v',{tagName:'DIV',isContentEditable:true},{metaKey:true}),false);
  // New edits clear redo; undo restores chord and voicing edits.
- h.document.getElementById('triad-choices').children[2].onclick({detail:0});const selected=h.run('chords[2].name');h.key('v');h.key('.');const voice=h.run('chords[2].voicingIndex');assert.equal(voice,1);
+ h.document.getElementById('triad-choices').children[2].onclick({detail:0});const selected=h.run('chords[2].name');h.key('v');h.key('n');const voice=h.run('chords[2].voicingIndex');assert.equal(voice,1);
  h.key('z',h.document.activeElement,{metaKey:true});assert.equal(h.run('chords[2].voicingIndex'),0);h.key('z',h.document.activeElement,{metaKey:true});assert.notEqual(h.run('chords[2].name'),selected);
  h.key('z',h.document.activeElement,{metaKey:true,shiftKey:true});assert.equal(h.run('chords[2].name'),selected);h.key('Enter');assert.equal(h.run('redoStack.length'),0);
  for(const bad of ['{',JSON.stringify({version:2}),JSON.stringify({version:1,chords:[],active:0})]){const q=page({[keyName]:bad});await new Promise(r=>setImmediate(r));assert.equal(q.run('chords.length'),1);assert.equal(q.run('chords[0].name'),'C major');assert.equal(q.sent.length,0)}
