@@ -38,7 +38,7 @@ function page(storage, unavailable=false){
  // Chord selection uses the chord's own reference, independent of the preceding chord.
  p.key('Enter');p.run('chords[0].pitches=[72,73,74,75,76]');p.document.getElementById('seventh-choices').children[1].onclick({detail:0});
  assert.deepEqual(Array.from(p.run('chords[1].pitches')),Array.from(p.run('generateVoicings(catalog.sevenths[1].pitches,catalog.sevenths[1].tones)[0]')));
- assert.equal(p.run('galleryNode.children.length'),9);assert.equal(p.run("galleryNode.children[1].children.filter(x=>x.tagName==='rect'&&(x.attrs.fill==='#e4e9e3'||x.attrs.fill==='#172235')).length"),49);assert.equal(p.run('galleryNode.children[1].children.filter(x=>x.attrs.class==="gallery-voice-line").length'),5);
+ assert.equal(p.run('galleryOpen'),false);assert.equal(p.key('v'),true);assert.equal(p.run('galleryNode.children.length'),9);assert.equal(p.run("galleryNode.children[1].children.filter(x=>x.tagName==='rect'&&(x.attrs.fill==='#e4e9e3'||x.attrs.fill==='#172235')).length"),49);assert.equal(p.run('galleryNode.children[1].children.filter(x=>x.attrs.class==="gallery-voice-line").length'),5);
  const old=Array.from(p.run('chords[1].pitches'));const priorBatch=JSON.parse(p.run('JSON.stringify(chords[1].voicings)'));
  for(let i=0;i<8;i++){assert.equal(p.key(String(i+1)),true);assert.deepEqual(Array.from(p.run('chords[1].pitches')),priorBatch[i])}
  p.key(',');assert.deepEqual(Array.from(p.run('chords[1].pitches')),priorBatch[6]);p.key('.');assert.deepEqual(Array.from(p.run('chords[1].pitches')),priorBatch[7]);
