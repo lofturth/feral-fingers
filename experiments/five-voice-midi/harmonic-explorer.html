@@ -82,13 +82,13 @@ main{padding:12px clamp(12px,3vw,32px) 24px}.workspace-toolbar{position:sticky;t
 const voices=[{name:'Thumb',color:'#f3a990'},{name:'Index',color:'#f2d58d'},{name:'Middle',color:'#a9d9ac'},{name:'Ring',color:'#92cadc'},{name:'Pinky',color:'#c4afe0'}];
 const catalog={
  triads:[
-  {roman:'I',name:'C',root:0,quality:'Major',pitches:[48,52,55,60,64]},
-  {roman:'ii',name:'Dm',root:2,quality:'Minor',pitches:[50,53,57,62,65]},
-  {roman:'iii',name:'Em',root:4,quality:'Minor',pitches:[52,55,59,64,67]},
-  {roman:'IV',name:'F',root:5,quality:'Major',pitches:[48,53,57,60,65]},
-  {roman:'V',name:'G',root:7,quality:'Major',pitches:[50,55,59,62,67]},
-  {roman:'vi',name:'Am',root:9,quality:'Minor',pitches:[48,52,57,60,69]},
-  {roman:'vii°',name:'Bdim',root:11,quality:'Diminished',pitches:[50,53,59,62,71]}
+  {roman:'I',name:'C',root:0,quality:'Major',pitches:[48,55,60,64,67]},
+  {roman:'ii',name:'Dm',root:2,quality:'Minor',pitches:[50,57,62,65,69]},
+  {roman:'iii',name:'Em',root:4,quality:'Minor',pitches:[52,59,64,67,71]},
+  {roman:'IV',name:'F',root:5,quality:'Major',pitches:[41,48,53,57,60]},
+  {roman:'V',name:'G',root:7,quality:'Major',pitches:[43,50,55,59,62]},
+  {roman:'vi',name:'Am',root:9,quality:'Minor',pitches:[45,52,57,60,64]},
+  {roman:'vii°',name:'Bdim',root:11,quality:'Diminished',pitches:[47,53,59,62,65]}
  ],
  sevenths:[
   {roman:'Imaj7',name:'Cmaj7',root:0,quality:'Major seventh',pitches:[48,52,55,59,60]},
@@ -104,7 +104,7 @@ Object.values(catalog).flat().forEach(chord=>{chord.tones=[...new Set(chord.pitc
 const qualities={'Major':[0,4,7],'Minor':[0,3,7],'Diminished':[0,3,6],'Major seventh':[0,4,7,11],'Minor seventh':[0,3,7,10],'Dominant seventh':[0,4,7,10],'Half-diminished seventh':[0,3,6,10]};
 function inferHarmony(c){if(Object.hasOwn(c,'harmony'))return c.harmony&&Number.isInteger(c.harmony.root)&&c.harmony.root>=0&&c.harmony.root<12&&qualities[c.harmony.quality]?{...c.harmony}:null;const label=(c.referenceName||c.name||'').trim().toLowerCase(),rootNames={0:'C',2:'D',4:'E',5:'F',7:'G',9:'A',11:'B'};const match=Object.values(catalog).flat().find(x=>x.root===c.root&&(x.name.toLowerCase()===label||`${rootNames[x.root]} ${x.quality}`.toLowerCase()===label));return match?{root:match.root,quality:match.quality}:null}
 function harmonyTones(h){return h?qualities[h.quality].map(n=>(h.root+n)%12):[]}
-const chords=[{name:'C major',referenceName:'C',root:0,tones:[0,4,7],role:'CHORD',pitches:[48,55,60,64,67]}];
+const chords=[{name:'C major',referenceName:'C',root:0,roman:'I',quality:'Major',tones:[0,4,7],role:'CHORD',pitches:[...catalog.triads[0].pitches]}];
 const first=36,last=84; // C2–C6 inclusive
 // Score musical spacing first; diversity is a bounded tie-breaker, not a reward for extremes.
 function voicingFeatures(p){const n=[...p].sort((a,b)=>a-b),gaps=n.slice(1).map((v,i)=>v-n[i]),span=n[4]-n[0],mean=n.reduce((a,b)=>a+b,0)/5;return {n,gaps,span,mean,maxGap:Math.max(...gaps)}}
@@ -315,7 +315,7 @@ function syncSelector(){
 function renderChoices(){
  for(const [category,id] of [['triads','triad-choices'],['sevenths','seventh-choices']]){
   const container=document.getElementById(id);container.replaceChildren();
-  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;button.append(title);button.onclick=event=>{const index=selectedKeyboard,reference=chord.pitches,voicings=generateVoicings(reference,chord.tones),before=captureLayout(),old=chords[index];remember();removeChordView(chords[index]);chords[index]={...chord,referenceName:chord.name,harmony:{root:chord.root,quality:chord.quality},pitches:[...voicings[0]],tones:[...chord.tones],voicings,offered:voicings.map(v=>v.join(',')),voicingIndex:0,role:'CHORD'};scheduleSave(true);draw();before.find(item=>item.chord===old).chord=chords[index];animateChange(before);play(chords[index]);if(event?.detail>0)chords[index].node.focus({preventScroll:true})};container.append(button);selectorButtons.set(chord,button)});
+  catalog[category].forEach(chord=>{const button=document.createElement('button');button.type='button';const title=document.createElement('strong');title.textContent=chord.roman+' · '+chord.name;button.append(title);button.onclick=event=>{const index=selectedKeyboard,reference=chord.pitches,voicings=generateVoicings(reference,chord.tones),before=captureLayout(),old=chords[index];remember();removeChordView(chords[index]);chords[index]={...chord,referenceName:chord.name,harmony:{root:chord.root,quality:chord.quality},pitches:[...(category==='triads'?reference:voicings[0])],tones:[...chord.tones],voicings,offered:voicings.map(v=>v.join(',')),voicingIndex:category==='triads'?voicings.findIndex(v=>v.every((pitch,i)=>pitch===reference[i])):0,role:'CHORD'};scheduleSave(true);draw();before.find(item=>item.chord===old).chord=chords[index];animateChange(before);play(chords[index]);if(event?.detail>0)chords[index].node.focus({preventScroll:true})};container.append(button);selectorButtons.set(chord,button)});
  }
  syncSelector();
 }

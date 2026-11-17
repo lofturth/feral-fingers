@@ -32,8 +32,8 @@ const run = code => vm.runInContext(code, context);
   const expectedRoots=[0,2,4,5,7,9,11,0,2,4,5,7,9,11];
   const all = run('[...catalog.triads,...catalog.sevenths]');
   assert.deepEqual(Array.from(all,c=>c.root), expectedRoots);
-  assert.deepEqual(Array.from(run("catalog.triads[1].pitches.map(p=>degreeName(p,catalog.triads[1].root))")), ['1','♭3','5','1','♭3']);
-  assert.deepEqual(Array.from(run("catalog.triads[6].pitches.map(p=>degreeName(p,catalog.triads[6].root))")), ['♭3','♯4/♭5','1','♭3','1']);
+  assert.deepEqual(Array.from(run("catalog.triads[1].pitches.map(p=>degreeName(p,catalog.triads[1].root))")), ['1','5','1','♭3','5']);
+  assert.deepEqual(Array.from(run("catalog.triads[6].pitches.map(p=>degreeName(p,catalog.triads[6].root))")), ['1','♯4/♭5','1','♭3','♯4/♭5']);
   assert.deepEqual(Array.from(run("catalog.sevenths[0].pitches.map(p=>degreeName(p,catalog.sevenths[0].root))")), ['1','3','5','7','1']);
   for (const map of [[0,1,2,3,4],[4,3,2,1,0],[2,1,4,3,0]]) {
     context.map=map;
