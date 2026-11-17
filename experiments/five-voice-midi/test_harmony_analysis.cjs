@@ -19,6 +19,8 @@ for (let root=0;root<12;root++) for (const [quality,suffix,intervals] of cases) 
   assert.equal(result.primary.root,root);assert.deepEqual(notes,original);
   assert.equal(classify([...notes].reverse()).label,result.label);
 }
+assert.equal(classify([50,53,57,62,69]).label,'Dm');
+for(let root=0;root<12;root++)for(const [third,suffix] of [[4,''],[3,'m']]){const p=[48+root,48+root+third,48+root+7,60+root,72+root+7];for(const order of [[0,1,2,3,4],[4,2,0,3,1],[3,1,4,0,2]])assert.equal(classify(order.map(i=>p[i])).label,names[root]+suffix)}
 assert.equal(classify([52,55,60,64,67]).label,'C/E');
 assert.equal(classify([55,59,62,65,67]).label,'G7');
 const sixth=classify([48,52,55,57,60]);assert.equal(sixth.label,'C6');assert(sixth.ambiguous);assert(sixth.alternatives.some(x=>x.symbol==='Am7/C'));

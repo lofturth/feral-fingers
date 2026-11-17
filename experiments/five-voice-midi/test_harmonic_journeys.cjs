@@ -50,7 +50,7 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.equal(run('chords.length'),5);assert.equal(run('selectedKeyboard'),4);assert.equal(run('chords[4].root'),0);assert.equal(navigationFrames.size,1);assert.equal(run('lines.children.length'),20);
  let [frame,step]=[...navigationFrames.entries()][0];navigationFrames.delete(frame);step(90);assert.equal(scrolls.at(-1).behavior,'auto');assert.equal(scrolls.at(-1).top,109);assert.equal(navigationFrames.size,1);
  [frame,step]=[...navigationFrames.entries()][0];navigationFrames.delete(frame);step(180);assert.equal(scrolls.at(-1).top,96);assert.equal(navigationFrames.size,0);assert.equal(run('navigationFrame'),null);
- assert.deepEqual(Array.from(run('chords.map(c=>c.node.children.find(e=>e.attrs.class==="chord-number").textContent)')),['1','2','3','4','5']);
+ assert.deepEqual(Array.from(run('chords.map(c=>c.node.children.find(e=>e.attrs.class==="chord-sub").textContent.split(" ")[1])')),['1','2','3','4','5']);
  assert.equal(run('chords[0].node'),firstNode);assert.deepEqual(Array.from(run('chords[4].pitches')),original);
  run("setPitchMode('chromatic');selectedVoice=4");const beforeEditScrolls=scrolls.length;key('ArrowRight');assert.equal(scrolls.length,beforeEditScrolls);
  assert.equal(run('chords[4].pitches[4]'),68);assert.deepEqual(Array.from(run('chords[0].pitches')),original);assert.equal(run('chords[0].node'),firstNode);
@@ -83,7 +83,7 @@ function key(key,tagName='BODY',extra={}){let prevented=false;document.keydown({
  assert.equal(run('chords[5].content.children.filter(e=>e.attrs.class==="tone-indicator non-chord-tone").length'),0);
  const snapshot=Array.from(run('chords.map(c=>({pitches:[...c.pitches],root:c.root,tones:[...c.tones]}))'),c=>({pitches:Array.from(c.pitches),root:c.root,tones:Array.from(c.tones)}));
  run('selectKeyboard(2)');assert.equal(key('Backspace'),true);assert.equal(run('selectedKeyboard'),1);assert.equal(run('chords.length'),5);assert.equal(run('lines.children.length'),20);
- assert.deepEqual(Array.from(run('chords.map(c=>c.node.children.find(e=>e.attrs.class==="chord-number").textContent)')),['1','2','3','4','5']);
+ assert.deepEqual(Array.from(run('chords.map(c=>c.node.children.find(e=>e.attrs.class==="chord-sub").textContent.split(" ")[1])')),['1','2','3','4','5']);
  assert.deepEqual(Array.from(run('chords.map(c=>({pitches:[...c.pitches],root:c.root,tones:[...c.tones]}))'),c=>({pitches:Array.from(c.pitches),root:c.root,tones:Array.from(c.tones)})),snapshot.filter((_,i)=>i!==2));
  await run('actionQueue');assert.deepEqual(sent.at(-1).data.voice_notes,Array.from(run('chords[1].pitches')));
  run('selectKeyboard(0)');key('Backspace');assert.equal(run('selectedKeyboard'),0);assert.equal(run('chords.length'),4);
