@@ -735,6 +735,8 @@ def main():
                 body=(ROOT/'index.html').read_bytes();content_type='text/html; charset=utf-8'
             elif self.path=='/harmonic-explorer':
                 body=(ROOT/'harmonic-explorer.html').read_bytes();content_type='text/html; charset=utf-8'
+            elif self.path=='/harmony-analysis.js':
+                body=(ROOT/'harmony-analysis.js').read_bytes();content_type='application/javascript; charset=utf-8'
             elif self.path=='/status':content_type='application/json'
             elif self.path=='/presets':body=json.dumps(list(PRESETS),ensure_ascii=False).encode();content_type='application/json'
             else:self.send_error(404);return
