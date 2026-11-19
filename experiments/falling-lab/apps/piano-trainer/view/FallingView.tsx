@@ -1,17 +1,16 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SessionSnapshot } from '../../../core/physics';
 import type { PianoExercise } from '../deck';
-import { PianoCard } from '../cards/PianoCard';
 import { noteName } from '../midi/useMidi';
 
 type Observation = { time: number; progress: number };
-type Props = { state: SessionSnapshot; progress: number; history: readonly Observation[]; exercises: readonly PianoExercise[]; card: ReactNode };
+type Props = { state: SessionSnapshot; progress: number; history: readonly Observation[]; exercises: readonly PianoExercise[] };
 const top = 24, bottom = 502, reachableTop = 60, left = 20, right = 1180;
 const screenY = (position: number) => bottom - position / 100 * (bottom - reachableTop);
 const traceY = (value: number) => bottom - 4 - value / 100 * (bottom - top - 8);
 
 // Geometry and SVG styling follow apps/generic/view/falling-field.js.
-export function FallingView({ state, progress, history, exercises, card }: Props) {
+export function FallingView({ state, progress, history, exercises }: Props) {
   const chart = useRef<SVGSVGElement>(null);
   const [traceWidth, setTraceWidth] = useState(2.3);
   useEffect(() => {
@@ -60,15 +59,14 @@ export function FallingView({ state, progress, history, exercises, card }: Props
       <text id="trace-percentage" x={right + 12} y={traceY(progress)} fill="#43E6ED" fontSize="16" fontWeight="700" dominantBaseline="central" stroke="#0A0D19" strokeWidth="4" paintOrder="stroke">{progress.toFixed(1)}%</text>
       {state.cards.map((item, i) => {
         if (!item.unlocked) return null;
-        const width = Math.min(320, slotWidth - 10);
-        const scale = width / 320;
-        const height = 205 * scale;
-        const x = left + i * slotWidth + (slotWidth - width) / 2;
-        return <foreignObject key={item.id} x={x} y={Math.max(top, screenY(item.shown) - height)} width={width} height={height}>
-          <div style={{ width: 320, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-            {i === state.selectedIndex ? card : <PianoCard title={exercises[i].label} notes={exercises[i].notes.map(noteName)}/>}
-          </div>
-        </foreignObject>;
+        const x = left + i * slotWidth + 5;
+        const width = slotWidth - 10;
+        const y = screenY(item.shown);
+        const notes = exercises[i].notes.map(noteName).join(' · ');
+        return <g key={item.id} aria-label={`${exercises[i].label}: ${notes}`}>
+          <rect x={x + 2} y={Math.max(top + 2, y - 28)} width={Math.max(0, width - 4)} height="20" rx="3" fill="#141e30" stroke={i === state.selectedIndex ? '#43E6ED' : '#43536a'}/>
+          <text x={x + width / 2} y={Math.max(top + 15, y - 15)} fill="#e3e8ef" fontSize="9" textAnchor="middle" textLength={Math.max(0, width - 10)} lengthAdjust="spacingAndGlyphs">{notes}</text>
+        </g>;
       })}
     </svg>
   </div>;

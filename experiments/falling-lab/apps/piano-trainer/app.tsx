@@ -10,6 +10,17 @@ import sampleDeckJson from './decks/sample.json?raw';
 import './style.css';
 
 function PracticeSession({ deck }: { deck: PianoDeck }) {
+  const [overlayOpacity, setOverlayOpacity] = useState(() => {
+    try {
+      const saved = localStorage.getItem('piano-trainer.overlay-opacity');
+      const value = saved === null ? 90 : Number(saved);
+      return Number.isFinite(value) && value >= 0 && value <= 100 ? value : 90;
+    } catch { return 90; }
+  });
+  function changeOpacity(value: number) {
+    setOverlayOpacity(value);
+    try { localStorage.setItem('piano-trainer.overlay-opacity', String(value)); } catch { /* Keep the setting for this session. */ }
+  }
   const [session] = useState(() => createSession({ cards: deck.exercises.map(({ id }) => ({ id })), config: { instantPosition: window.matchMedia('(prefers-reduced-motion: reduce)').matches } }));
   const [trainer] = useState(() => createTrainingSession(session));
   const [state, setState] = useState(() => session.getState());
@@ -46,9 +57,13 @@ function PracticeSession({ deck }: { deck: PianoDeck }) {
     <div className="readouts"><span className="status"><i/>{state.complete ? 'COMPLETE' : 'LIVE'}</span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
     <section className="instrument" aria-label="Piano phrase field">
       <div className="chart-heading"><span>{deck.title}</span><div className="legend"><span className="magenta">▥ ITEM DEPTH</span><span className="cyan">∿ OVERALL PROGRESS</span></div></div>
-      <FallingView state={state} progress={progress} history={history} exercises={deck.exercises} card={<TrainerPianoCard exercise={selected} active={!state.paused && !state.complete} practice={practice}/>}/>
+      <FallingView state={state} progress={progress} history={history} exercises={deck.exercises}/>
       <div className="chart-foot"><span>SLOTS: FIXED POSITIONS <span className="divider">/</span> TRACE: SESSION TIME →</span><span>FULL SESSION <span className="divider">/</span> PROGRESS HISTORY</span></div>
     </section>
+    <aside className="active-card-overlay" aria-label="Active piano exercise" style={{ backgroundColor: `rgba(11, 18, 32, ${overlayOpacity / 100})` }}>
+      <label className="overlay-opacity">Background <input type="range" min="0" max="100" step="1" value={overlayOpacity} onChange={event => changeOpacity(Number(event.target.value))} aria-label="Overlay background opacity"/> <span>{overlayOpacity}%</span></label>
+      <TrainerPianoCard exercise={selected} active={!state.paused && !state.complete} practice={practice}/>
+    </aside>
   </>;
 }
 function App() {
