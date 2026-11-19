@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AttemptMidiEvent } from './attemptRecording';
 
-type MidiEvent = { id: number; type: 'Note on' | 'Note off'; note: string; velocity: number; channel: number };
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
-const noteName = (pitch: number) => `${noteNames[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
+export const noteName = (pitch: number) => `${noteNames[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
 
 export function useMidi(onNoteOn: (note: string) => void, onMidiEvent: (event: AttemptMidiEvent) => void) {
   const onMidiEventRef = useRef(onMidiEvent);
@@ -14,11 +13,9 @@ export function useMidi(onNoteOn: (note: string) => void, onMidiEvent: (event: A
   const [selectedId, setSelectedId] = useState('');
   const [status, setStatus] = useState('MIDI not connected');
   const [heldNotes, setHeldNotes] = useState<string[]>([]);
-  const [events, setEvents] = useState<MidiEvent[]>([]);
   const accessRef = useRef<MIDIAccess | null>(null);
   const inputRef = useRef<MIDIInput | null>(null);
   const heldRef = useRef(new Map<string, number>());
-  const eventId = useRef(0);
   const mounted = useRef(true);
   const connecting = useRef(false);
   const reconnectId = useRef('');
@@ -52,8 +49,6 @@ export function useMidi(onNoteOn: (note: string) => void, onMidiEvent: (event: A
       if (on) heldRef.current.set(key, pitch);
       else heldRef.current.delete(key);
       setHeldNotes([...new Set([...heldRef.current.values()].map(noteName))]);
-      const midiEvent: MidiEvent = { id: ++eventId.current, type: on ? 'Note on' : 'Note off', note: noteName(pitch), velocity, channel };
-      setEvents(previous => [midiEvent, ...previous].slice(0, 20));
     };
     setStatus(`Connected: ${input.name || 'MIDI input'}`);
   }
@@ -111,5 +106,5 @@ export function useMidi(onNoteOn: (note: string) => void, onMidiEvent: (event: A
     };
   }, []);
 
-  return { devices, selectedId, status, heldNotes, events, connect, selectInput: (id: string) => { reconnectId.current = ''; selectInput(id); } };
+  return { devices, selectedId, status, heldNotes, connect, selectInput: (id: string) => { reconnectId.current = ''; selectInput(id); } };
 }

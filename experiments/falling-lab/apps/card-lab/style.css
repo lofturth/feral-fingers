@@ -14,8 +14,14 @@ button:focus-visible { outline: 2px solid #8edce0; outline-offset: 3px; }
 .midi-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .midi-controls label, .midi p, .midi-events { color: #aabbd0; font-size: .88rem; }
 .midi-controls select { padding: 10px; border: 1px solid #43536a; border-radius: 8px; background: #1b293d; color: #f2f6fc; font: inherit; }
-.midi h3 { margin-top: 24px; font-size: .9rem; }
-.midi-events { padding-left: 20px; line-height: 1.7; }
 
 .recognition { margin-top: 38px; }
 .recognition p { color: #aabbd0; }
+
+.event-log { margin-top: 24px; max-width: 520px; }
+.event-log summary { cursor: pointer; font-weight: 700; }
+.event-log button { margin: 14px 0 10px; }
+.event-log__panel { height: 170px; min-height: 80px; max-height: 70vh; resize: vertical; overflow: auto; border: 1px solid #43536a; border-radius: 8px; padding: 10px 14px; color: #aabbd0; font-size: .88rem; }
+.event-log__list { margin: 0; padding-left: 22px; line-height: 1.7; }
+.event-log__panel p, .event-log__hint { margin: 0; color: #aabbd0; }
+.event-log__hint { margin-top: 8px; font-size: .8rem; }
