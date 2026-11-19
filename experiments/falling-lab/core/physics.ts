@@ -119,6 +119,7 @@ export interface CreateSessionOptions {
   config?: PhysicsConfigPatch;
   cards?: readonly (CardInit | CardId)[];
   cardCount?: number;
+  holdSelection?: boolean;
 }
 
 export interface ConfigureOptions {
@@ -405,6 +406,10 @@ interface InternalSessionState {
 }
 
 export function createSession(options: CreateSessionOptions = {}): PhysicsSession {
+  if (options.holdSelection !== undefined && typeof options.holdSelection !== 'boolean') {
+    throw new TypeError('holdSelection must be a boolean');
+  }
+  const holdSelection = options.holdSelection === true;
   let config = configuration(options.config);
   let cards: CardState[];
 
@@ -477,7 +482,7 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
     return index;
   }
 
-  function reconcile(): TransitionResult {
+  function reconcile(keepSelection = false): TransitionResult {
     let unlockedIndex: number | null = null;
     let unlockedCardId: CardId | null = null;
     let completedNow = false;
@@ -498,7 +503,7 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
       }
     }
 
-    select();
+    if (!(holdSelection && keepSelection && state.selectedIndex >= 0 && state.cards[state.selectedIndex]?.unlocked)) select();
 
     if (!state.complete && state.cards.every(card => isAboveFinish(card, config.finish.threshold))) {
       state.complete = true;
@@ -557,13 +562,13 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
           : card.shown + (card.depth - card.shown) * (1 - Math.exp(-15 * dt));
       }
       state.time += dt;
-      return reconcile();
+      return reconcile(true);
     },
 
     skip(): SkipResult | null {
       if (state.paused || state.complete) return null;
 
-      const index = select();
+      const index = holdSelection ? state.selectedIndex : select();
       const card = state.cards[index]!;
       state.skipCount++;
       state.skippedIndex = index;
@@ -611,7 +616,7 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
         if (typeof cardIdentifierOrMagnitude !== 'number' || !Number.isFinite(cardIdentifierOrMagnitude) || cardIdentifierOrMagnitude < 0) {
           throw new RangeError('rewardMagnitude must be a finite, nonnegative number');
         }
-        index = select();
+        index = holdSelection ? state.selectedIndex : select();
         rewardMagnitude = cardIdentifierOrMagnitude;
       }
 
@@ -697,7 +702,7 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
       config = configuration(patch, config);
       state.config = config;
       if (recheckCompletion) state.complete = false;
-      return reconcile();
+      return reconcile(true);
     }
   };
   return api;

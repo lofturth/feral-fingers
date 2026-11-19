@@ -20,6 +20,12 @@ export function createAttemptDiagnostics(onLog: LogEvent, nextAttemptId: () => n
     return `Card ${exercise.id} (${exercise.label}); expected: [${exercise.notes.join(', ')}]; actual: [${actual.join(', ')}]`;
   }
   return {
+    selectionChanged(selectedId: string, timestamp: number) {
+      if (current && current.cardId !== selectedId) {
+        onLog({ timestamp, type: 'Attempt interrupted', attemptId: current.id, detail: `${describe(current.exercise)}; selection changed` });
+        current = null;
+      }
+    },
     midi(event: AttemptMidiEvent, exercise: PianoExercise | null) {
       if (exercise && event.type === 'note-on') begin(exercise, event.timestamp);
       if (current) current.recording.record(event);

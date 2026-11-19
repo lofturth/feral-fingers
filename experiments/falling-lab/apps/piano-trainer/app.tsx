@@ -26,8 +26,10 @@ function PracticeSession({ deck, onLog, nextAttemptId }: { deck: PianoDeck; onLo
     setOverlayOpacity(value);
     try { localStorage.setItem('piano-trainer.overlay-opacity', String(value)); } catch { /* Keep the setting for this session. */ }
   }
-  const [session] = useState(() => createSession({ cards: deck.exercises.map(({ id }) => ({ id })), config: { instantPosition: window.matchMedia('(prefers-reduced-motion: reduce)').matches } }));
-  const [trainer] = useState(() => createTrainingSession(session));
+  const [session] = useState(() => createSession({ holdSelection: true, cards: deck.exercises.map(({ id }) => ({ id })), config: { instantPosition: window.matchMedia('(prefers-reduced-motion: reduce)').matches } }));
+  const [trainer] = useState(() => createTrainingSession(session, change => {
+    onLog({ timestamp: change.timestamp, type: 'Core selection', detail: `${change.previous || 'none'} → ${change.next || 'none'}; cause ${change.cause}` });
+  }));
   const [state, setState] = useState(() => session.getState());
   const [progress, setProgress] = useState(() => session.getProgress());
   const [history, setHistory] = useState([{ time: 0, progress: 0 }]);
@@ -36,6 +38,9 @@ function PracticeSession({ deck, onLog, nextAttemptId }: { deck: PianoDeck; onLo
   const lastSelected = useRef<string | null>(null);
   const projectionId = useRef(0);
   const [projection, setProjection] = useState<Projection | null>(null);
+  useEffect(() => {
+    onLog({ timestamp: performance.now(), type: 'Core selection', detail: `none → ${session.getState().selectedCardId || 'none'}; cause session start` });
+  }, [onLog, session]);
   const projectSelection = useCallback((snapshot: SessionSnapshot) => {
     lastSelected.current = snapshot.selectedCardId;
     const exercise = deck.exercises[snapshot.selectedIndex];

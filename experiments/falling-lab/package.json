@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node scripts/build.cjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/physics.test.cjs tests/differential.test.cjs tests/repetitions.test.cjs tests/field.test.cjs tests/overlays.test.cjs tests/applications.test.cjs tests/generic-demo.test.cjs tests/prototype.test.cjs tests/characterization.test.cjs",
+    "test": "node --test tests/physics.test.cjs tests/selection-hold.test.cjs tests/differential.test.cjs tests/repetitions.test.cjs tests/field.test.cjs tests/overlays.test.cjs tests/applications.test.cjs tests/generic-demo.test.cjs tests/prototype.test.cjs tests/characterization.test.cjs",
     "test:field": "node --test tests/field.test.cjs",
     "test:view": "node --test tests/field.test.cjs",
     "test:overlays": "node --test tests/overlays.test.cjs",

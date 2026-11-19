@@ -6,7 +6,7 @@ Items ("cards") fall over time as forgetting occurs. Successful retrieval lifts 
 
 ## Architecture
 
-- **Core (`core/physics.ts`)** is the domain-independent session engine. The generated `physics.js` is used by the existing browser apps.
+- **Core (`core/physics.ts`)** is the domain-independent session engine. The generated `physics.js` is used by the existing browser apps. A session can opt in to stable selection with `createSession({ holdSelection: true })`: time advances keep the active card, while rewards and skips select the next card. The default retains continuous lowest-card selection.
 - **App-owned field views** live in `apps/vocabulary/view/` and `apps/generic/view/`.
 - **Vocabulary** uses its own field and vocabulary overlay. **Generic** demonstrates Core with its own field. Vocabulary coordination lives in `apps/vocabulary/coordinator.js`.
 - **Piano Trainer** contains `cards/` for the reusable React piano card and evaluator, `midi/` for input and recording, and `card-lab/` as their standalone development application. A trainer app and its view have not been implemented.

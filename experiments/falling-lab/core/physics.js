@@ -194,6 +194,10 @@
       };
   }
   function createSession(options = {}) {
+      if (options.holdSelection !== undefined && typeof options.holdSelection !== 'boolean') {
+          throw new TypeError('holdSelection must be a boolean');
+      }
+      const holdSelection = options.holdSelection === true;
       let config = configuration(options.config);
       let cards;
       if (options.cards !== undefined) {
@@ -262,7 +266,7 @@
           }
           return index;
       }
-      function reconcile() {
+      function reconcile(keepSelection = false) {
           let unlockedIndex = null;
           let unlockedCardId = null;
           let completedNow = false;
@@ -281,7 +285,8 @@
                   }
               }
           }
-          select();
+          if (!(holdSelection && keepSelection && state.selectedIndex >= 0 && state.cards[state.selectedIndex]?.unlocked))
+              select();
           if (!state.complete && state.cards.every(card => isAboveFinish(card, config.finish.threshold))) {
               state.complete = true;
               state.paused = true;
@@ -330,12 +335,12 @@
                       : card.shown + (card.depth - card.shown) * (1 - Math.exp(-15 * dt));
               }
               state.time += dt;
-              return reconcile();
+              return reconcile(true);
           },
           skip() {
               if (state.paused || state.complete)
                   return null;
-              const index = select();
+              const index = holdSelection ? state.selectedIndex : select();
               const card = state.cards[index];
               state.skipCount++;
               state.skippedIndex = index;
@@ -383,7 +388,7 @@
                   if (typeof cardIdentifierOrMagnitude !== 'number' || !Number.isFinite(cardIdentifierOrMagnitude) || cardIdentifierOrMagnitude < 0) {
                       throw new RangeError('rewardMagnitude must be a finite, nonnegative number');
                   }
-                  index = select();
+                  index = holdSelection ? state.selectedIndex : select();
                   rewardMagnitude = cardIdentifierOrMagnitude;
               }
               if (typeof rewardMagnitude !== 'number' || !Number.isFinite(rewardMagnitude) || rewardMagnitude < 0) {
@@ -458,7 +463,7 @@
               state.config = config;
               if (recheckCompletion)
                   state.complete = false;
-              return reconcile();
+              return reconcile(true);
           }
       };
       return api;

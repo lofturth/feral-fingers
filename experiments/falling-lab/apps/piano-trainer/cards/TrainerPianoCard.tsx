@@ -36,6 +36,7 @@ export function usePianoPractice({ selectedId, getSelectedId, getExercise, onCom
     }
   });
   useEffect(() => {
+    diagnostic.current.selectionChanged(selectedId, performance.now());
     if (attempt.current && attempt.current.id !== selectedId) attempt.current = null;
   }, [selectedId]);
   useEffect(() => {

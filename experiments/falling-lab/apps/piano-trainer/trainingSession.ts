@@ -1,10 +1,19 @@
 import type { PhysicsSession } from '../../core/physics';
 
-export function createTrainingSession(session: PhysicsSession) {
+export type SelectionChange = { previous: string; next: string; cause: 'advance' | 'reward' | 'skip'; timestamp: number };
+export function createTrainingSession(session: PhysicsSession, onSelectionChange?: (change: SelectionChange) => void) {
   let lastTime: number | null = null;
+  function reportSelection(previous: string, cause: SelectionChange['cause'], timestamp: number) {
+    const next = session.getState().selectedCardId;
+    if (previous !== next) onSelectionChange?.({ previous, next, cause, timestamp });
+  }
   function advanceTo(time: number) {
     const nextTime = lastTime === null ? time : Math.max(time, lastTime);
-    if (lastTime !== null && !session.getState().paused) session.advance((nextTime - lastTime) / 1000);
+    if (lastTime !== null && !session.getState().paused) {
+      const previous = session.getState().selectedCardId;
+      session.advance((nextTime - lastTime) / 1000);
+      reportSelection(previous, 'advance', nextTime);
+    }
     lastTime = nextTime;
   }
   return {
@@ -15,14 +24,18 @@ export function createTrainingSession(session: PhysicsSession) {
       const state = session.getState();
       observeSelection?.(state.selectedCardId);
       if (state.paused || state.complete || state.selectedCardId !== cardId) return null;
-      return session.applyReward(cardId, score / 100);
+      const result = session.applyReward(cardId, score / 100);
+      reportSelection(state.selectedCardId, 'reward', Math.max(time, lastTime ?? time));
+      return result;
     },
     skip(cardId: string, time: number, observeSelection?: (id: string) => void) {
       advanceTo(time);
       const state = session.getState();
       observeSelection?.(state.selectedCardId);
       if (state.paused || state.complete || state.selectedCardId !== cardId) return null;
-      return session.skip();
+      const result = session.skip();
+      reportSelection(state.selectedCardId, 'skip', Math.max(time, lastTime ?? time));
+      return result;
     }
   };
 }
