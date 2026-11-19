@@ -2,7 +2,10 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createSession } from '../../core/physics.ts';
-import { FallingView } from './view/FallingView';
+import { FallingView, type FieldHandle } from './view/FallingView';
+import { CardProjection, type Projection } from './view/CardProjection';
+import { noteName } from './midi/useMidi';
+import type { SessionSnapshot } from '../../core/physics';
 import { TrainerPianoCard, usePianoPractice } from './cards/TrainerPianoCard';
 import { createTrainingSession } from './trainingSession';
 import { parseDeck, type PianoDeck } from './deck';
@@ -26,6 +29,24 @@ function PracticeSession({ deck }: { deck: PianoDeck }) {
   const [state, setState] = useState(() => session.getState());
   const [progress, setProgress] = useState(() => session.getProgress());
   const [history, setHistory] = useState([{ time: 0, progress: 0 }]);
+  const fieldRef = useRef<FieldHandle>(null);
+  const overlayRef = useRef<HTMLElement>(null);
+  const lastSelected = useRef<string | null>(null);
+  const projectionId = useRef(0);
+  const [projection, setProjection] = useState<Projection | null>(null);
+  const projectSelection = useCallback((snapshot: SessionSnapshot) => {
+    lastSelected.current = snapshot.selectedCardId;
+    const exercise = deck.exercises[snapshot.selectedIndex];
+    if (snapshot.complete || !exercise || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setProjection(null);
+      return;
+    }
+    const start = fieldRef.current?.selectedCardRect(snapshot);
+    const end = overlayRef.current?.getBoundingClientRect();
+    if (!start || !end || start.width <= 0 || start.height <= 0) { setProjection(null); return; }
+    setProjection({ id: ++projectionId.current, label: exercise.label, notes: exercise.notes.map(noteName).join(' · '), start, end });
+  }, [deck]);
+  const finishProjection = useCallback((id: number) => setProjection(current => current?.id === id ? null : current), []);
   useEffect(() => {
     let nextSample = .25, frame = 0;
     const visibility = () => { trainer.resetClock(); };
@@ -33,6 +54,7 @@ function PracticeSession({ deck }: { deck: PianoDeck }) {
       if (!document.hidden) {
         trainer.advanceTo(time);
         const snapshot = session.getState(), value = session.getProgress();
+        if (snapshot.selectedCardId !== lastSelected.current) projectSelection(snapshot);
         setState(snapshot); setProgress(value);
         if (snapshot.time >= nextSample) { setHistory(previous => [...previous, { time: snapshot.time, progress: value }]); nextSample = snapshot.time + .25; }
       }
@@ -41,12 +63,13 @@ function PracticeSession({ deck }: { deck: PianoDeck }) {
     document.addEventListener('visibilitychange', visibility);
     frame = requestAnimationFrame(tick);
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', visibility); };
-  }, [session, trainer]);
+  }, [session, trainer, projectSelection]);
   const refresh = useCallback(() => {
     const snapshot = session.getState(), value = session.getProgress();
     setState(snapshot); setProgress(value);
     setHistory(previous => [...previous, { time: snapshot.time, progress: value }]);
-  }, [session]);
+    projectSelection(snapshot);
+  }, [session, projectSelection]);
   const complete = useCallback((cardId: string, score: 50 | 100, time: number) => { if (trainer.complete(cardId, score, time)) refresh(); }, [trainer, refresh]);
   const skip = useCallback((cardId: string, time: number) => { if (trainer.skip(cardId, time)) refresh(); }, [trainer, refresh]);
   const getSelectedId = useCallback(() => { const current = session.getState(); return current.paused || current.complete ? null : current.selectedCardId; }, [session]);
@@ -57,13 +80,14 @@ function PracticeSession({ deck }: { deck: PianoDeck }) {
     <div className="readouts"><span className="status"><i/>{state.complete ? 'COMPLETE' : 'LIVE'}</span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
     <section className="instrument" aria-label="Piano phrase field">
       <div className="chart-heading"><span>{deck.title}</span><div className="legend"><span className="magenta">▥ ITEM DEPTH</span><span className="cyan">∿ OVERALL PROGRESS</span></div></div>
-      <FallingView state={state} progress={progress} history={history} exercises={deck.exercises}/>
+      <FallingView ref={fieldRef} state={state} progress={progress} history={history} exercises={deck.exercises}/>
       <div className="chart-foot"><span>SLOTS: FIXED POSITIONS <span className="divider">/</span> TRACE: SESSION TIME →</span><span>FULL SESSION <span className="divider">/</span> PROGRESS HISTORY</span></div>
     </section>
-    <aside className="active-card-overlay" aria-label="Active piano exercise" style={{ backgroundColor: `rgba(11, 18, 32, ${overlayOpacity / 100})` }}>
+    <aside ref={overlayRef} className="active-card-overlay" aria-label="Active piano exercise" style={{ backgroundColor: `rgba(11, 18, 32, ${overlayOpacity / 100})` }}>
       <label className="overlay-opacity">Background <input type="range" min="0" max="100" step="1" value={overlayOpacity} onChange={event => changeOpacity(Number(event.target.value))} aria-label="Overlay background opacity"/> <span>{overlayOpacity}%</span></label>
       <TrainerPianoCard exercise={selected} active={!state.paused && !state.complete} practice={practice}/>
     </aside>
+    {projection && <CardProjection key={projection.id} projection={projection} onFinish={finishProjection}/>}
   </>;
 }
 function App() {

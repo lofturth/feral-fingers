@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { SessionSnapshot } from '../../../core/physics';
 import type { PianoExercise } from '../deck';
 import { noteName } from '../midi/useMidi';
@@ -9,10 +9,26 @@ const top = 24, bottom = 502, reachableTop = 60, left = 20, right = 1180;
 const screenY = (position: number) => bottom - position / 100 * (bottom - reachableTop);
 const traceY = (value: number) => bottom - 4 - value / 100 * (bottom - top - 8);
 
+export type FieldHandle = { selectedCardRect: (snapshot: SessionSnapshot) => DOMRect | null };
+
 // Geometry and SVG styling follow apps/generic/view/falling-field.js.
-export function FallingView({ state, progress, history, exercises }: Props) {
+export const FallingView = forwardRef<FieldHandle, Props>(function FallingView({ state, progress, history, exercises }, ref) {
   const chart = useRef<SVGSVGElement>(null);
   const [traceWidth, setTraceWidth] = useState(2.3);
+  useImperativeHandle(ref, () => ({
+    selectedCardRect(snapshot) {
+      const index = snapshot.selectedIndex;
+      const item = snapshot.cards[index];
+      const matrix = chart.current?.getScreenCTM();
+      if (!item?.unlocked || !matrix) return null;
+      const width = (right - left) / snapshot.cards.length - 10;
+      const x = left + index * (right - left) / snapshot.cards.length + 7;
+      const y = Math.max(top + 2, screenY(item.shown) - 28);
+      const p1 = new DOMPoint(x, y).matrixTransform(matrix);
+      const p2 = new DOMPoint(x + Math.max(0, width - 4), y + 20).matrixTransform(matrix);
+      return new DOMRect(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y), Math.abs(p2.x - p1.x), Math.abs(p2.y - p1.y));
+    }
+  }), []);
   useEffect(() => {
     const resize = () => setTraceWidth(2.3 * (chart.current?.getScreenCTM()?.a || 1));
     resize();
@@ -70,4 +86,4 @@ export function FallingView({ state, progress, history, exercises }: Props) {
       })}
     </svg>
   </div>;
-}
+});

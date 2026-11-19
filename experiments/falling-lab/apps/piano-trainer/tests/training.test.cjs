@@ -65,3 +65,22 @@ test('stale card results do not reward or skip the selected card', () => {
   assert.equal(p.session.getState().rewardCount, 0);
   assert.equal(p.session.getState().skipCount, 0);
 });
+
+test('reward and skip transitions reselect one card or select another card', () => {
+  const single = makePractice();
+  const first = single.session.getState().selectedCardId;
+  assert.equal(single.trainer.skip(first, 1100).cardId, first);
+  assert.equal(single.session.getState().selectedCardId, first);
+  assert.equal(single.trainer.complete(first, 100, 1200).cardId, first);
+  assert.equal(single.session.getState().selectedCardId, first);
+
+  const session = createSession({ cards: ['one', 'two'], config: { instantPosition: true } });
+  const trainer = createTrainingSession(session);
+  trainer.advanceTo(1000);
+  for (let i = 0; i < 3; i++) assert.ok(trainer.complete('one', 100, 1000));
+  assert.equal(session.getState().selectedCardId, 'two');
+  assert.equal(trainer.skip('two', 1000).cardId, 'two');
+  assert.equal(session.getState().selectedCardId, 'one');
+  assert.equal(trainer.skip('one', 1000).cardId, 'one');
+  assert.equal(session.getState().selectedCardId, 'two');
+});
