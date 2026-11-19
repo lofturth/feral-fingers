@@ -22,3 +22,5 @@ button:focus-visible { outline: 2px solid #8edce0; outline-offset: 3px; }
 .event-log__list { margin: 0; padding-left: 22px; line-height: 1.7; }
 .event-log__panel p, .event-log__hint { margin: 0; color: #aabbd0; }
 .event-log__hint { margin-top: 8px; font-size: .8rem; }
+
+.phrase-result { color: #8edce0; font-size: 1.5rem; font-weight: 700; }

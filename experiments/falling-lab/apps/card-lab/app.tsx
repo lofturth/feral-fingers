@@ -17,9 +17,8 @@ function App() {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || event.repeat) return;
-      const played = recording.current.getEvents().filter(note => note.type === 'note-on').map(note => note.pitch);
-      setResult(evaluatePhrase(expectedPitches, played));
+      if (event.key !== 'Escape' || event.repeat || startNextAttempt.current) return;
+      setResult(0);
       startNextAttempt.current = true;
     }
     window.addEventListener('keydown', onKeyDown);
@@ -32,6 +31,14 @@ function App() {
       setResult(null);
     }
     recording.current.record(event);
+    if (event.type === 'note-on') {
+      const played = recording.current.getEvents().filter(note => note.type === 'note-on').map(note => note.pitch);
+      const score = evaluatePhrase(expectedPitches, played);
+      if (score > 0) {
+        setResult(score);
+        startNextAttempt.current = true;
+      }
+    }
     setEventLog(previous => [...previous, event]);
   });
 
@@ -41,8 +48,8 @@ function App() {
     <h1>Card Lab</h1>
     <p className="intro">Play the phrase on your MIDI keyboard.</p>
     <PianoCard {...phrase} heldNotes={midi.heldNotes} />
-    <p>Press Esc to finish attempt.</p>
-    {result !== null && <p role="status">Result: {result}%</p>}
+    <p>Press Esc to finish an incomplete attempt.</p>
+    {result !== null && <p className="phrase-result" role="status">Result: {result}%</p>}
     <section className="midi" aria-labelledby="midi-title">
       <h2 id="midi-title">MIDI input</h2>
       <div className="midi-controls">
