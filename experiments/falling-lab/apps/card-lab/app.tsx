@@ -1,16 +1,36 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PianoCard } from '../../shared/piano/PianoCard';
+import { evaluatePhrase } from '../../shared/piano/evaluatePhrase';
 import './style.css';
 import { noteName, useMidi } from './useMidi';
 import { createAttemptRecording, type AttemptMidiEvent } from './attemptRecording';
 
-const phrase = { title: 'Piano phrase', notes: ['C4', 'E4', 'G4'] };
+const expectedPitches = [60, 64, 67];
+const phrase = { title: 'Piano phrase', notes: expectedPitches.map(noteName) };
 
 function App() {
   const [eventLog, setEventLog] = useState<AttemptMidiEvent[]>([]);
   const recording = useRef(createAttemptRecording());
+  const startNextAttempt = useRef(false);
+  const [result, setResult] = useState<0 | 50 | 100 | null>(null);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape' || event.repeat) return;
+      const played = recording.current.getEvents().filter(note => note.type === 'note-on').map(note => note.pitch);
+      setResult(evaluatePhrase(expectedPitches, played));
+      startNextAttempt.current = true;
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
   const midi = useMidi(event => {
+    if (startNextAttempt.current && event.type === 'note-on') {
+      recording.current.reset();
+      startNextAttempt.current = false;
+      setResult(null);
+    }
     recording.current.record(event);
     setEventLog(previous => [...previous, event]);
   });
@@ -21,6 +41,8 @@ function App() {
     <h1>Card Lab</h1>
     <p className="intro">Play the phrase on your MIDI keyboard.</p>
     <PianoCard {...phrase} heldNotes={midi.heldNotes} />
+    <p>Press Esc to finish attempt.</p>
+    {result !== null && <p role="status">Result: {result}%</p>}
     <section className="midi" aria-labelledby="midi-title">
       <h2 id="midi-title">MIDI input</h2>
       <div className="midi-controls">
