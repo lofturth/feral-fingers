@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { PianoCard } from '../../shared/piano/PianoCard';
-import { evaluatePhrase } from '../../shared/piano/evaluatePhrase';
+import { PianoCard } from '../cards/PianoCard';
+import { evaluatePhrase } from '../cards/evaluatePhrase';
 import './style.css';
-import { noteName, useMidi } from './useMidi';
-import { createAttemptRecording, type AttemptMidiEvent } from './attemptRecording';
+import { noteName, useMidi } from '../midi/useMidi';
+import { createAttemptRecording, type AttemptMidiEvent } from '../midi/attemptRecording';
 
 const expectedPitches = [60, 64, 67];
 const phrase = { title: 'Piano phrase', notes: expectedPitches.map(noteName) };
@@ -43,7 +43,7 @@ function App() {
   });
 
   return <main>
-    <a className="back" href="../../">← Falling Lab</a>
+    <a className="back" href="../../../">← Falling Lab</a>
     <p className="eyebrow">Falling Lab / Experiment</p>
     <h1>Card Lab</h1>
     <p className="intro">Play the phrase on your MIDI keyboard.</p>

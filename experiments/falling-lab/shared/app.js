@@ -1,8 +1,8 @@
 'use strict';
 
-const FallingFieldModule = typeof FallingView !== 'undefined' ? FallingView : (typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('../views/falling/view.js') : null));
-const VocabularyViewModule = typeof VocabularyView !== 'undefined' ? VocabularyView : (typeof require === 'function' ? require('../apps/vocabulary/vocabulary-view.js') : null);
-const MusicalViewModule = typeof MusicalView !== 'undefined' ? MusicalView : (typeof require === 'function' ? require('../apps/music/musical-view.js') : null);
+const FallingFieldModule = typeof FallingView !== 'undefined' ? FallingView : (typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('../apps/music/view/falling-field.js') : null));
+const VocabularyViewModule = typeof VocabularyView !== 'undefined' ? VocabularyView : (typeof require === 'function' ? require('../apps/vocabulary/view/vocabulary-overlay.js') : null);
+const MusicalViewModule = typeof MusicalView !== 'undefined' ? MusicalView : (typeof require === 'function' ? require('../apps/music/view/music-overlay.js') : null);
 const VocabularyAppModule = typeof VocabularyApp !== 'undefined' ? VocabularyApp : (typeof require === 'function' ? require('../apps/vocabulary/app-vocabulary.js') : null);
 const MusicalAppModule = typeof MusicalApp !== 'undefined' ? MusicalApp : (typeof require === 'function' ? require('../apps/music/app-music.js') : null);
 

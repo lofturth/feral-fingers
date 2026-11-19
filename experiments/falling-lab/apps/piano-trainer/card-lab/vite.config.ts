@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 
 export default defineConfig({
-  root: resolve(import.meta.dirname, '../..'),
+  root: resolve(import.meta.dirname, '../../..'),
   esbuild: { jsx: 'automatic' },
   resolve: { alias: [
     { find: /^react\/jsx-dev-runtime$/, replacement: resolve(import.meta.dirname, 'node_modules/react/jsx-dev-runtime.js') },

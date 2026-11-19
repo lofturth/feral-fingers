@@ -6,56 +6,20 @@ Items ("cards") fall over time as forgetting occurs. Successful retrieval lifts 
 
 ## Architecture
 
-Falling Lab strictly separates three architectural responsibilities:
-
-1. **Falling Core (`core/`)**: Domain-independent mathematical engine.
-   - Manages card depths, asymptotic exponential settling (`15/s`), time-coordinate kicks (`reverseFallingTime`), lowest-depth scheduling, sequential threshold unlocking (`> 50%`), and session completion (`> 90%`).
-   - Pure, deterministic, DOM-free state machine.
-   - Authoritative source in `core/physics.ts`, compiled to UMD bundle `core/physics.js`.
-
-2. **Falling View (`views/falling/`)**: Domain-independent visual renderer.
-   - Renders the visual representation of falling cards, columns, thresholds (`50%` Unlock, `90%` Complete), grid lines, and cumulative progress history trace.
-   - Zero-write attribute caching ensures high-performance 60fps animation frames.
-   - Pure visual representation; completely unaware of musical notes, Spanish words, or input devices.
-
-3. **Applications (`apps/`)**: Domain-specific content, inputs, evaluation, and foreground overlays.
-   - **Music (`apps/music/`)**: Web MIDI and keyboard input, polyphonic synth audio, interactive stationary card overlay with notation/noteheads/letters, first-try evaluation, and live piano-roll diagnostics. Entry point: `apps/music/index.html`.
-   - **Vocabulary (`apps/vocabulary/`)**: English-to-Spanish translation prompts, typing input, latency decay multiplier calculation, streak counters, and real-time kick graph. Entry point: `apps/vocabulary/index.html`.
-   - **Generic Demonstration (`apps/generic/`)**: Content-neutral demonstration driving 5 abstract cards (`Card A` through `Card E`) directly through Falling Core and Falling View without any domain modules. Entry point: `apps/generic/index.html`.
-
-## Directory Structure
+- **Core (`core/physics.ts`)** is the domain-independent session engine. The generated `physics.js` is used by the existing browser apps.
+- **App-owned field views** live in each of `apps/music/view/`, `apps/vocabulary/view/`, and `apps/generic/view/`. These copies retain the existing SVG field behavior and can evolve with their applications.
+- **Music** keeps input and playback in `apps/music/app-music.js`, the falling field in `view/falling-field.js`, and its stationary music-specific presentation and diagnostics in `view/music-overlay.js`.
+- **Vocabulary** uses its own field and vocabulary overlay. **Generic** demonstrates Core with its own field. Music and Vocabulary currently still use `shared/app.js` as their coordinator.
+- **Piano Trainer** contains `cards/` for the reusable React piano card and evaluator, `midi/` for input and recording, and `card-lab/` as their standalone development application. A trainer app and its view have not been implemented.
 
 ```text
-experiments/falling-lab/
-├── index.html                 # Simple application launcher
-├── core/
-│   ├── physics.ts             # Authoritative TypeScript engine source
-│   ├── physics.js             # Compiled UMD engine bundle (DOM-free)
-│   └── physics.reference.js   # Immutable reference baseline for differential tests
-├── views/
-│   └── falling/
-│       └── view.js            # Reusable Falling View renderer
-├── shared/
-│   └── app.js                 # Unified coordinator connecting Core, View, & Apps
-├── apps/
-│   ├── music/
-│   │   ├── index.html         # Music application entrypoint
-│   │   ├── app-music.js       # Musical application logic, audio, & MIDI
-│   │   └── musical-view.js    # Stationary musical card overlay & diagnostics
-│   ├── vocabulary/
-│   │   ├── index.html         # Vocabulary application entrypoint
-│   │   ├── app-vocabulary.js  # Vocabulary application logic & input handling
-│   │   └── vocabulary-view.js # Prompt overlay, streak formatting, & kick graph
-│   └── generic/
-│       ├── index.html         # Generic demonstration entrypoint
-│       └── app-generic.js     # Domain-free demonstration application
-├── tests/                     # 139 automated tests across all components
-├── scripts/
-│   └── build.cjs              # Build script compiling TypeScript to UMD bundle
-├── style.css                  # Shared stylesheet
-├── package.json               # Package configuration & scripts
-├── run.sh                     # Local web server runner
-└── README.md                  # Complete architectural & operational guide
+core/physics.ts
+apps/
+├── music/{app-music.js,view/{falling-field.js,music-overlay.js}}
+├── vocabulary/{app-vocabulary.js,view/{falling-field.js,vocabulary-overlay.js}}
+├── generic/{app-generic.js,view/falling-field.js}
+└── piano-trainer/{cards/,midi/,card-lab/}
+shared/app.js
 ```
 
 ## Running Applications in the Browser
@@ -78,40 +42,13 @@ Access the applications in your browser:
 
 The navigation switcher in each application header allows switching between launcher and application modes.
 
+## Piano Card Lab
+
+From `apps/piano-trainer/card-lab/`, run `npm install` and `npm run dev`, then open `http://127.0.0.1:5187/apps/piano-trainer/card-lab/`. HMR is disabled; refresh manually after changes. `npm run build` checks TypeScript and builds the lab. The lab uses the app-owned piano card, MIDI input and phrase evaluator independently of the existing music application.
+
 ## Adding a New Application
 
-You can create a new learning experience without touching `core/` or `views/`:
-
-1. **Create an application directory** in `apps/my-app/` with:
-   - `index.html`: Application entry point loading `../../core/physics.js` and `../../views/falling/view.js`.
-   - `app-my-app.js`: Manages user input, evaluation criteria, and reward magnitudes.
-   - (Optional) `my-app-view.js`: Renders foreground DOM overlays for domain-specific visual feedback.
-
-2. **Instantiate Falling Core and Falling View**:
-   ```javascript
-   const session = MunduPhysics.createSession({
-     cardCount: 10,
-     cards: myItems.map((item, i) => ({ id: item.id || `card-${i}` }))
-   });
-
-   const field = FallingView.createField({
-     chartId: 'chart',
-     gridId: 'grid',
-     barsId: 'bars',
-     labelsId: 'labels',
-     traceId: 'trace',
-     traceLiveId: 'trace-live',
-     tracePercentageId: 'trace-percentage',
-     scoreId: 'score'
-   });
-
-   field.build(10);
-   ```
-
-3. **Drive the animation loop and deliver rewards**:
-   - In your `requestAnimationFrame` loop, call `session.advance(dt)` and `field.render(session.getState(), dt)`.
-   - On correct user action, calculate a reward multiplier (e.g., based on latency or correctness) and call `session.applyReward(multiplier)`.
-   - On incorrect action or skip, call `session.skip()`.
+Give the application its own view and input logic, and load `core/physics.js` for the shared session engine. The existing generic application demonstrates creating a session, advancing it and rendering its state. The app decides how user interactions map to rewards or skips.
 
 ## Development, Testing, and Building
 

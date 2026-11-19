@@ -3,8 +3,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const VocabularyView = require('../apps/vocabulary/vocabulary-view.js');
-const MusicalView = require('../apps/music/musical-view.js');
+const VocabularyView = require('../apps/vocabulary/view/vocabulary-overlay.js');
+const MusicalView = require('../apps/music/view/music-overlay.js');
 
 class MockElement {
   constructor() {
@@ -205,9 +205,9 @@ test('Simulated musical input: keys 1, 2, and 3 trigger end-to-end musical rewar
     html: fs.readFileSync(path.join(base, 'apps', 'music', 'index.html'), 'utf8'),
     app: fs.readFileSync(path.join(base, 'shared', 'app.js'), 'utf8'),
     physics: fs.readFileSync(path.join(base, 'core', 'physics.js'), 'utf8'),
-    field: fs.readFileSync(path.join(base, 'views', 'falling', 'view.js'), 'utf8'),
-    vocabularyView: fs.readFileSync(path.join(base, 'apps', 'vocabulary', 'vocabulary-view.js'), 'utf8'),
-    musicalView: fs.readFileSync(path.join(base, 'apps', 'music', 'musical-view.js'), 'utf8')
+    field: fs.readFileSync(path.join(base, 'apps', 'music', 'view', 'falling-field.js'), 'utf8'),
+    vocabularyView: fs.readFileSync(path.join(base, 'apps', 'vocabulary', 'view', 'vocabulary-overlay.js'), 'utf8'),
+    musicalView: fs.readFileSync(path.join(base, 'apps', 'music', 'view', 'music-overlay.js'), 'utf8')
   };
 
   const h = makeHost({ ...files, appMode: 'music' });

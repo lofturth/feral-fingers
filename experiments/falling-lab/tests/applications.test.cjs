@@ -11,9 +11,9 @@ const files = {
   html: fs.readFileSync(path.join(base, 'apps', 'music', 'index.html'), 'utf8'),
   app: fs.readFileSync(path.join(base, 'shared', 'app.js'), 'utf8'),
   physics: fs.readFileSync(path.join(base, 'core', 'physics.js'), 'utf8'),
-  field: fs.readFileSync(path.join(base, 'views', 'falling', 'view.js'), 'utf8'),
-  vocabularyView: fs.readFileSync(path.join(base, 'apps', 'vocabulary', 'vocabulary-view.js'), 'utf8'),
-  musicalView: fs.readFileSync(path.join(base, 'apps', 'music', 'musical-view.js'), 'utf8'),
+  field: fs.readFileSync(path.join(base, 'apps', 'music', 'view', 'falling-field.js'), 'utf8'),
+  vocabularyView: fs.readFileSync(path.join(base, 'apps', 'vocabulary', 'view', 'vocabulary-overlay.js'), 'utf8'),
+  musicalView: fs.readFileSync(path.join(base, 'apps', 'music', 'view', 'music-overlay.js'), 'utf8'),
   vocabApp: fs.readFileSync(path.join(base, 'apps', 'vocabulary', 'app-vocabulary.js'), 'utf8'),
   musicalApp: fs.readFileSync(path.join(base, 'apps', 'music', 'app-music.js'), 'utf8')
 };

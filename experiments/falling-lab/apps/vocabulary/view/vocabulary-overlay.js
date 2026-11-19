@@ -10,7 +10,7 @@
 
 (function (root, factory) {
   const api = factory(
-    typeof FallingView !== 'undefined' ? FallingView : (typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('../../views/falling/view.js') : null))
+    typeof FallingView !== 'undefined' ? FallingView : (typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('./falling-field.js') : null))
   );
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.VocabularyView = api;

@@ -17,14 +17,14 @@ class Element {
   showModal(){this.open=true;}
   close(){this.open=false;}
 }
-const defaultField = fs.existsSync(path.join(__dirname, '../views/falling/view.js'))
-  ? fs.readFileSync(path.join(__dirname, '../views/falling/view.js'), 'utf8')
+const defaultField = fs.existsSync(path.join(__dirname, '../apps/generic/view/falling-field.js'))
+  ? fs.readFileSync(path.join(__dirname, '../apps/generic/view/falling-field.js'), 'utf8')
   : '';
-const defaultVocabView = fs.existsSync(path.join(__dirname, '../apps/vocabulary/vocabulary-view.js'))
-  ? fs.readFileSync(path.join(__dirname, '../apps/vocabulary/vocabulary-view.js'), 'utf8')
+const defaultVocabView = fs.existsSync(path.join(__dirname, '../apps/vocabulary/view/vocabulary-overlay.js'))
+  ? fs.readFileSync(path.join(__dirname, '../apps/vocabulary/view/vocabulary-overlay.js'), 'utf8')
   : '';
-const defaultMusicalView = fs.existsSync(path.join(__dirname, '../apps/music/musical-view.js'))
-  ? fs.readFileSync(path.join(__dirname, '../apps/music/musical-view.js'), 'utf8')
+const defaultMusicalView = fs.existsSync(path.join(__dirname, '../apps/music/view/music-overlay.js'))
+  ? fs.readFileSync(path.join(__dirname, '../apps/music/view/music-overlay.js'), 'utf8')
   : '';
 const defaultVocabApp = fs.existsSync(path.join(__dirname, '../apps/vocabulary/app-vocabulary.js'))
   ? fs.readFileSync(path.join(__dirname, '../apps/vocabulary/app-vocabulary.js'), 'utf8')

@@ -18,9 +18,9 @@
   },
   "include": [
     "app.tsx",
-    "useMidi.ts",
-    "attemptRecording.ts",
-    "../../shared/piano/PianoCard.tsx",
-    "../../shared/piano/evaluatePhrase.ts"
+    "../midi/useMidi.ts",
+    "../midi/attemptRecording.ts",
+    "../cards/PianoCard.tsx",
+    "../cards/evaluatePhrase.ts"
   ]
 }

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 
-const FallingField = require('../views/falling/view.js');
+const FallingField = require('../apps/generic/view/falling-field.js');
 
 class MockElement {
   constructor() {

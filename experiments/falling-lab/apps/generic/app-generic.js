@@ -1,6 +1,6 @@
 'use strict';
 
-const FallingFieldModule = typeof FallingView !== 'undefined' ? FallingView : (typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('../../views/falling/view.js') : null));
+const FallingFieldModule = typeof FallingView !== 'undefined' ? FallingView : (typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('./view/falling-field.js') : null));
 const MunduPhysicsModule = typeof MunduPhysics !== 'undefined' ? MunduPhysics : (typeof require === 'function' ? require('../../core/physics.js') : null);
 
 if (!FallingFieldModule || !MunduPhysicsModule) {
