@@ -1,27 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { PianoCard } from './PianoCard';
-import { evaluatePhrase } from './evaluatePhrase';
+import { createPhraseAttempt } from './phraseAttempt';
 import { noteName, useMidi } from '../midi/useMidi';
 
 const pitches = [60, 64, 67];
-export function TrainerPianoCard() {
-  const played = useRef<number[]>([]);
-  const finished = useRef(false);
-  const [result, setResult] = useState<0 | 50 | 100 | null>(null);
+type Props = { active: boolean; cardId: string; onComplete: (cardId: string, score: 50 | 100, time: number) => void; onSkip: (cardId: string, time: number) => void };
+export function TrainerPianoCard({ active, cardId, onComplete, onSkip }: Props) {
+  const attempt = useRef(createPhraseAttempt(pitches));
+  const [result, setResult] = useState<50 | 100 | null>(null);
   const midi = useMidi(event => {
-    if (event.type !== 'note-on') return;
-    if (finished.current) { played.current = []; finished.current = false; setResult(null); }
-    played.current.push(event.pitch);
-    const score = evaluatePhrase(pitches, played.current);
-    if (score > 0) { setResult(score); finished.current = true; }
+    if (!active || event.type !== 'note-on') return;
+    setResult(null);
+    const score = attempt.current.note(event.pitch);
+    if (score !== null) { setResult(score); onComplete(cardId, score, event.timestamp); }
   });
+  useEffect(() => { attempt.current.reset(); setResult(null); }, [cardId, active]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !event.repeat && !finished.current) { setResult(0); finished.current = true; }
+      if (event.key !== 'Escape' || event.repeat || !active) return;
+      attempt.current.reset();
+      setResult(null);
+      onSkip(cardId, event.timeStamp);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [active, cardId, onSkip]);
   return <div className="trainer-card">
     <PianoCard title="Piano phrase" notes={pitches.map(noteName)} heldNotes={midi.heldNotes}/>
     <p>{result === null ? 'Press Esc to finish an incomplete attempt.' : `Result: ${result}%`}</p>
