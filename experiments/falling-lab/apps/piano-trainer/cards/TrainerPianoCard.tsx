@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PianoCard } from './PianoCard';
 import { createPhraseAttempt } from './phraseAttempt';
 import { noteName, useMidi } from '../midi/useMidi';
+import type { AttemptMidiEvent } from '../midi/attemptRecording';
 import type { PianoExercise } from '../deck';
 import { createAttemptDiagnostics } from '../attemptDiagnostics';
 import type { LogEvent } from '../eventLog';
@@ -14,14 +15,17 @@ type PracticeOptions = {
   onSkip: (id: string, time: number, attemptId: number) => void;
   onLog: LogEvent;
   nextAttemptId: () => number;
+  onSoundEvent: (event: AttemptMidiEvent) => void;
+  stopSound: () => void;
 };
 
 // Mounted once per session, so switching cards does not create MIDI connections.
-export function usePianoPractice({ selectedId, getSelectedId, getExercise, onComplete, onSkip, onLog, nextAttemptId }: PracticeOptions) {
+export function usePianoPractice({ selectedId, getSelectedId, getExercise, onComplete, onSkip, onLog, nextAttemptId, onSoundEvent, stopSound }: PracticeOptions) {
   const attempt = useRef<{ id: string; phrase: ReturnType<typeof createPhraseAttempt> } | null>(null);
   const diagnostic = useRef(createAttemptDiagnostics(onLog, nextAttemptId));
   const [result, setResult] = useState<{ id: string; score: 50 | 100 } | null>(null);
   const midi = useMidi(event => {
+    onSoundEvent(event);
     const id = getSelectedId();
     const selected = id && getExercise(id);
     const attemptId = diagnostic.current.midi(event, selected || null);
@@ -34,7 +38,7 @@ export function usePianoPractice({ selectedId, getSelectedId, getExercise, onCom
       setResult({ id, score });
       onComplete(id, score, event.timestamp, attemptId);
     }
-  });
+  }, stopSound);
   useEffect(() => {
     diagnostic.current.selectionChanged(selectedId, performance.now());
     if (attempt.current && attempt.current.id !== selectedId) attempt.current = null;

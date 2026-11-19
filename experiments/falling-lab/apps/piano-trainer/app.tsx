@@ -11,10 +11,11 @@ import type { SessionSnapshot } from '../../core/physics';
 import { TrainerPianoCard, usePianoPractice } from './cards/TrainerPianoCard';
 import { createTrainingSession } from './trainingSession';
 import { parseDeck, type PianoDeck } from './deck';
+import { usePianoSound } from './audio/usePianoSound';
 import sampleDeckJson from './decks/sample.json?raw';
 import './style.css';
 
-function PracticeSession({ deck, onLog, nextAttemptId }: { deck: PianoDeck; onLog: LogEvent; nextAttemptId: () => number }) {
+function PracticeSession({ deck, onLog, nextAttemptId, sound }: { deck: PianoDeck; onLog: LogEvent; nextAttemptId: () => number; sound: ReturnType<typeof usePianoSound> }) {
   const [overlayOpacity, setOverlayOpacity] = useState(() => {
     try {
       const saved = localStorage.getItem('piano-trainer.overlay-opacity');
@@ -93,7 +94,7 @@ function PracticeSession({ deck, onLog, nextAttemptId }: { deck: PianoDeck; onLo
   }, [session, trainer, refresh, onLog]);
   const getSelectedId = useCallback(() => { const current = session.getState(); return current.paused || current.complete ? null : current.selectedCardId; }, [session]);
   const getExercise = useCallback((id: string) => deck.exercises.find(exercise => exercise.id === id), [deck]);
-  const practice = usePianoPractice({ selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId });
+  const practice = usePianoPractice({ selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId, onSoundEvent: sound.onMidiEvent, stopSound: sound.stopAll });
   const selected = deck.exercises[state.selectedIndex] ?? deck.exercises[0];
   return <>
     <div className="readouts"><span className="status"><i/>{state.complete ? 'COMPLETE' : 'LIVE'}</span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
@@ -110,6 +111,7 @@ function PracticeSession({ deck, onLog, nextAttemptId }: { deck: PianoDeck; onLo
   </>;
 }
 function App() {
+  const sound = usePianoSound();
   const [deck, setDeck] = useState(() => parseDeck(JSON.parse(sampleDeckJson)));
   const [generation, setGeneration] = useState(0);
   const [error, setError] = useState('');
@@ -123,21 +125,39 @@ function App() {
   const nextAttemptId = useCallback(() => ++attemptSequence.current, []);
   const clearLog = useCallback(() => setEntries([]), []);
   const [loadedNotice, setLoadedNotice] = useState(false);
+  const [pastedJson, setPastedJson] = useState('');
+  const [pasteError, setPasteError] = useState('');
+  const pasteDialog = useRef<HTMLDialogElement>(null);
   const loadId = useRef(0);
   useEffect(() => {
     if (!loadedNotice) return;
     const timeout = window.setTimeout(() => setLoadedNotice(false), 3000);
     return () => window.clearTimeout(timeout);
   }, [loadedNotice, generation]);
+  function applyDeckText(text: string) {
+    const next = parseDeck(JSON.parse(text));
+    sound.stopAll();
+    setDeck(next); setGeneration(value => value + 1); setError(''); setLoadedNotice(true);
+  }
+  function loadPastedDeck() {
+    ++loadId.current;
+    try {
+      applyDeckText(pastedJson);
+      setPasteError('');
+      pasteDialog.current?.close();
+    } catch (reason) {
+      setPasteError(`Could not load deck: ${reason instanceof Error ? reason.message : String(reason)}`);
+    }
+  }
   async function loadDeck(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
     const request = ++loadId.current;
     try {
-      const next = parseDeck(JSON.parse(await file.text()));
+      const text = await file.text();
       if (request !== loadId.current) return;
-      setDeck(next); setGeneration(value => value + 1); setError(''); setLoadedNotice(true);
+      applyDeckText(text);
     } catch (reason) {
       if (request !== loadId.current) return;
       setLoadedNotice(false);
@@ -146,11 +166,26 @@ function App() {
   }
   return <main>
     <header><div className="identity"><h1>FALLING LAB<span>_</span></h1><span className="edition">PIANO TRAINER / 01</span><a href="../../">Launcher</a></div><div className="deck-controls">
-      <label>Load Deck <input type="file" accept=".json,application/json" onChange={loadDeck}/></label>
+      <button type="button" aria-pressed={sound.enabled} onClick={() => sound.setEnabled(!sound.enabled)}>Sound {sound.enabled ? 'On' : 'Off'}</button>
+      {sound.audioError && <span role="status">{sound.audioError}</span>}
+      <div className="deck-load-actions">
+        <label>Load Deck <input type="file" accept=".json,application/json" onChange={loadDeck}/></label>
+        <button type="button" onClick={() => { setPasteError(''); pasteDialog.current?.showModal(); }}>Paste JSON</button>
+      </div>
       <div className="deck-info"><span>{deck.title} · {deck.exercises.length} {deck.exercises.length === 1 ? 'exercise' : 'exercises'}</span><span role="status">{loadedNotice ? 'Deck loaded' : ''}</span></div>
       {error && <p className="deck-error" role="alert">{error}</p>}
     </div></header>
-    <PracticeSession key={generation} deck={deck} onLog={log} nextAttemptId={nextAttemptId}/>
+    <dialog ref={pasteDialog} className="paste-deck-dialog" aria-labelledby="paste-deck-title" onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); }}>
+      <h2 id="paste-deck-title">Paste JSON deck</h2>
+      <label htmlFor="paste-deck-json">Deck JSON</label>
+      <textarea id="paste-deck-json" value={pastedJson} onChange={event => setPastedJson(event.target.value)} rows={14} spellCheck={false}/>
+      {pasteError && <p className="deck-error" role="alert">{pasteError}</p>}
+      <div className="paste-deck-actions">
+        <button type="button" onClick={loadPastedDeck}>Load Deck</button>
+        <button type="button" onClick={() => pasteDialog.current?.close()}>Cancel</button>
+      </div>
+    </dialog>
+    <PracticeSession key={generation} deck={deck} onLog={log} nextAttemptId={nextAttemptId} sound={sound}/>
     <EventLog entries={entries} clear={clearLog}/>
   </main>;
 }

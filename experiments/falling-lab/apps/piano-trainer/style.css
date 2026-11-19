@@ -22,3 +22,12 @@
 .trainer-event-log__entries ol { margin: 0; padding-left: 24px; line-height: 1.7; }
 .trainer-event-log__entries strong { color: #e3e8ef; }
 .trainer-event-log__hint { font-size: 10px; }
+
+.deck-load-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.paste-deck-dialog { width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 32px); margin: auto; padding: 20px; border: 1px solid #43536a; border-radius: 8px; background: #101827; color: #f2f6fc; }
+.paste-deck-dialog::backdrop { background: #0009; }
+.paste-deck-dialog h2 { margin: 0 0 16px; }
+.paste-deck-dialog label { display: block; margin-bottom: 6px; font-size: 11px; }
+.paste-deck-dialog textarea { display: block; width: 100%; min-height: 220px; padding: 10px; border: 1px solid #43536a; border-radius: 4px; background: #0b1220; color: #f2f6fc; font: 13px/1.5 monospace; resize: vertical; }
+.paste-deck-dialog .deck-error { margin-top: 10px; }
+.paste-deck-actions { display: flex; gap: 8px; margin-top: 14px; }

@@ -4,7 +4,9 @@ import type { AttemptMidiEvent } from './attemptRecording';
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 export const noteName = (pitch: number) => `${noteNames[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
 
-export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void) {
+export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void, onInputReset?: () => void) {
+  const onInputResetRef = useRef(onInputReset);
+  onInputResetRef.current = onInputReset;
   const onMidiEventRef = useRef(onMidiEvent);
   onMidiEventRef.current = onMidiEvent;
   const [devices, setDevices] = useState<MIDIInput[]>([]);
@@ -19,6 +21,7 @@ export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void) {
   const reconnectId = useRef('');
 
   function clearHeld() {
+    onInputResetRef.current?.();
     heldRef.current.clear();
     setHeldNotes([]);
   }
@@ -99,6 +102,7 @@ export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void) {
     return () => {
       mounted.current = false;
       if (inputRef.current) inputRef.current.onmidimessage = null;
+      onInputResetRef.current?.();
       if (accessRef.current) accessRef.current.onstatechange = null;
     };
   }, []);
