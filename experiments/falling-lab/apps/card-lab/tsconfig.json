@@ -18,6 +18,7 @@
   },
   "include": [
     "app.tsx",
+    "useMidi.ts",
     "../../shared/piano/PianoCard.tsx"
   ]
 }

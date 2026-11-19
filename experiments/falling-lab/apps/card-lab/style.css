@@ -12,3 +12,10 @@ button { padding: 10px 14px; border: 1px solid #43536a; border-radius: 8px; back
 button:hover { border-color: #8edce0; }
 button:focus-visible { outline: 2px solid #8edce0; outline-offset: 3px; }
 .controls p { color: #aabbd0; font-size: .88rem; }
+
+.midi { margin-top: 38px; }
+.midi-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.midi-controls label, .midi p, .midi-events { color: #aabbd0; font-size: .88rem; }
+.midi-controls select { padding: 10px; border: 1px solid #43536a; border-radius: 8px; background: #1b293d; color: #f2f6fc; font: inherit; }
+.midi h3 { margin-top: 24px; font-size: .9rem; }
+.midi-events { padding-left: 20px; line-height: 1.7; }
