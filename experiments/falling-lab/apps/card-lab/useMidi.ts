@@ -17,6 +17,8 @@ export function useMidi(onNoteOn: (note: string) => void) {
   const heldRef = useRef(new Map<string, number>());
   const eventId = useRef(0);
   const mounted = useRef(true);
+  const connecting = useRef(false);
+  const reconnectId = useRef('');
 
   function clearHeld() {
     heldRef.current.clear();
@@ -53,10 +55,12 @@ export function useMidi(onNoteOn: (note: string) => void) {
   }
 
   async function connect() {
+    if (connecting.current || accessRef.current) return;
     if (!navigator.requestMIDIAccess) {
       setStatus('Web MIDI is not supported in this browser');
       return;
     }
+    connecting.current = true;
     setStatus('Requesting MIDI access…');
     try {
       const access = await navigator.requestMIDIAccess();
@@ -66,31 +70,42 @@ export function useMidi(onNoteOn: (note: string) => void) {
         const inputs = [...access.inputs.values()].filter(input => input.state === 'connected');
         setDevices(inputs);
         const current = inputRef.current;
+        const returning = inputs.find(input => input.id === reconnectId.current);
+        if (returning) {
+          reconnectId.current = '';
+          selectInput(returning.id, inputs);
+          return;
+        }
         if (current && inputs.some(input => input.id === current.id)) return;
         if (current) {
+          reconnectId.current = current.id;
           current.onmidimessage = null;
           inputRef.current = null;
           clearHeld();
           setSelectedId('');
-          setStatus(`${current.name || 'MIDI input'} disconnected`);
-          return;
         }
         const preferred = inputs.find(input => /minilab\s*37/i.test(input.name || '')) || inputs[0];
         if (preferred) selectInput(preferred.id, inputs);
-        else setStatus('No MIDI input connected');
+        else setStatus(current ? `${current.name || 'MIDI input'} disconnected` : 'No MIDI input connected');
       };
       access.onstatechange = refresh;
       refresh();
     } catch (error) {
       if (mounted.current) setStatus(`MIDI access failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      connecting.current = false;
     }
   }
 
-  useEffect(() => () => {
-    mounted.current = false;
-    if (inputRef.current) inputRef.current.onmidimessage = null;
-    if (accessRef.current) accessRef.current.onstatechange = null;
+  useEffect(() => {
+    mounted.current = true;
+    void connect();
+    return () => {
+      mounted.current = false;
+      if (inputRef.current) inputRef.current.onmidimessage = null;
+      if (accessRef.current) accessRef.current.onstatechange = null;
+    };
   }, []);
 
-  return { devices, selectedId, status, heldNotes, events, connect, selectInput };
+  return { devices, selectedId, status, heldNotes, events, connect, selectInput: (id: string) => { reconnectId.current = ''; selectInput(id); } };
 }

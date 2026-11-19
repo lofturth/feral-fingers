@@ -38,18 +38,11 @@ function App() {
     setState('waiting');
   }
 
-  function simulate(action: PianoCardState) {
-    setState(action);
-    if (action === 'waiting') setPlayedCount(0);
-    if (action === 'playing') setPlayedCount(count => count >= phrase.notes.length ? 1 : count + 1);
-    if (action === 'correct') setPlayedCount(phrase.notes.length);
-  }
-
   return <main>
     <a className="back" href="../../">← Falling Lab</a>
     <p className="eyebrow">Falling Lab / Experiment</p>
     <h1>Card Lab</h1>
-    <p className="intro">Explore a piano card’s states with simulated input.</p>
+    <p className="intro">Play the phrase on your MIDI keyboard.</p>
     <PianoCard {...phrase} state={state} playedCount={playedCount} heldNotes={midi.heldNotes} />
     <section className="recognition" aria-labelledby="recognition-title">
       <h2 id="recognition-title">Phrase practice</h2>
@@ -71,16 +64,6 @@ function App() {
       {midi.events.length ? <ul className="midi-events" aria-label="Recent MIDI events">
         {midi.events.map(event => <li key={event.id}>{event.type} · {event.note} · velocity {event.velocity} · channel {event.channel}</li>)}
       </ul> : <p>No notes received yet.</p>}
-    </section>
-    <section className="controls" aria-labelledby="controls-title">
-      <h2 id="controls-title">Simulate</h2>
-      <div className="buttons">
-        <button type="button" onClick={() => simulate('waiting')}>Waiting for input</button>
-        <button type="button" onClick={() => simulate('playing')}>Play next note</button>
-        <button type="button" onClick={() => simulate('correct')}>Correct completion</button>
-        <button type="button" onClick={() => simulate('incorrect')}>Incorrect attempt</button>
-      </div>
-      <p>Playing a note advances the highlight. These controls only simulate card states.</p>
     </section>
   </main>;
 }
