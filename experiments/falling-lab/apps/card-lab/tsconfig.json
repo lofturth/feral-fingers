@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "react": [
+        "./node_modules/@types/react/index.d.ts"
+      ],
+      "react/jsx-runtime": [
+        "./node_modules/@types/react/jsx-runtime.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "app.tsx",
+    "../../shared/piano/PianoCard.tsx"
+  ]
+}
