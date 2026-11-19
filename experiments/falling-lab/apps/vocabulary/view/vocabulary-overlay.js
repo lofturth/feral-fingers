@@ -5,7 +5,7 @@
  * - Active target word, streak, slot badge, and hint readout
  * - Real-time kick reward curve and multiplier indicator
  *
- * Independent of physics engine internals and musical audio/MIDI.
+ * Independent of physics engine internals.
  */
 
 (function (root, factory) {
@@ -102,9 +102,7 @@
       if (target && el('target-streak')) {
         setText(el('target-streak'), 'STREAK ' + String(target.streak ?? 0).padStart(2, '0'));
       }
-      if (el('card-slot-tag')) {
-        setText(el('card-slot-tag'), selected >= 0 ? `ACTIVE SLOT ${String(selected + 1).padStart(2, '0')}` : 'COMPLETE');
-      }
+
 
       if (promptState) {
         renderKickGraph(promptState, dt);
@@ -112,7 +110,7 @@
         if (el('target-hint')) {
           const hinted = (promptState.time - promptState.selectedAt) >= hintSeconds;
           if (el('target-hint').hidden === hinted) el('target-hint').hidden = !hinted;
-          setText(el('target-hint'), hinted ? 'HINT → ' + (target?.spanish || 'C4 D4 E4') : '');
+          setText(el('target-hint'), hinted ? 'HINT → ' + (target?.spanish || '') : '');
         }
       }
     }

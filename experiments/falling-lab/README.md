@@ -7,19 +7,16 @@ Items ("cards") fall over time as forgetting occurs. Successful retrieval lifts 
 ## Architecture
 
 - **Core (`core/physics.ts`)** is the domain-independent session engine. The generated `physics.js` is used by the existing browser apps.
-- **App-owned field views** live in each of `apps/music/view/`, `apps/vocabulary/view/`, and `apps/generic/view/`. These copies retain the existing SVG field behavior and can evolve with their applications.
-- **Music** keeps input and playback in `apps/music/app-music.js`, the falling field in `view/falling-field.js`, and its stationary music-specific presentation and diagnostics in `view/music-overlay.js`.
-- **Vocabulary** uses its own field and vocabulary overlay. **Generic** demonstrates Core with its own field. Music and Vocabulary currently still use `shared/app.js` as their coordinator.
+- **App-owned field views** live in `apps/vocabulary/view/` and `apps/generic/view/`.
+- **Vocabulary** uses its own field and vocabulary overlay. **Generic** demonstrates Core with its own field. Vocabulary coordination lives in `apps/vocabulary/coordinator.js`.
 - **Piano Trainer** contains `cards/` for the reusable React piano card and evaluator, `midi/` for input and recording, and `card-lab/` as their standalone development application. A trainer app and its view have not been implemented.
 
 ```text
 core/physics.ts
 apps/
-├── music/{app-music.js,view/{falling-field.js,music-overlay.js}}
 ├── vocabulary/{app-vocabulary.js,view/{falling-field.js,vocabulary-overlay.js}}
 ├── generic/{app-generic.js,view/falling-field.js}
 └── piano-trainer/{cards/,midi/,card-lab/}
-shared/app.js
 ```
 
 ## Running Applications in the Browser
@@ -33,8 +30,6 @@ Start the local server using `run.sh`:
 Access the applications in your browser:
 
 - **Application Launcher:** [http://127.0.0.1:4185/](http://127.0.0.1:4185/) (`/`)
-- **Musical Instrument:** [http://127.0.0.1:4185/apps/music/](http://127.0.0.1:4185/apps/music/)
-  - Play notes via connected Web MIDI keyboards or computer keyboard keys `1`, `2`, `3` (C4, D4, E4).
 - **Vocabulary Instrument:** [http://127.0.0.1:4185/apps/vocabulary/](http://127.0.0.1:4185/apps/vocabulary/)
   - Type translated Spanish words to retrieve falling cards; press `Escape` to skip.
 - **Generic Demonstration:** [http://127.0.0.1:4185/apps/generic/](http://127.0.0.1:4185/apps/generic/)
@@ -44,7 +39,7 @@ The navigation switcher in each application header allows switching between laun
 
 ## Piano Card Lab
 
-From `apps/piano-trainer/card-lab/`, run `npm install` and `npm run dev`, then open `http://127.0.0.1:5187/apps/piano-trainer/card-lab/`. HMR is disabled; refresh manually after changes. `npm run build` checks TypeScript and builds the lab. The lab uses the app-owned piano card, MIDI input and phrase evaluator independently of the existing music application.
+From `apps/piano-trainer/card-lab/`, run `npm install` and `npm run dev`, then open `http://127.0.0.1:5187/apps/piano-trainer/card-lab/`. HMR is disabled; refresh manually after changes. `npm run build` checks TypeScript and builds the lab. The lab uses the app-owned piano card, MIDI input and phrase evaluator.
 
 ## Adding a New Application
 
@@ -61,7 +56,7 @@ npm install
 Run test suite, typecheck, and build:
 
 ```bash
-npm test          # Run all 139 automated tests
+npm test          # Run all existing automated tests
 npm run typecheck # Run TypeScript compiler check (tsc --noEmit)
 npm run build     # Compile core/physics.ts to dist/ and core/physics.js
 ```
@@ -70,7 +65,7 @@ Targeted test runners:
 ```bash
 npm run test:engine       # Core physics, characterization, and differential tests
 npm run test:view         # Falling View visual renderer tests
-npm run test:apps         # Musical and vocabulary input isolation tests
+npm run test:apps         # Vocabulary input tests
 npm run test:overlays     # Domain-specific overlay tests
 npm run test:generic      # Generic demonstration tests
 npm run test:differential # Parity tests against reference physics

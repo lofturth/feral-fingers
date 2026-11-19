@@ -104,18 +104,6 @@ const VocabularyApp = (() => {
     }
 
     function attach() {
-      // Configure DOM visibility for vocabulary mode:
-      const overlay = el('musical-card-overlay');
-      if (overlay) overlay.style.display = 'none';
-      const devPanel = el('dev-panel');
-      if (devPanel) devPanel.style.display = 'none';
-      const deviceReadout = el('device-readout');
-      if (deviceReadout) deviceReadout.style.display = 'none';
-      const connectBtn = el('connect');
-      if (connectBtn) connectBtn.style.display = 'none';
-      const playDemoBtn = el('play-demo');
-      if (playDemoBtn) playDemoBtn.style.display = 'none';
-
       const prompt = el('prompt');
       if (prompt) prompt.textContent = 'TYPE SPANISH = RETRIEVE / ESC = SKIP';
 
@@ -133,7 +121,6 @@ const VocabularyApp = (() => {
             event.preventDefault();
             retrieve(false);
           }
-          // Note: keys 1, 2, 3 and MIDI are not handled here
         };
         document.addEventListener('keydown', keydownListener);
       }

@@ -23,14 +23,8 @@ const defaultField = fs.existsSync(path.join(__dirname, '../apps/generic/view/fa
 const defaultVocabView = fs.existsSync(path.join(__dirname, '../apps/vocabulary/view/vocabulary-overlay.js'))
   ? fs.readFileSync(path.join(__dirname, '../apps/vocabulary/view/vocabulary-overlay.js'), 'utf8')
   : '';
-const defaultMusicalView = fs.existsSync(path.join(__dirname, '../apps/music/view/music-overlay.js'))
-  ? fs.readFileSync(path.join(__dirname, '../apps/music/view/music-overlay.js'), 'utf8')
-  : '';
 const defaultVocabApp = fs.existsSync(path.join(__dirname, '../apps/vocabulary/app-vocabulary.js'))
   ? fs.readFileSync(path.join(__dirname, '../apps/vocabulary/app-vocabulary.js'), 'utf8')
-  : '';
-const defaultMusicalApp = fs.existsSync(path.join(__dirname, '../apps/music/app-music.js'))
-  ? fs.readFileSync(path.join(__dirname, '../apps/music/app-music.js'), 'utf8')
   : '';
 
 function makeHost({
@@ -39,15 +33,10 @@ function makeHost({
   physics,
   field = defaultField,
   vocabularyView = defaultVocabView,
-  musicalView = defaultMusicalView,
   vocabApp = defaultVocabApp,
-  musicalApp = defaultMusicalApp,
-  appMode = 'vocabulary',
-  mode,
   instantPosition = false,
   storage = { getItem() { return null; }, setItem() {}, removeItem() {} }
 }) {
-  const activeMode = mode || appMode;
   const elements = new Map();
   const create = () => { const node = new Element(); node.register = (id, value) => elements.set(id, value); return node; };
   for (const match of html.matchAll(/id="([^"]+)"/g)) elements.set(match[1], create());
@@ -67,7 +56,6 @@ function makeHost({
   const preference = { matches: instantPosition, addEventListener() {} };
   const states = new WeakMap();
   const context = vm.createContext({
-    __APP_MODE__: activeMode,
     __testStates: states,
     testState: session => states.get(session),
     document,
@@ -84,9 +72,7 @@ function makeHost({
   if (physics) vm.runInContext(instrumentPhysics(physics), context, { filename: 'physics.js' });
   if (field) vm.runInContext(field, context, { filename: 'field.js' });
   if (vocabularyView) vm.runInContext(vocabularyView, context, { filename: 'vocabulary-view.js' });
-  if (musicalView) vm.runInContext(musicalView, context, { filename: 'musical-view.js' });
   if (vocabApp) vm.runInContext(vocabApp, context, { filename: 'app-vocabulary.js' });
-  if (musicalApp) vm.runInContext(musicalApp, context, { filename: 'app-music.js' });
   vm.runInContext(app, context, { filename: 'app.js' });
   const run=source=>vm.runInContext(source,context);
   const tick=seconds=>{now+=seconds*1000;const pending=[...frames.values()];frames.clear();for(const fn of pending)fn(now);};

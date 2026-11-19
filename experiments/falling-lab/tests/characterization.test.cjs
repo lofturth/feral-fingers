@@ -6,7 +6,7 @@
  * 2. Visual settling (15/s exponential smoothing) and progression threshold gating
  * 3. Scheduling dynamics (lowest selection, consecutive skips, 1/2/3 items, unlock handoff)
  * 4. Vocabulary learning dynamics (multiplier formula, 2s hint boundary, prompt timers, streaks)
- * 5. Musical canonical reward characterization (linear spatial lift vs. time-coordinate kick)
+ * 5. Canonical reward characterization (linear spatial lift vs. time-coordinate kick)
  */
 
 const test = require('node:test');
@@ -420,7 +420,7 @@ test('vocabulary application dynamics: latency calculation drives generic applyR
 });
 
 // ============================================================================
-// 5. Unified Canonical Reward: Time-Coordinate Kick for Musical & Vocabulary
+// 5. Canonical Reward: Time-Coordinate Kick
 // ============================================================================
 
 test('canonical reward: applyReward executes time-coordinate kicks matching reverseFallingTime', () => {
@@ -438,7 +438,7 @@ test('canonical reward: applyReward executes time-coordinate kicks matching reve
 
   // Subsequent reward starting from 25.0%
   const rFull1 = sessionFull.applyReward(0, 1.0);
-  // Canonical kick from 25% adds 20% lift (reaches 45%), whereas old musical fixed lift reached 50%
+  // Canonical kick from 25% adds 20% lift (reaches 45%), whereas a fixed lift would reach 50%
   assertNear(rFull1.lift, 20.0, 'Full kick from height 25 reaches 45% (lift 20%)');
   assertNear(sessionFull.getState().cards[0].depth, 45.0);
 });
@@ -457,7 +457,7 @@ test('canonical reward: 50% starting height reaches 65% (15% lift) vs historical
   assertNear(result.lift, 15.0, 'Canonical lift is +15.0 pp (due to velocity gradient R=5)');
 
   // Historical contrast:
-  // Old musical shim added fixed linear +25.0 pp, reaching 75.0%
+  // A fixed linear +25.0 pp kick, reaching 75.0%
   const historicalFixedDepth = 75.0;
   const historicalDelta = historicalFixedDepth - result.newDepth;
   assertNear(historicalDelta, 10.0, 'Historical comparison: old fixed reward was 10 pp higher at 50%');

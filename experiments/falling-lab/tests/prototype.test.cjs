@@ -7,7 +7,7 @@ const {makeHost}=require('./dom-harness.cjs');
 const fixtures=require('./legacy-fixtures.json');
 const {Physics,stateOf}=require('./physics-harness.cjs').testPhysics();
 const base=path.join(__dirname,'..');
-const files={html:fs.readFileSync(path.join(base,'apps','music','index.html'),'utf8'),app:fs.readFileSync(path.join(base,'shared','app.js'),'utf8'),physics:fs.readFileSync(path.join(base,'core','physics.js'),'utf8')};
+const files={html:fs.readFileSync(path.join(base,'apps','vocabulary','index.html'),'utf8'),app:fs.readFileSync(path.join(base,'apps','vocabulary','coordinator.js'),'utf8'),physics:fs.readFileSync(path.join(base,'core','physics.js'),'utf8')};
 function host(options={}){return makeHost({...files,...options});}
 function compare(actual,expected){
  if(typeof expected==='number')assert.ok(Math.abs(actual-expected)<1e-9,`${actual} != ${expected}`);
@@ -43,7 +43,7 @@ for(const fixture of fixtures)test(`prototype/engine parity: initial=${fixture.o
  });
 });
 test('local scripts load in order; controls, tuning and default settings still work',()=>{
- assert.ok(files.html.indexOf('src="../../core/physics.js?')<files.html.indexOf('src="../../shared/app.js?'));
+ assert.ok(files.html.indexOf('src="../../core/physics.js?')<files.html.indexOf('src="coordinator.js?'));
  const h=host();assert.equal(h.run('words.filter(w=>w.unlocked).length'),1);
  h.settings('topFallingSpeed',1,'MOTION');assert.equal(h.run('session.getState().config.motion.topFallingSpeed'),1);
  h.settings('kickHeightPercent',30,'MOTION');assert.equal(h.run('session.getState().config.motion.kickHeightPercent'),30);

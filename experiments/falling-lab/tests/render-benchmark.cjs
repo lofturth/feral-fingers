@@ -10,7 +10,7 @@ const revision=process.argv[2];
 const read=file=>revision
   ?execFileSync('git',['show',`${revision}:${file}`],{cwd:base,encoding:'utf8'})
   :fs.readFileSync(path.join(base,file),'utf8');
-const files={html:read('apps/music/index.html'),app:read('shared/app.js'),physics:read('core/physics.js')};
+const files={html:read('apps/vocabulary/index.html'),app:read('apps/vocabulary/coordinator.js'),physics:read('core/physics.js')};
 function measure(historySeconds){
  const h=makeHost(files);
  h.tick(historySeconds);h.click('reset');

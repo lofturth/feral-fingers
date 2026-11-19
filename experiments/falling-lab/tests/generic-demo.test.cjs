@@ -49,7 +49,7 @@ function createMockDocument() {
   };
 }
 
-test('Generic Demo: Initializes 5 cards (A, B, C, D, E) without vocabulary or musical dependencies', () => {
+test('Generic Demo: Initializes 5 cards (A, B, C, D, E) without domain dependencies', () => {
   const { doc, elements } = createMockDocument();
   globalThis.document = doc;
 
@@ -171,12 +171,10 @@ test('Generic Demo: Reset restores pristine initial state', () => {
 });
 
 test('Generic Demo: Verification that Core and Field require no domain modules', () => {
-  // Verify app-generic.js source contains no references to vocabulary or musical files
+  // Verify app-generic.js source contains no vocabulary dependencies
   const genericSource = fs.readFileSync(path.join(__dirname, '../apps/generic/app-generic.js'), 'utf8');
   assert.equal(genericSource.includes('app-vocabulary'), false);
-  assert.equal(genericSource.includes('app-music'), false);
-  assert.equal(genericSource.includes('vocabulary-view'), false);
-  assert.equal(genericSource.includes('musical-view'), false);
+  assert.equal(genericSource.includes('vocabulary-overlay'), false);
   assert.equal(genericSource.includes('VOCABULARY'), false);
   assert.equal(genericSource.includes('targetPitches'), false);
   assert.equal(genericSource.includes('midi'), false);

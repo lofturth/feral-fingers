@@ -1,13 +1,11 @@
 'use strict';
 
-const FallingFieldModule = typeof FallingView !== 'undefined' ? FallingView : (typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('../apps/music/view/falling-field.js') : null));
-const VocabularyViewModule = typeof VocabularyView !== 'undefined' ? VocabularyView : (typeof require === 'function' ? require('../apps/vocabulary/view/vocabulary-overlay.js') : null);
-const MusicalViewModule = typeof MusicalView !== 'undefined' ? MusicalView : (typeof require === 'function' ? require('../apps/music/view/music-overlay.js') : null);
-const VocabularyAppModule = typeof VocabularyApp !== 'undefined' ? VocabularyApp : (typeof require === 'function' ? require('../apps/vocabulary/app-vocabulary.js') : null);
-const MusicalAppModule = typeof MusicalApp !== 'undefined' ? MusicalApp : (typeof require === 'function' ? require('../apps/music/app-music.js') : null);
+const FallingFieldModule = typeof FallingView !== 'undefined' ? FallingView : (typeof FallingField !== 'undefined' ? FallingField : (typeof require === 'function' ? require('./view/falling-field.js') : null));
+const VocabularyViewModule = typeof VocabularyView !== 'undefined' ? VocabularyView : (typeof require === 'function' ? require('./view/vocabulary-overlay.js') : null);
+const VocabularyAppModule = typeof VocabularyApp !== 'undefined' ? VocabularyApp : (typeof require === 'function' ? require('./app-vocabulary.js') : null);
 
-if (!FallingFieldModule || !VocabularyViewModule || !MusicalViewModule) {
-  throw new Error('FallingField, VocabularyView, and MusicalView modules are required.');
+if (!FallingFieldModule || !VocabularyViewModule || !VocabularyAppModule) {
+  throw new Error('FallingField, VocabularyView, and VocabularyApp modules are required.');
 }
 
 const field = FallingFieldModule.createField({
@@ -22,7 +20,6 @@ const field = FallingFieldModule.createField({
 });
 
 const vocabularyView = VocabularyViewModule.createVocabularyView();
-const musicalView = MusicalViewModule.createMusicalView();
 
 // SVG coordinates are rendering only; engine positions are percentages.
 const TUNE = field.TUNE;
@@ -96,8 +93,8 @@ function syncSession() {
   words = state.cards.map((card, i) => ({
     ...card,
     flash: wordFlashes[i] || 0,
-    english: VOCABULARY[i]?.[0] || (activeApp ? activeApp.getCardLabel(i) : `Phrase ${i + 1}`),
-    spanish: VOCABULARY[i]?.[1] || 'C4 D4 E4'
+    english: VOCABULARY[i]?.[0] || activeApp.getCardLabel(i),
+    spanish: VOCABULARY[i]?.[1] || ''
   }));
   activeTime = state.time;
   paused = state.paused;
@@ -130,62 +127,8 @@ const coordinator = {
   getWords: () => words
 };
 
-let vocabularyApp = null;
-let musicalApp = null;
-let activeApp = null;
-
-if (VocabularyAppModule) {
-  vocabularyApp = VocabularyAppModule.createVocabularyApp({
-    coordinator,
-    vocabularyView,
-    el
-  });
-}
-if (MusicalAppModule) {
-  musicalApp = MusicalAppModule.createMusicalApp({
-    coordinator,
-    musicalView,
-    el
-  });
-}
-
-function getInitialAppMode() {
-  if (typeof window !== 'undefined' && window.location) {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('mode')) return params.get('mode');
-    if (params.has('app')) return params.get('app');
-    if (window.location.pathname.includes('vocabulary')) return 'vocabulary';
-    if (window.location.pathname.includes('music')) return 'music';
-  }
-  if (typeof document !== 'undefined') {
-    if (document.body?.dataset?.app) return document.body.dataset.app;
-    if (document.documentElement?.dataset?.app) return document.documentElement.dataset.app;
-  }
-  if (typeof globalThis !== 'undefined' && globalThis.__APP_MODE__) {
-    return globalThis.__APP_MODE__;
-  }
-  return 'vocabulary';
-}
-
-function setAppMode(mode) {
-  if (activeApp) {
-    activeApp.detach?.();
-  }
-  if (mode === 'music' && musicalApp) {
-    activeApp = musicalApp;
-  } else if (vocabularyApp) {
-    activeApp = vocabularyApp;
-  } else {
-    activeApp = musicalApp;
-  }
-  if (activeApp) {
-    activeApp.attach();
-  }
-  if (session) {
-    syncSession();
-    render(0);
-  }
-}
+const activeApp = VocabularyAppModule.createVocabularyApp({ coordinator, vocabularyView, el });
+activeApp.attach();
 
 function reset() {
   session = MunduPhysics.createSession({
@@ -299,7 +242,7 @@ function render(dt) {
     flash: word.flash || 0,
     isComplete: wordAboveFinish(word),
     isSelected: i === selected,
-    label: word.english || `Phrase ${i + 1}`
+    label: word.english || `Word ${i + 1}`
   }));
 
   progressValue = overallProgress();
@@ -333,11 +276,7 @@ function updateReadouts() {
   if (el('score')) el('score').textContent = progressValue.toFixed(1);
   if (el('feedback')) {
     if (lastMeasurement) {
-      if (lastMeasurement.kind === 'reward') {
-        el('feedback').textContent = `Slot ${String(lastMeasurement.index + 1).padStart(2, '0')} rewarded / ↑${lastMeasurement.lift.toFixed(1)} pp lift / ${lastMeasurement.rewardMagnitude >= 1 ? 'First Try (full)' : 'After mistakes (half)'}`;
-      } else {
-        el('feedback').textContent = `${lastMeasurement.word || 'Phrase'} → ${lastMeasurement.translation || ''} / ${lastMeasurement.kind === 'retrieval' ? (lastMeasurement.hintVisible ? 'hinted' : 'unhinted') + ' / ' + lastMeasurement.multiplier.toFixed(2) + '× kick' + ' / ↑' + lastMeasurement.lift.toFixed(1) + ' pp' : 'skipped / no kick'}`;
-      }
+      el('feedback').textContent = `${lastMeasurement.word || 'Word'} → ${lastMeasurement.translation || ''} / ${lastMeasurement.kind === 'retrieval' ? (lastMeasurement.hintVisible ? 'hinted' : 'unhinted') + ' / ' + lastMeasurement.multiplier.toFixed(2) + '× kick' + ' / ↑' + lastMeasurement.lift.toFixed(1) + ' pp' : 'skipped / no kick'}`;
     } else {
       el('feedback').textContent = `${words.length} slots. One keyboard. Keep them afloat.`;
     }
@@ -354,10 +293,10 @@ function updateStatus() {
   if (el('status')?.parentElement) el('status').parentElement.classList.toggle('paused', paused);
   if (el('prompt')) {
     el('prompt').textContent = sessionComplete
-      ? 'ALL PHRASES CLEAR / RESET TO RESTART'
+      ? 'ALL WORDS CLEAR / RESET TO RESTART'
       : paused
         ? 'SESSION PAUSED / RESUME TO RETRIEVE'
-        : (activeApp?.name === 'music' ? 'PLAY C4-D4-E4 = RETRIEVE / ESC = SKIP' : 'TYPE SPANISH = RETRIEVE / ESC = SKIP');
+        : 'TYPE SPANISH = RETRIEVE / ESC = SKIP';
   }
 }
 
@@ -376,9 +315,6 @@ function advanceTo(time) {
 function frame(time) {
   animationFrame = null;
   advanceTo(time);
-  if (el('dev-panel')?.open) {
-    drawPianoRoll();
-  }
   scheduleFrame();
 }
 
@@ -393,7 +329,6 @@ if (typeof document !== 'undefined') {
     updateStatus();
     if (paused) {
       stopFrames();
-      stopAllAudio();
     } else {
       scheduleFrame();
     }
@@ -549,33 +484,9 @@ function buildCompletionScreen() {
   });
 }
 
-// Application facade delegates
-function startDemoPlayback() {
-  return activeApp?.startDemoPlayback?.();
-}
-function handleMidiNote(noteOn, pitch, velocity, channel) {
-  return activeApp?.handleMidiNote?.(noteOn, pitch, velocity, channel);
-}
-function drawPianoRoll() {
-  // MusicalView draws via activeApp
-}
-function renderPerformanceMetrics() {}
-function renderTimingDeviation() {}
-function renderNoteDuration() {}
-function connectMidi() {
-  return activeApp?.connectMidi?.();
-}
-function stopAllAudio() {
-  activeApp?.stopAllAudio?.();
-}
-
-// Boot initial mode and system
-setAppMode(getInitialAppMode());
+// Boot vocabulary session
 loadTuningDefaults();
 reset();
 buildTuning();
 buildCompletionScreen();
-if (activeApp?.name === 'music') {
-  connectMidi();
-}
 scheduleFrame();
