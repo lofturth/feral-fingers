@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import type { SessionSnapshot } from '../../../core/physics';
 import type { PianoExercise } from '../deck';
 import { noteName } from '../midi/useMidi';
+import { colorForPitch } from '../cards/noteColors';
 
 type Observation = { time: number; progress: number };
 type Props = { state: SessionSnapshot; progress: number; history: readonly Observation[]; exercises: readonly PianoExercise[] };
@@ -81,7 +82,7 @@ export const FallingView = forwardRef<FieldHandle, Props>(function FallingView({
         const notes = exercises[i].notes.map(noteName).join(' · ');
         return <g key={item.id} aria-label={`${exercises[i].label}: ${notes}`}>
           <rect x={x + 2} y={Math.max(top + 2, y - 28)} width={Math.max(0, width - 4)} height="20" rx="3" fill="#141e30" stroke={i === state.selectedIndex ? '#43E6ED' : '#43536a'}/>
-          <text x={x + width / 2} y={Math.max(top + 15, y - 15)} fill="#e3e8ef" fontSize="9" textAnchor="middle" textLength={Math.max(0, width - 10)} lengthAdjust="spacingAndGlyphs">{notes}</text>
+          <text x={x + width / 2} y={Math.max(top + 15, y - 15)} fill="#e3e8ef" fontSize="9" textAnchor="middle" textLength={Math.max(0, width - 10)} lengthAdjust="spacingAndGlyphs">{exercises[i].notes.map((pitch, index) => <tspan key={index} fill={colorForPitch(pitch)}>{noteName(pitch)}{index < exercises[i].notes.length - 1 ? ' · ' : ''}</tspan>)}</text>
         </g>;
       })}
     </svg>

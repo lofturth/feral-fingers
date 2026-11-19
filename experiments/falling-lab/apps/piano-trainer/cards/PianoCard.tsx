@@ -1,4 +1,5 @@
 import './piano-card.css';
+import { colorForNoteName } from './noteColors';
 
 export type PianoCardState = 'waiting' | 'playing' | 'correct' | 'incorrect';
 
@@ -24,7 +25,7 @@ export function PianoCard({ title, notes, state = 'waiting', playedCount = 0, he
       <span className="piano-card__status">{messages[state]}</span>
     </div>
     <div className="piano-card__notes" aria-label={`Phrase: ${notes.join(', ')}`}>
-      {notes.map((note, index) => <span key={index} className={`piano-card__note${index < playedCount || heldNotes.includes(note) ? ' is-played' : ''}`}>{note}</span>)}
+      {notes.map((note, index) => <span key={index} className={`piano-card__note${index < playedCount || heldNotes.includes(note) ? ' is-played' : ''}`} style={{ backgroundColor: colorForNoteName(note) }}>{note}</span>)}
     </div>
     <p className="piano-card__feedback" aria-live="polite">{messages[state]}</p>
   </article>;

@@ -2,8 +2,8 @@
 .piano-card__header { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: #aabbd0; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .piano-card__status { color: #86dbe0; text-align: right; }
 .piano-card__notes { display: flex; flex-wrap: wrap; gap: 12px; margin: 32px 0 24px; }
-.piano-card__note { display: grid; place-items: center; width: 76px; height: 86px; border: 1px solid #43536a; border-radius: 10px; background: #202d42; color: #f3f8ff; font-size: 1.35rem; font-weight: 700; transition: background .15s, border-color .15s; }
-.piano-card__note.is-played { border-color: #6eddd7; background: #245552; }
+.piano-card__note { display: grid; place-items: center; width: 76px; height: 86px; border: 1px solid #263247; border-radius: 10px; background: #d3d9e2; color: #101828; font-size: 1.35rem; font-weight: 700; transition: box-shadow .15s, transform .15s; }
+.piano-card__note.is-played { outline: 3px solid #fff; outline-offset: -5px; box-shadow: 0 0 0 3px #112a3b, 0 0 0 5px #67e8f9; transform: translateY(-3px); }
 .piano-card[data-state='correct'] .piano-card__status, .piano-card[data-state='correct'] .piano-card__feedback { color: #8ce7b2; }
 .piano-card[data-state='incorrect'] .piano-card__status, .piano-card[data-state='incorrect'] .piano-card__feedback { color: #ff9ca9; }
 .piano-card__feedback { margin: 0; color: #aabbd0; font-size: .95rem; }
