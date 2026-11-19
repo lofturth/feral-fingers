@@ -129,3 +129,109 @@ test('selection waits for interaction, replays, switches exercise and cleans up'
     assert.equal(audio.state, 'closed');
   } finally { global.window = oldWindow; global.localStorage = oldStorage; }
 });
+
+test('ordinary gestures, tempo edits and re-renders do not replay; explicit selection and replay do', () => {
+  const hooks = fakeHooks(), listeners = new Map(), contexts = [], stored = new Map();
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock { constructor() { super(); contexts.push(this); } }
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
+  global.localStorage = { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60, 62]); listeners.get('pointerdown')();
+    const audio = contexts[0]; assert.equal(audio.oscillators.length, 6);
+    listeners.get('pointerdown')(); listeners.get('keydown')();
+    playback.setTempo(120); assert.equal(audio.oscillators.length, 6);
+    playback.setExercise([60, 62]); assert.equal(audio.oscillators.length, 12); // same-card reselection
+    playback.setExercise([64]); assert.equal(audio.oscillators.length, 15);
+    playback.replay(); assert.equal(audio.oscillators.length, 18);
+    cleanups.forEach(cleanup => cleanup?.());
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('independent volumes apply immediately and persist without replaying', () => {
+  const hooks = fakeHooks(), listeners = new Map(), contexts = [], stored = new Map();
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock { constructor() { super(); contexts.push(this); } }
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
+  global.localStorage = { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60]); listeners.get('pointerdown')(); const audio = contexts[0];
+    playback.setVolume('phraseVolume', 100); playback.setVolume('metronomeVolume', 15);
+    assert.equal(audio.gains[0].gain.value, 1); assert.equal(audio.gains[1].gain.value, .15);
+    assert.equal(stored.get('piano-trainer.phrase-volume'), '100'); assert.equal(stored.get('piano-trainer.metronome-volume'), '15');
+    assert.equal(audio.oscillators.length, 3);
+    const restored = usePhrasePlayback(); assert.equal(restored.phraseVolume, 100); assert.equal(restored.metronomeVolume, 15);
+    cleanups.forEach(cleanup => cleanup?.()); assert.equal(audio.state, 'closed');
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('failed playback does not retry on ordinary gestures and a successful replay clears the error', () => {
+  const hooks = fakeHooks(), listeners = new Map(), messages = [], contexts = [];
+  hooks.useState = initial => [typeof initial === 'function' ? initial() : initial, value => { if (typeof value === 'string') messages.push(value); }];
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock {
+    constructor() { super(); this.fail = true; contexts.push(this); }
+    createOscillator() { if (this.fail) { this.fail = false; throw Error('device failure'); } return super.createOscillator(); }
+  }
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
+  global.localStorage = { getItem: () => null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60]); listeners.get('pointerdown')();
+    assert.match(messages.at(-1), /could not be played/);
+    listeners.get('pointerdown')(); listeners.get('keydown')();
+    assert.equal(contexts[0].oscillators.length, 0);
+    playback.replay(); assert.equal(contexts[0].oscillators.length, 3); assert.equal(messages.at(-1), '');
+    cleanups.forEach(cleanup => cleanup?.());
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('concurrent unlock gestures initialize audio once and play the pending selection once', async () => {
+  const hooks = fakeHooks(), listeners = new Map(), contexts = []; let resolveResume;
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock {
+    constructor() { super(); this.state = 'suspended'; this.resumeCalls = 0; contexts.push(this); }
+    resume() { this.resumeCalls++; return new Promise(resolve => { resolveResume = () => { this.state = 'running'; resolve(); }; }); }
+  }
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
+  global.localStorage = { getItem: () => null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60]); listeners.get('pointerdown')(); listeners.get('keydown')();
+    assert.equal(contexts.length, 1); assert.equal(contexts[0].resumeCalls, 1);
+    resolveResume(); await Promise.resolve(); await Promise.resolve();
+    assert.equal(contexts[0].oscillators.length, 3);
+    listeners.get('pointerdown')(); assert.equal(contexts[0].oscillators.length, 3);
+    cleanups.forEach(cleanup => cleanup?.());
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('React-style rerenders retain callbacks and do not replay the selected phrase', () => {
+  const slots = [], effects = [], listeners = new Map(), contexts = []; let cursor = 0;
+  const equal = (a, b) => a && b && a.length === b.length && a.every((value, i) => value === b[i]);
+  const hooks = {
+    useState(initial) { const n = cursor++; if (!(n in slots)) slots[n] = typeof initial === 'function' ? initial() : initial; return [slots[n], value => { slots[n] = value; }]; },
+    useRef(initial) { const n = cursor++; return slots[n] ||= { current: initial }; },
+    useCallback(fn, deps) { const n = cursor++; if (!slots[n] || !equal(slots[n].deps, deps)) slots[n] = { fn, deps }; return slots[n].fn; },
+    useEffect(fn, deps) { const n = cursor++; if (!slots[n] || !equal(slots[n].deps, deps)) { slots[n] = { deps }; effects.push(fn); } }
+  };
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock { constructor() { super(); contexts.push(this); } }
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
+  global.localStorage = { getItem: () => null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    let playback = usePhrasePlayback(); const cleanups = effects.splice(0).map(effect => effect());
+    playback.setExercise([60]); listeners.get('pointerdown')();
+    cursor = 0; const rendered = usePhrasePlayback();
+    assert.equal(rendered.setExercise, playback.setExercise); assert.equal(effects.length, 0);
+    assert.equal(contexts[0].oscillators.length, 3);
+    cleanups.forEach(cleanup => cleanup?.());
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});

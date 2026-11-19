@@ -2,6 +2,9 @@ type Timer = ReturnType<typeof setTimeout>;
 
 // Schedule audio against the audio clock, never the learning-session clock.
 export function createPhrasePlayer(context: AudioContext, timers = { setTimeout, clearTimeout }) {
+  const phraseGain = context.createGain(), clickGain = context.createGain();
+  phraseGain.gain.value = .8; clickGain.gain.value = .7;
+  phraseGain.connect(context.destination); clickGain.connect(context.destination);
   const notes = new Set<OscillatorNode>();
   const clicks = new Set<OscillatorNode>();
   let timer: Timer | null = null;
@@ -33,7 +36,7 @@ export function createPhrasePlayer(context: AudioContext, timers = { setTimeout,
     gain.gain.setValueAtTime(.0001, when);
     gain.gain.exponentialRampToValueAtTime(volume, when + .005);
     gain.gain.exponentialRampToValueAtTime(.0001, when + duration);
-    osc.connect(gain); gain.connect(context.destination);
+    osc.connect(gain); gain.connect(nodes === notes ? phraseGain : clickGain);
     nodes.add(osc);
     osc.onended = () => { nodes.delete(osc); osc.disconnect(); gain.disconnect(); };
     osc.start(when);
@@ -62,11 +65,17 @@ export function createPhrasePlayer(context: AudioContext, timers = { setTimeout,
     origin = context.currentTime + .03;
     if (playNotes) pitches.forEach((pitch, i) => {
       const frequency = 440 * 2 ** ((pitch - 69) / 12);
-      [1, .22, .07].forEach((strength, harmonic) => voice(frequency * (harmonic + 1), origin + i * beat, Math.min(.45, beat * .8), .07 * strength, notes));
+      [1, .22, .07].forEach((strength, harmonic) => voice(frequency * (harmonic + 1), origin + i * beat, Math.min(.45, beat * .8), .22 * strength, notes));
     });
     setMetronome(metronome);
     return true;
   }
   function stopPhrase() { stopNodes(notes); }
-  return { play, stop, stopPhrase, setMetronome };
+  function setTempo(bpm: number) { beat = 60 / bpm; if (clickEnabled) setMetronome(true); }
+  function setVolumes(phrase: number, metronome: number) {
+    phraseGain.gain.setValueAtTime(phrase / 100, context.currentTime);
+    clickGain.gain.setValueAtTime(metronome / 100, context.currentTime);
+  }
+  function dispose() { stop(); phraseGain.disconnect(); clickGain.disconnect(); }
+  return { play, stop, stopPhrase, setMetronome, setTempo, setVolumes, dispose };
 }

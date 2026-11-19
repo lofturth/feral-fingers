@@ -179,6 +179,8 @@ function App() {
       <div className="playback-controls">
         <button type="button" aria-pressed={playback.enabled} onClick={() => playback.setEnabled(!playback.enabled)}>Phrase Playback {playback.enabled ? 'On' : 'Off'}</button>
         <button type="button" aria-pressed={playback.metronome} onClick={() => playback.setMetronome(!playback.metronome)}>Metronome {playback.metronome ? 'On' : 'Off'}</button>
+        <label>Phrase Volume <input type="range" min="0" max="100" value={playback.phraseVolume} onChange={event => playback.setVolume('phraseVolume', Number(event.target.value))}/> {playback.phraseVolume}%</label>
+        <label>Metronome Volume <input type="range" min="0" max="100" value={playback.metronomeVolume} onChange={event => playback.setVolume('metronomeVolume', Number(event.target.value))}/> {playback.metronomeVolume}%</label>
         <label>Tempo <input type="number" min="30" max="240" step="1" value={tempoDraft} onChange={event => { const text = event.target.value; setTempoDraft(text); playback.setTempo(Number(text)); }} onBlur={() => setTempoDraft(String(playback.tempo))}/> BPM</label>
       </div>
       {playback.audioError && <span role="status">{playback.audioError}</span>}
