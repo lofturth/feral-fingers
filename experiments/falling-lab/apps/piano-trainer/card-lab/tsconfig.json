@@ -13,14 +13,21 @@
       ],
       "react/jsx-runtime": [
         "./node_modules/@types/react/jsx-runtime.d.ts"
+      ],
+      "react-dom/client": [
+        "./node_modules/@types/react-dom/client.d.ts"
       ]
-    }
+    },
+    "allowImportingTsExtensions": true
   },
   "include": [
     "app.tsx",
     "../midi/useMidi.ts",
     "../midi/attemptRecording.ts",
     "../cards/PianoCard.tsx",
-    "../cards/evaluatePhrase.ts"
+    "../cards/evaluatePhrase.ts",
+    "../app.tsx",
+    "../view/FallingView.tsx",
+    "../cards/TrainerPianoCard.tsx"
   ]
 }

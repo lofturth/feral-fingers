@@ -1,0 +1,6 @@
+.trainer-card { color: #f2f6fc; font-family: system-ui, sans-serif; font-size: 11px; }
+.trainer-card .piano-card { width: 100%; padding: 12px 16px; }
+.trainer-card .piano-card__notes { margin: 12px 0; gap: 8px; }
+.trainer-card .piano-card__note { width: 50px; height: 46px; font-size: 15px; }
+.trainer-card p { margin: 5px 0; }
+.trainer-card button { padding: 4px 8px; }

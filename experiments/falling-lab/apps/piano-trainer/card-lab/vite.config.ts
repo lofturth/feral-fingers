@@ -5,6 +5,7 @@ export default defineConfig({
   root: resolve(import.meta.dirname, '../../..'),
   esbuild: { jsx: 'automatic' },
   resolve: { alias: [
+    { find: /^react-dom\/client$/, replacement: resolve(import.meta.dirname, 'node_modules/react-dom/client.js') },
     { find: /^react\/jsx-dev-runtime$/, replacement: resolve(import.meta.dirname, 'node_modules/react/jsx-dev-runtime.js') },
     { find: /^react\/jsx-runtime$/, replacement: resolve(import.meta.dirname, 'node_modules/react/jsx-runtime.js') },
     { find: /^react$/, replacement: resolve(import.meta.dirname, 'node_modules/react/index.js') }
@@ -13,6 +14,6 @@ export default defineConfig({
   build: {
     outDir: resolve(import.meta.dirname, 'dist'),
     emptyOutDir: true,
-    rollupOptions: { input: resolve(import.meta.dirname, 'index.html') }
+    rollupOptions: { input: [resolve(import.meta.dirname, 'index.html'), resolve(import.meta.dirname, '../index.html')] }
   }
 });
