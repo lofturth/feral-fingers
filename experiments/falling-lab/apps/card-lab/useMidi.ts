@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import type { AttemptMidiEvent } from './attemptRecording';
 
 type MidiEvent = { id: number; type: 'Note on' | 'Note off'; note: string; velocity: number; channel: number };
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const noteName = (pitch: number) => `${noteNames[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
 
-export function useMidi(onNoteOn: (note: string) => void) {
+export function useMidi(onNoteOn: (note: string) => void, onMidiEvent: (event: AttemptMidiEvent) => void) {
+  const onMidiEventRef = useRef(onMidiEvent);
+  onMidiEventRef.current = onMidiEvent;
   const onNoteOnRef = useRef(onNoteOn);
   onNoteOnRef.current = onNoteOn;
   const [devices, setDevices] = useState<MIDIInput[]>([]);
@@ -42,8 +45,9 @@ export function useMidi(onNoteOn: (note: string) => void) {
       const command = statusByte & 0xf0;
       const on = command === 0x90 && velocity > 0;
       if (!on && command !== 0x80 && !(command === 0x90 && velocity === 0)) return;
-      if (on) onNoteOnRef.current(noteName(pitch));
       const channel = (statusByte & 0x0f) + 1;
+      onMidiEventRef.current({ type: on ? 'note-on' : 'note-off', pitch, velocity, channel, timestamp: event.timeStamp });
+      if (on) onNoteOnRef.current(noteName(pitch));
       const key = `${channel}:${pitch}`;
       if (on) heldRef.current.set(key, pitch);
       else heldRef.current.delete(key);

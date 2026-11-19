@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { PianoCard, type PianoCardState } from '../../shared/piano/PianoCard';
 import './style.css';
 import { useMidi } from './useMidi';
+import { createAttemptRecording } from './attemptRecording';
 
 const phrase = { title: 'Piano phrase', notes: ['C4', 'E4', 'G4'] };
 
@@ -10,6 +11,8 @@ function App() {
   const [state, setState] = useState<PianoCardState>('waiting');
   const [playedCount, setPlayedCount] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [recordedCount, setRecordedCount] = useState(0);
+  const recording = useRef(createAttemptRecording());
   const [attempt, setAttempt] = useState<'active' | 'success' | 'error'>('active');
   const attemptRef = useRef({ progress: 0, status: 'active' as 'active' | 'success' | 'error' });
   const midi = useMidi(note => {
@@ -28,9 +31,14 @@ function App() {
     setAttempt(status);
     setPlayedCount(next);
     setState(status === 'success' ? 'correct' : 'playing');
+  }, event => {
+    recording.current.record(event);
+    setRecordedCount(recording.current.getEvents().length);
   });
 
   function retry() {
+    recording.current.reset();
+    setRecordedCount(0);
     attemptRef.current = { progress: 0, status: 'active' };
     setProgress(0);
     setAttempt('active');
@@ -48,6 +56,7 @@ function App() {
       <h2 id="recognition-title">Phrase practice</h2>
       <p role="status">{attempt === 'success' ? 'Phrase complete!' : attempt === 'error' ? 'Incorrect or extra note. Try again.' : `Progress: ${progress} / ${phrase.notes.length} notes`}</p>
       <button type="button" onClick={retry}>Retry phrase</button>
+      <p>Events recorded this attempt: {recordedCount}</p>
     </section>
     <section className="midi" aria-labelledby="midi-title">
       <h2 id="midi-title">MIDI input</h2>
