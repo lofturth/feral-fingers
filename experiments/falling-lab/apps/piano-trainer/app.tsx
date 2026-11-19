@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 import { createSession } from '../../core/physics.ts';
 import { FallingView, type FieldHandle } from './view/FallingView';
 import { CardProjection, type Projection } from './view/CardProjection';
+import { EventLog } from './view/EventLog';
+import type { DiagnosticEvent, LogEvent } from './eventLog';
 import { noteName } from './midi/useMidi';
 import type { SessionSnapshot } from '../../core/physics';
 import { TrainerPianoCard, usePianoPractice } from './cards/TrainerPianoCard';
@@ -12,7 +14,7 @@ import { parseDeck, type PianoDeck } from './deck';
 import sampleDeckJson from './decks/sample.json?raw';
 import './style.css';
 
-function PracticeSession({ deck }: { deck: PianoDeck }) {
+function PracticeSession({ deck, onLog, nextAttemptId }: { deck: PianoDeck; onLog: LogEvent; nextAttemptId: () => number }) {
   const [overlayOpacity, setOverlayOpacity] = useState(() => {
     try {
       const saved = localStorage.getItem('piano-trainer.overlay-opacity');
@@ -70,11 +72,23 @@ function PracticeSession({ deck }: { deck: PianoDeck }) {
     setHistory(previous => [...previous, { time: snapshot.time, progress: value }]);
     projectSelection(snapshot);
   }, [session, projectSelection]);
-  const complete = useCallback((cardId: string, score: 50 | 100, time: number) => { if (trainer.complete(cardId, score, time)) refresh(); }, [trainer, refresh]);
-  const skip = useCallback((cardId: string, time: number) => { if (trainer.skip(cardId, time)) refresh(); }, [trainer, refresh]);
+  const complete = useCallback((cardId: string, score: 50 | 100, time: number, attemptId: number) => {
+    let before = '';
+    const result = trainer.complete(cardId, score, time, id => { before = id; });
+    const after = session.getState().selectedCardId;
+    onLog({ timestamp: time, type: 'Core reward', attemptId, detail: `Card ${cardId}; magnitude ${score / 100}; selection before ${before || 'none'} → after ${after || 'none'}; ${result ? 'applied' : 'not applied'}` });
+    if (result) refresh();
+  }, [session, trainer, refresh, onLog]);
+  const skip = useCallback((cardId: string, time: number, attemptId: number) => {
+    let before = '';
+    const result = trainer.skip(cardId, time, id => { before = id; });
+    const after = session.getState().selectedCardId;
+    onLog({ timestamp: time, type: 'Core skip', attemptId, detail: `Card ${cardId}; selection before ${before || 'none'} → after ${after || 'none'}; ${result ? 'applied' : 'not applied'}` });
+    if (result) refresh();
+  }, [session, trainer, refresh, onLog]);
   const getSelectedId = useCallback(() => { const current = session.getState(); return current.paused || current.complete ? null : current.selectedCardId; }, [session]);
   const getExercise = useCallback((id: string) => deck.exercises.find(exercise => exercise.id === id), [deck]);
-  const practice = usePianoPractice({ selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip });
+  const practice = usePianoPractice({ selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId });
   const selected = deck.exercises[state.selectedIndex] ?? deck.exercises[0];
   return <>
     <div className="readouts"><span className="status"><i/>{state.complete ? 'COMPLETE' : 'LIVE'}</span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
@@ -94,6 +108,15 @@ function App() {
   const [deck, setDeck] = useState(() => parseDeck(JSON.parse(sampleDeckJson)));
   const [generation, setGeneration] = useState(0);
   const [error, setError] = useState('');
+  const [entries, setEntries] = useState<(DiagnosticEvent & { sequence: number })[]>([]);
+  const entrySequence = useRef(0);
+  const attemptSequence = useRef(0);
+  const log = useCallback((entry: DiagnosticEvent) => {
+    const sequence = ++entrySequence.current;
+    setEntries(previous => [...previous, { ...entry, sequence }]);
+  }, []);
+  const nextAttemptId = useCallback(() => ++attemptSequence.current, []);
+  const clearLog = useCallback(() => setEntries([]), []);
   const [loadedNotice, setLoadedNotice] = useState(false);
   const loadId = useRef(0);
   useEffect(() => {
@@ -122,7 +145,8 @@ function App() {
       <div className="deck-info"><span>{deck.title} · {deck.exercises.length} {deck.exercises.length === 1 ? 'exercise' : 'exercises'}</span><span role="status">{loadedNotice ? 'Deck loaded' : ''}</span></div>
       {error && <p className="deck-error" role="alert">{error}</p>}
     </div></header>
-    <PracticeSession key={generation} deck={deck}/>
+    <PracticeSession key={generation} deck={deck} onLog={log} nextAttemptId={nextAttemptId}/>
+    <EventLog entries={entries} clear={clearLog}/>
   </main>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);

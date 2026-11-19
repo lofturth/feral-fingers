@@ -10,15 +10,17 @@ export function createTrainingSession(session: PhysicsSession) {
   return {
     advanceTo,
     resetClock() { lastTime = null; },
-    complete(cardId: string, score: 50 | 100, time: number) {
+    complete(cardId: string, score: 50 | 100, time: number, observeSelection?: (id: string) => void) {
       advanceTo(time);
       const state = session.getState();
+      observeSelection?.(state.selectedCardId);
       if (state.paused || state.complete || state.selectedCardId !== cardId) return null;
       return session.applyReward(cardId, score / 100);
     },
-    skip(cardId: string, time: number) {
+    skip(cardId: string, time: number, observeSelection?: (id: string) => void) {
       advanceTo(time);
       const state = session.getState();
+      observeSelection?.(state.selectedCardId);
       if (state.paused || state.complete || state.selectedCardId !== cardId) return null;
       return session.skip();
     }

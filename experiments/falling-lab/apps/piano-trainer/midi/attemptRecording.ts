@@ -4,6 +4,7 @@ export type AttemptMidiEvent = {
   velocity: number;
   channel: number;
   timestamp: number; // milliseconds on the browser's performance timeline
+  device: { id: string; name: string };
 };
 
 export function createAttemptRecording() {

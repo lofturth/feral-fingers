@@ -14,3 +14,11 @@
 .overlay-opacity input { width: 90px; accent-color: #43E6ED; }
 
 .card-projection { position: fixed; z-index: 9; pointer-events: none; transform-origin: top left; display: flex; justify-content: center; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; border: 1px solid #43e6ed; border-radius: 3px; background: #141e30; color: #e3e8ef; font: 9px system-ui, sans-serif; box-shadow: 0 0 12px #43e6ed55; }
+
+.trainer-event-log { margin: 24px 0; border-top: 1px solid #30394c; padding-top: 14px; color: #aabbd0; font-size: 11px; }
+.trainer-event-log summary { cursor: pointer; color: #e3e8ef; font-weight: 600; }
+.trainer-event-log button { margin: 12px 0 8px; }
+.trainer-event-log__entries { height: 220px; overflow: auto; border: 1px solid #30394c; border-radius: 4px; padding: 8px 14px; }
+.trainer-event-log__entries ol { margin: 0; padding-left: 24px; line-height: 1.7; }
+.trainer-event-log__entries strong { color: #e3e8ef; }
+.trainer-event-log__hint { font-size: 10px; }

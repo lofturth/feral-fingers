@@ -41,7 +41,7 @@ export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void) {
       const on = command === 0x90 && velocity > 0;
       if (!on && command !== 0x80 && !(command === 0x90 && velocity === 0)) return;
       const channel = (statusByte & 0x0f) + 1;
-      onMidiEventRef.current({ type: on ? 'note-on' : 'note-off', pitch, velocity, channel, timestamp: event.timeStamp });
+      onMidiEventRef.current({ type: on ? 'note-on' : 'note-off', pitch, velocity, channel, timestamp: event.timeStamp, device: { id: input.id, name: input.name || 'MIDI input' } });
       const key = `${channel}:${pitch}`;
       if (on) heldRef.current.set(key, pitch);
       else heldRef.current.delete(key);
