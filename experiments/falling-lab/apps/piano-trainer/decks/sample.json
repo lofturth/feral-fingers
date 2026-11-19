@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "piano-starter",
+  "title": "Piano Starter",
+  "exercises": [
+    { "id": "c-major", "label": "C major", "notes": [60, 64, 67] },
+    { "id": "descending", "label": "Descending", "notes": [67, 64, 60] },
+    { "id": "step-up", "label": "Step up", "notes": [60, 62, 64] },
+    { "id": "step-down", "label": "Step down", "notes": [65, 64, 62] },
+    { "id": "g-major", "label": "G major", "notes": [67, 71, 74] },
+    { "id": "f-major", "label": "F major", "notes": [65, 69, 72] },
+    { "id": "a-minor", "label": "A minor", "notes": [69, 72, 76] },
+    { "id": "up-and-back", "label": "Up and back", "notes": [60, 64, 62, 60] },
+    { "id": "repeated", "label": "Repeated note", "notes": [64, 64, 67] },
+    { "id": "little-walk", "label": "Little walk", "notes": [67, 65, 64, 62, 60] }
+  ]
+}

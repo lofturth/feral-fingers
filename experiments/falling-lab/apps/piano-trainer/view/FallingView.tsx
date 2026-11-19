@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SessionSnapshot } from '../../../core/physics';
+import type { PianoExercise } from '../deck';
+import { PianoCard } from '../cards/PianoCard';
+import { noteName } from '../midi/useMidi';
 
 type Observation = { time: number; progress: number };
-type Props = { state: SessionSnapshot; progress: number; history: readonly Observation[]; card: ReactNode };
+type Props = { state: SessionSnapshot; progress: number; history: readonly Observation[]; exercises: readonly PianoExercise[]; card: ReactNode };
 const top = 24, bottom = 502, reachableTop = 60, left = 20, right = 1180;
 const screenY = (position: number) => bottom - position / 100 * (bottom - reachableTop);
 const traceY = (value: number) => bottom - 4 - value / 100 * (bottom - top - 8);
 
 // Geometry and SVG styling follow apps/generic/view/falling-field.js.
-export function FallingView({ state, progress, history, card }: Props) {
+export function FallingView({ state, progress, history, exercises, card }: Props) {
   const chart = useRef<SVGSVGElement>(null);
   const [traceWidth, setTraceWidth] = useState(2.3);
   useEffect(() => {
@@ -50,12 +53,23 @@ export function FallingView({ state, progress, history, card }: Props) {
         <line x1={left} y1={screenY(state.config.finish.threshold)} x2={right} y2={screenY(state.config.finish.threshold)} stroke="#657087" strokeWidth="1" strokeDasharray="5 7" opacity=".65"/>
         <text x={left + 3} y={screenY(state.config.finish.threshold) - 7} fill="#657087" fontSize="8">COMPLETION</text>
         {state.cards.map((item, i) => { const x = left + i * slotWidth + 5, width = slotWidth - 10, y = screenY(item.shown), selected = i === state.selectedIndex; return <g key={item.id} visibility={item.unlocked ? 'visible' : 'hidden'} className={item.depth >= state.config.finish.threshold ? 'word-faded' : undefined}>
-          <text transform={`translate(${left + (i + .5) * slotWidth},${y - 8}) rotate(-90)`} fill={selected ? '#43E6ED' : '#e3e8ef'} fontSize="14" textAnchor="start" dominantBaseline="central">Piano phrase</text>
+          <text transform={`translate(${left + (i + .5) * slotWidth},${y - 8}) rotate(-90)`} fill={selected ? '#43E6ED' : '#e3e8ef'} fontSize="14" textAnchor="start" dominantBaseline="central">{exercises[i].label}</text>
           <text x={x + width / 2} y={y + 16} fill={selected ? '#43E6ED' : '#ED4CA8'} fontSize="15" fontWeight="700" textAnchor="middle" stroke="#0A0D19" strokeWidth="4" paintOrder="stroke">{Math.round(Math.min(item.depth, item.shown))}%</text>
         </g>; })}
       </g>
       <text id="trace-percentage" x={right + 12} y={traceY(progress)} fill="#43E6ED" fontSize="16" fontWeight="700" dominantBaseline="central" stroke="#0A0D19" strokeWidth="4" paintOrder="stroke">{progress.toFixed(1)}%</text>
-      {state.cards[0].unlocked && <foreignObject x={(left + right) / 2 - 160} y={Math.max(top, screenY(state.cards[0].shown) - 205)} width="320" height="205">{card}</foreignObject>}
+      {state.cards.map((item, i) => {
+        if (!item.unlocked) return null;
+        const width = Math.min(320, slotWidth - 10);
+        const scale = width / 320;
+        const height = 205 * scale;
+        const x = left + i * slotWidth + (slotWidth - width) / 2;
+        return <foreignObject key={item.id} x={x} y={Math.max(top, screenY(item.shown) - height)} width={width} height={height}>
+          <div style={{ width: 320, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+            {i === state.selectedIndex ? card : <PianoCard title={exercises[i].label} notes={exercises[i].notes.map(noteName)}/>}
+          </div>
+        </foreignObject>;
+      })}
     </svg>
   </div>;
 }
