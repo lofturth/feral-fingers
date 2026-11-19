@@ -1,12 +1,17 @@
 import type { AttemptMidiEvent } from '../midi/attemptRecording';
 
-export function createReplayControl(replay: () => void) {
-  const held = new Set<number>();
+export function createReplayControl(replay: () => void, togglePause: () => void = () => {}) {
+  const held = new Map<number, Set<number>>();
   return {
     handle(event: AttemptMidiEvent) {
-      if (event.pitch !== 84) return false;
-      if (event.type === 'note-off') held.delete(event.channel);
-      else if (!held.has(event.channel)) { const wasHeld = held.size > 0; held.add(event.channel); if (!wasHeld) replay(); }
+      if (event.pitch !== 48 && event.pitch !== 84) return false;
+      let channels = held.get(event.pitch);
+      if (!channels) { channels = new Set(); held.set(event.pitch, channels); }
+      if (event.type === 'note-off') channels.delete(event.channel);
+      else if (!channels.has(event.channel)) {
+        const wasHeld = channels.size > 0; channels.add(event.channel);
+        if (!wasHeld) (event.pitch === 48 ? replay : togglePause)();
+      }
       return true;
     },
     reset() { held.clear(); }

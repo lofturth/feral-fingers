@@ -20,6 +20,7 @@ export function createAttemptDiagnostics(onLog: LogEvent, nextAttemptId: () => n
     return `Card ${exercise.id} (${exercise.label}); expected: [${exercise.notes.join(', ')}]; actual: [${actual.join(', ')}]`;
   }
   return {
+    reset(timestamp: number) { if (current) { onLog({ timestamp, type: 'Attempt interrupted', attemptId: current.id, detail: `${describe(current.exercise)}; paused` }); current = null; } },
     selectionChanged(selectedId: string, timestamp: number) {
       if (current && current.cardId !== selectedId) {
         onLog({ timestamp, type: 'Attempt interrupted', attemptId: current.id, detail: `${describe(current.exercise)}; selection changed` });

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPhrasePlayer } from './phrasePlayer';
+import { createPlaybackDelay } from './playbackDelay';
 
 const phraseKey = 'piano-trainer.phrase-playback-enabled';
 const metroKey = 'piano-trainer.metronome-enabled';
 const tempoKey = 'piano-trainer.tempo-bpm';
+const delayKey = 'piano-trainer.next-phrase-delay';
+function storedDelay() { try { const raw = localStorage.getItem(delayKey); const value = raw === null ? 1.5 : Number(raw); return Number.isFinite(value) && value >= 0 && value <= 5 ? value : 1.5; } catch { return 1.5; } }
 const phraseVolumeKey = 'piano-trainer.phrase-volume';
 const metronomeVolumeKey = 'piano-trainer.metronome-volume';
 function storedVolume(key: string, fallback: number) {
@@ -21,6 +24,7 @@ export function usePhrasePlayback() {
   const [enabled, setEnabledState] = useState(() => storedBoolean(phraseKey, storedBoolean('piano-trainer.sound-enabled', true)));
   const [metronome, setMetronomeState] = useState(() => storedBoolean(metroKey, false));
   const [tempo, setTempoState] = useState(storedTempo);
+  const [delay, setDelayState] = useState(storedDelay);
   const [phraseVolume, setPhraseVolumeState] = useState(() => storedVolume(phraseVolumeKey, 80));
   const [metronomeVolume, setMetronomeVolumeState] = useState(() => storedVolume(metronomeVolumeKey, 70));
   const [audioError, setAudioError] = useState('');
@@ -30,15 +34,19 @@ export function usePhrasePlayback() {
   const exercise = useRef<readonly number[] | null>(null);
   const pending = useRef(false);
   const resuming = useRef(false);
+  const paused = useRef(false);
+  const resumePending = useRef(false);
+  const delayValue = useRef(delay);
   const playCurrent = useCallback(() => {
-    if (!exercise.current || (!settings.current.enabled && !settings.current.metronome)) return;
+    if (paused.current || !exercise.current || (!settings.current.enabled && !settings.current.metronome)) return;
     if (!context.current || context.current.state !== 'running') { pending.current = true; setAudioError('Interact with the page to enable audio.'); return; }
     pending.current = false;
     try { player.current?.play(exercise.current, settings.current.tempo, settings.current.enabled, settings.current.metronome); setAudioError(''); }
     catch { player.current?.stop(); setAudioError('Audio could not be played. Try replaying the phrase.'); }
   }, []);
+  const delayTimer = useRef(createPlaybackDelay(() => playCurrent()));
   const activate = useCallback(() => {
-    if (!settings.current.enabled && !settings.current.metronome) return;
+    if (paused.current || (!settings.current.enabled && !settings.current.metronome)) return;
     try {
       const AudioClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioClass) { setAudioError('Web Audio is unavailable.'); return; }
@@ -57,22 +65,30 @@ export function usePhrasePlayback() {
       } else if (pending.current && audio.state === 'running') playCurrent();
     } catch { setAudioError('Audio could not be started.'); }
   }, [playCurrent]);
-  const stop = useCallback(() => { pending.current = false; exercise.current = null; player.current?.stop(); }, []);
-  const setExercise = useCallback((notes: readonly number[] | null) => {
+  const stop = useCallback(() => { delayTimer.current.reset(); paused.current = false; resumePending.current = false; pending.current = false; exercise.current = null; player.current?.stop(); }, []);
+  const setExercise = useCallback((notes: readonly number[] | null, delayed = false) => {
     player.current?.stop();
     exercise.current = notes;
+    resumePending.current = false;
     pending.current = false;
-    if (notes) playCurrent();
+    delayTimer.current.cancel();
+    if (notes) { if (delayed) delayTimer.current.schedule(delayValue.current * 1000); else playCurrent(); }
   }, [playCurrent]);
-  const replay = useCallback(() => { if (settings.current.enabled && exercise.current) { pending.current = true; activate(); } }, [activate]);
+  const replay = useCallback(() => { if (!paused.current && settings.current.enabled && exercise.current) { delayTimer.current.cancel(); pending.current = true; activate(); } }, [activate]);
+  const setPaused = useCallback((value: boolean) => {
+    paused.current = value;
+    if (value) { delayTimer.current.pause(); resumePending.current = pending.current; pending.current = false; player.current?.stop(); }
+    else { delayTimer.current.resume(); if (resumePending.current) { resumePending.current = false; pending.current = true; activate(); } }
+  }, [activate]);
+  const setDelay = useCallback((value: number) => { if (value >= 0 && value <= 5 && Number.isFinite(value)) { delayValue.current = value; setDelayState(value); save(delayKey, String(value)); } }, []);
   const setEnabled = useCallback((value: boolean) => {
     settings.current.enabled = value; setEnabledState(value); save(phraseKey, String(value));
-    if (value) { pending.current = !!exercise.current; activate(); }
+    if (value) { if (!paused.current && !delayTimer.current.isPending()) { pending.current = !!exercise.current; activate(); } }
     else { player.current?.stopPhrase(); pending.current = settings.current.metronome && !!exercise.current && context.current?.state !== 'running'; if (!settings.current.metronome) { player.current?.stop(); setAudioError(''); } }
   }, [activate, playCurrent]);
   const setMetronome = useCallback((value: boolean) => {
     settings.current.metronome = value; setMetronomeState(value); save(metroKey, String(value));
-    if (value && exercise.current) {
+    if (value && exercise.current && !paused.current && !delayTimer.current.isPending()) {
       if (context.current?.state === 'running') player.current?.setMetronome(true);
       else { pending.current = !!exercise.current; activate(); }
     } else if (!value) { player.current?.setMetronome(false); if (!settings.current.enabled) { pending.current = false; setAudioError(''); } }
@@ -99,5 +115,5 @@ export function usePhrasePlayback() {
     player.current?.dispose();
     if (context.current && context.current.state !== 'closed') void context.current.close().catch(() => {});
   }, [stop]);
-  return { enabled, setEnabled, metronome, setMetronome, tempo, setTempo, phraseVolume, metronomeVolume, setVolume, audioError, replay, setExercise, stop };
+  return { delay, setDelay, setPaused, enabled, setEnabled, metronome, setMetronome, tempo, setTempo, phraseVolume, metronomeVolume, setVolume, audioError, replay, setExercise, stop };
 }

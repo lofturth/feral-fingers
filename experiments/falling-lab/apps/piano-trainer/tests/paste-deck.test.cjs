@@ -30,7 +30,7 @@ function createHost() {
     if (request === './audio/usePhrasePlayback') return { usePhrasePlayback: () => playback };
     if (request === './decks/sample.json?raw') return { default: fs.readFileSync(path.join(__dirname, '../decks/sample.json'), 'utf8') };
     if (request.endsWith('.css')) return {};
-    if (['../../core/physics.ts', './view/FallingView', './view/CardProjection', './view/EventLog', './midi/useMidi', './cards/TrainerPianoCard', './trainingSession'].includes(request)) return {};
+    if (['../../core/physics.ts', './view/FallingView', './view/VisualKeyboard', './view/CardProjection', './view/EventLog', './midi/useMidi', './cards/TrainerPianoCard', './trainingSession'].includes(request)) return {};
     return originalRequire(request);
   };
   const oldDocument = global.document;

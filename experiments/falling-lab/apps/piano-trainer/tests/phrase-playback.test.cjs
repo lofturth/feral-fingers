@@ -74,20 +74,20 @@ test('metronome shares the beat, toggles independently and cancels stale timers'
   assert.equal(audio.oscillators.at(-1).frequency.value, 1600);
   player.stop();
 });
-test('C6 replays once until released and is excluded from note evaluation', () => {
-  let count = 0; const control = createReplayControl(() => count++);
+test('C3 replays and C6 toggles pause once per physical press; both are reserved', () => {
+  let replays = 0, pauses = 0; const control = createReplayControl(() => replays++, () => pauses++);
   const event = (type, pitch, channel = 1) => ({ type, pitch, channel });
-  assert.equal(control.handle(event('note-on', 84)), true);
-  control.handle(event('note-on', 84));
-  control.handle(event('note-on', 84, 2));
-  control.handle(event('note-off', 84));
-  control.handle(event('note-off', 84, 2));
-  control.handle(event('note-on', 84));
-  assert.equal(count, 2);
+  for (const pitch of [48, 84]) {
+    assert.equal(control.handle(event('note-on', pitch)), true);
+    control.handle(event('note-on', pitch)); control.handle(event('note-on', pitch, 2));
+    control.handle(event('note-off', pitch)); control.handle(event('note-off', pitch, 2));
+    control.handle(event('note-on', pitch));
+  }
+  assert.equal(replays, 2); assert.equal(pauses, 2);
   assert.equal(control.handle(event('note-on', 60)), false);
-  control.reset(); control.handle(event('note-on', 84));
-  assert.equal(count, 3);
+  control.reset(); control.handle(event('note-on', 48)); assert.equal(replays, 3);
 });
+
 function fakeHooks() {
   const effects = [];
   return { effects, useState(initial) { return [typeof initial === 'function' ? initial() : initial, () => {}]; }, useRef(initial) { return { current: initial }; }, useCallback(callback) { return callback; }, useEffect(callback) { effects.push(callback); } };
@@ -233,5 +233,18 @@ test('React-style rerenders retain callbacks and do not replay the selected phra
     assert.equal(rendered.setExercise, playback.setExercise); assert.equal(effects.length, 0);
     assert.equal(contexts[0].oscillators.length, 3);
     cleanups.forEach(cleanup => cleanup?.());
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('next phrase delay persists without starting playback', () => {
+  const hooks = fakeHooks(), stored = new Map();
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  global.window = { addEventListener() {}, removeEventListener() {} };
+  global.localStorage = { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(); assert.equal(playback.delay, 1.5);
+    playback.setDelay(2.75); assert.equal(stored.get('piano-trainer.next-phrase-delay'), '2.75');
+    assert.equal(usePhrasePlayback().delay, 2.75);
   } finally { global.window = oldWindow; global.localStorage = oldStorage; }
 });

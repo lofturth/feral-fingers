@@ -16,19 +16,22 @@ type PracticeOptions = {
   onLog: LogEvent;
   nextAttemptId: () => number;
   replay: () => void;
+  togglePause: () => void;
 };
 
 // Mounted once per session, so switching cards does not create MIDI connections.
-export function usePianoPractice({ selectedId, getSelectedId, getExercise, onComplete, onSkip, onLog, nextAttemptId, replay }: PracticeOptions) {
+export function usePianoPractice({ selectedId, getSelectedId, getExercise, onComplete, onSkip, onLog, nextAttemptId, replay, togglePause }: PracticeOptions) {
   const attempt = useRef<{ id: string; phrase: ReturnType<typeof createPhraseAttempt> } | null>(null);
   const diagnostic = useRef(createAttemptDiagnostics(onLog, nextAttemptId));
   const [result, setResult] = useState<{ id: string; score: 50 | 100 } | null>(null);
+  const pauseRef = useRef(togglePause);
+  pauseRef.current = togglePause;
   const replayRef = useRef(replay);
   replayRef.current = replay;
-  const replayControl = useRef(createReplayControl(() => replayRef.current()));
+  const replayControl = useRef(createReplayControl(() => replayRef.current(), () => pauseRef.current()));
   const midi = useMidi(event => {
     if (replayControl.current.handle(event)) {
-      onLog({ timestamp: event.timestamp, type: `MIDI ${event.type}`, detail: `pitch 84 (replay control); velocity ${event.velocity}; channel ${event.channel}; input ${event.device.name} [${event.device.id}]` });
+      onLog({ timestamp: event.timestamp, type: `MIDI ${event.type}`, detail: `pitch ${event.pitch} (control); velocity ${event.velocity}; channel ${event.channel}; input ${event.device.name} [${event.device.id}]` });
       return;
     }
     const id = getSelectedId();
@@ -62,15 +65,16 @@ export function usePianoPractice({ selectedId, getSelectedId, getExercise, onCom
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [getSelectedId, getExercise, onSkip, onLog, nextAttemptId]);
-  return { ...midi, result };
+  function resetAttempt() { attempt.current = null; diagnostic.current.reset(performance.now()); setResult(null); }
+  return { ...midi, result, resetAttempt };
 }
 
-type CardProps = { exercise: PianoExercise; active: boolean; practice: ReturnType<typeof usePianoPractice>; replay: () => void; playbackEnabled: boolean };
-export function TrainerPianoCard({ exercise, active, practice, replay, playbackEnabled }: CardProps) {
+type CardProps = { exercise: PianoExercise; active: boolean; paused: boolean; practice: ReturnType<typeof usePianoPractice>; replay: () => void; playbackEnabled: boolean };
+export function TrainerPianoCard({ exercise, active, paused, practice, replay, playbackEnabled }: CardProps) {
   const score = practice.result?.id === exercise.id ? practice.result.score : null;
   return <div className="trainer-card">
     <PianoCard title={exercise.label} notes={exercise.notes.map(noteName)} heldNotes={practice.heldNotes}/>
-    <p>{!active ? 'Session complete.' : score === null ? 'Press Esc to finish an incomplete attempt.' : `Result: ${score}%`}</p>
+    <p>{paused ? 'Paused.' : !active ? 'Session complete.' : score === null ? 'Press Esc to finish an incomplete attempt.' : `Result: ${score}%`}</p>
     <div><span>{practice.status}</span> <button type="button" onClick={practice.connect}>Connect MIDI</button> <button type="button" onClick={replay} disabled={!playbackEnabled || !active}>Replay Phrase</button></div>
   </div>;
 }

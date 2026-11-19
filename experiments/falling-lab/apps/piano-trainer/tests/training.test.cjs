@@ -84,3 +84,16 @@ test('reward and skip transitions reselect one card or select another card', () 
   assert.equal(trainer.skip('one', 1000).cardId, 'one');
   assert.equal(session.getState().selectedCardId, 'two');
 });
+
+test('pause freezes simulation and resetting the trainer clock prevents a resume time jump', () => {
+  const session = createSession({ cardCount: 2, holdSelection: true });
+  const trainer = createTrainingSession(session);
+  trainer.advanceTo(1000); trainer.advanceTo(1500);
+  const before = session.getState(); session.setPaused(true); trainer.resetClock();
+  trainer.advanceTo(7000); trainer.advanceTo(9000);
+  assert.equal(session.getState().time, before.time);
+  assert.equal(session.getState().selectedCardId, before.selectedCardId);
+  assert.deepEqual(session.getState().cards, before.cards);
+  session.setPaused(false); trainer.resetClock(); trainer.advanceTo(10000); trainer.advanceTo(10250);
+  assert.equal(session.getState().time, before.time + .25);
+});

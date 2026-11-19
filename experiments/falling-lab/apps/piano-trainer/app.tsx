@@ -5,6 +5,7 @@ import { createSession } from '../../core/physics.ts';
 import { FallingView, type FieldHandle } from './view/FallingView';
 import { CardProjection, type Projection } from './view/CardProjection';
 import { EventLog } from './view/EventLog';
+import { VisualKeyboard } from './view/VisualKeyboard';
 import type { DiagnosticEvent, LogEvent } from './eventLog';
 import { noteName } from './midi/useMidi';
 import type { SessionSnapshot } from '../../core/physics';
@@ -38,10 +39,10 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
   const overlayRef = useRef<HTMLElement>(null);
   const lastSelected = useRef<string | null>(null);
   const lastPlaybackSelection = useRef<string | null>(null);
-  const selectPlayback = useCallback((snapshot: SessionSnapshot) => {
+  const selectPlayback = useCallback((snapshot: SessionSnapshot, delayed = false) => {
     const selected = !snapshot.paused && !snapshot.complete ? deck.exercises[snapshot.selectedIndex] : undefined;
     lastPlaybackSelection.current = selected?.id ?? null;
-    playback.setExercise(selected?.notes ?? null);
+    playback.setExercise(selected?.notes ?? null, delayed);
   }, [deck, playback.setExercise]);
   useEffect(() => () => playback.stop(), [playback.stop]);
   const projectionId = useRef(0);
@@ -70,7 +71,7 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
         trainer.advanceTo(time);
         const snapshot = session.getState(), value = session.getProgress();
         if (snapshot.selectedCardId !== lastSelected.current) projectSelection(snapshot);
-        if ((snapshot.paused || snapshot.complete ? null : snapshot.selectedCardId) !== lastPlaybackSelection.current) selectPlayback(snapshot);
+        if (!snapshot.paused && (snapshot.complete ? null : snapshot.selectedCardId) !== lastPlaybackSelection.current) selectPlayback(snapshot);
         setState(snapshot); setProgress(value);
         if (snapshot.time >= nextSample) { setHistory(previous => [...previous, { time: snapshot.time, progress: value }]); nextSample = snapshot.time + .25; }
       }
@@ -85,7 +86,7 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
     setState(snapshot); setProgress(value);
     setHistory(previous => [...previous, { time: snapshot.time, progress: value }]);
     projectSelection(snapshot);
-    selectPlayback(snapshot);
+    selectPlayback(snapshot, true);
   }, [session, projectSelection, selectPlayback]);
   const complete = useCallback((cardId: string, score: 50 | 100, time: number, attemptId: number) => {
     let before = '';
@@ -103,19 +104,33 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
   }, [session, trainer, refresh, onLog]);
   const getSelectedId = useCallback(() => { const current = session.getState(); return current.paused || current.complete ? null : current.selectedCardId; }, [session]);
   const getExercise = useCallback((id: string) => deck.exercises.find(exercise => exercise.id === id), [deck]);
-  const practice = usePianoPractice({ selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId, replay: playback.replay });
+  const resetAttemptRef = useRef<() => void>(() => {});
+  const togglePause = useCallback(() => {
+    const current = session.getState();
+    if (current.complete) return;
+    const now = performance.now();
+    trainer.advanceTo(now);
+    session.setPaused(!current.paused);
+    trainer.resetClock();
+    playback.setPaused(!current.paused);
+    resetAttemptRef.current();
+    setState(session.getState());
+  }, [session, trainer, playback.setPaused]);
+  const practice = usePianoPractice({ selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId, replay: playback.replay, togglePause });
+  resetAttemptRef.current = practice.resetAttempt;
   const selected = deck.exercises[state.selectedIndex] ?? deck.exercises[0];
   return <>
-    <div className="readouts"><span className="status"><i/>{state.complete ? 'COMPLETE' : 'LIVE'}</span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
+    <div className="readouts"><span className="status"><i/>{state.complete ? 'COMPLETE' : state.paused ? 'PAUSED' : 'PLAYING'} <button type="button" onClick={togglePause} disabled={state.complete}>{state.paused ? 'Resume' : 'Pause'}</button></span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
     <section className="instrument trainer-field" aria-label="Piano phrase field">
       <div className="chart-heading"><span>{deck.title}</span><div className="legend"><span className="magenta">▥ ITEM DEPTH</span><span className="cyan">∿ OVERALL PROGRESS</span></div></div>
       <FallingView ref={fieldRef} state={state} progress={progress} history={history} exercises={deck.exercises}/>
       <aside ref={overlayRef} className="active-card-overlay" aria-label="Active piano exercise" style={{ backgroundColor: `rgba(11, 18, 32, ${overlayOpacity / 100})` }}>
         <label className="overlay-opacity">Background <input type="range" min="0" max="100" step="1" value={overlayOpacity} onChange={event => changeOpacity(Number(event.target.value))} aria-label="Overlay background opacity"/> <span>{overlayOpacity}%</span></label>
-        <TrainerPianoCard exercise={selected} active={!state.paused && !state.complete} practice={practice} replay={playback.replay} playbackEnabled={playback.enabled}/>
+        <TrainerPianoCard exercise={selected} active={!state.paused && !state.complete} paused={state.paused && !state.complete} practice={practice} replay={playback.replay} playbackEnabled={playback.enabled}/>
       </aside>
       <div className="chart-foot"><span>SLOTS: FIXED POSITIONS <span className="divider">/</span> TRACE: SESSION TIME →</span><span>FULL SESSION <span className="divider">/</span> PROGRESS HISTORY</span></div>
     </section>
+    <VisualKeyboard heldNotes={practice.heldNotes}/>
     {projection && <CardProjection key={projection.id} projection={projection} onFinish={finishProjection}/>}
   </>;
 }
@@ -181,6 +196,7 @@ function App() {
         <button type="button" aria-pressed={playback.metronome} onClick={() => playback.setMetronome(!playback.metronome)}>Metronome {playback.metronome ? 'On' : 'Off'}</button>
         <label>Phrase Volume <input type="range" min="0" max="100" value={playback.phraseVolume} onChange={event => playback.setVolume('phraseVolume', Number(event.target.value))}/> {playback.phraseVolume}%</label>
         <label>Metronome Volume <input type="range" min="0" max="100" value={playback.metronomeVolume} onChange={event => playback.setVolume('metronomeVolume', Number(event.target.value))}/> {playback.metronomeVolume}%</label>
+        <label>Next Phrase Delay <input type="range" min="0" max="5" step="0.25" value={playback.delay} onChange={event => playback.setDelay(Number(event.target.value))}/> {playback.delay} s</label>
         <label>Tempo <input type="number" min="30" max="240" step="1" value={tempoDraft} onChange={event => { const text = event.target.value; setTempoDraft(text); playback.setTempo(Number(text)); }} onBlur={() => setTempoDraft(String(playback.tempo))}/> BPM</label>
       </div>
       {playback.audioError && <span role="status">{playback.audioError}</span>}
