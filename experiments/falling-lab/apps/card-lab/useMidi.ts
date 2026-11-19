@@ -4,11 +4,9 @@ import type { AttemptMidiEvent } from './attemptRecording';
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 export const noteName = (pitch: number) => `${noteNames[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
 
-export function useMidi(onNoteOn: (note: string) => void, onMidiEvent: (event: AttemptMidiEvent) => void) {
+export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void) {
   const onMidiEventRef = useRef(onMidiEvent);
   onMidiEventRef.current = onMidiEvent;
-  const onNoteOnRef = useRef(onNoteOn);
-  onNoteOnRef.current = onNoteOn;
   const [devices, setDevices] = useState<MIDIInput[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [status, setStatus] = useState('MIDI not connected');
@@ -44,7 +42,6 @@ export function useMidi(onNoteOn: (note: string) => void, onMidiEvent: (event: A
       if (!on && command !== 0x80 && !(command === 0x90 && velocity === 0)) return;
       const channel = (statusByte & 0x0f) + 1;
       onMidiEventRef.current({ type: on ? 'note-on' : 'note-off', pitch, velocity, channel, timestamp: event.timeStamp });
-      if (on) onNoteOnRef.current(noteName(pitch));
       const key = `${channel}:${pitch}`;
       if (on) heldRef.current.set(key, pitch);
       else heldRef.current.delete(key);

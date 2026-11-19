@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { PianoCard, type PianoCardState } from '../../shared/piano/PianoCard';
+import { PianoCard } from '../../shared/piano/PianoCard';
 import './style.css';
 import { noteName, useMidi } from './useMidi';
 import { createAttemptRecording, type AttemptMidiEvent } from './attemptRecording';
@@ -8,52 +8,19 @@ import { createAttemptRecording, type AttemptMidiEvent } from './attemptRecordin
 const phrase = { title: 'Piano phrase', notes: ['C4', 'E4', 'G4'] };
 
 function App() {
-  const [state, setState] = useState<PianoCardState>('waiting');
-  const [playedCount, setPlayedCount] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [recordedCount, setRecordedCount] = useState(0);
   const [eventLog, setEventLog] = useState<AttemptMidiEvent[]>([]);
   const recording = useRef(createAttemptRecording());
-  const [attempt, setAttempt] = useState<'active' | 'success' | 'error'>('active');
-  const attemptRef = useRef({ progress: 0, status: 'active' as 'active' | 'success' | 'error' });
-  const midi = useMidi(note => {
-    const current = attemptRef.current;
-    if (current.status === 'error') return;
-    if (current.status === 'success' || note !== phrase.notes[current.progress]) {
-      attemptRef.current = { ...current, status: 'error' };
-      setAttempt('error');
-      setState('incorrect');
-      return;
-    }
-    const next = current.progress + 1;
-    const status = next === phrase.notes.length ? 'success' : 'active';
-    attemptRef.current = { progress: next, status };
-    setProgress(next);
-    setAttempt(status);
-    setPlayedCount(next);
-    setState(status === 'success' ? 'correct' : 'playing');
-  }, event => {
+  const midi = useMidi(event => {
     recording.current.record(event);
     setEventLog(previous => [...previous, event]);
-    setRecordedCount(recording.current.getEvents().length);
   });
-
-  function retry() {
-    recording.current.reset();
-    setRecordedCount(0);
-    attemptRef.current = { progress: 0, status: 'active' };
-    setProgress(0);
-    setAttempt('active');
-    setPlayedCount(0);
-    setState('waiting');
-  }
 
   return <main>
     <a className="back" href="../../">← Falling Lab</a>
     <p className="eyebrow">Falling Lab / Experiment</p>
     <h1>Card Lab</h1>
     <p className="intro">Play the phrase on your MIDI keyboard.</p>
-    <PianoCard {...phrase} state={state} playedCount={playedCount} heldNotes={midi.heldNotes} />
+    <PianoCard {...phrase} heldNotes={midi.heldNotes} />
     <section className="midi" aria-labelledby="midi-title">
       <h2 id="midi-title">MIDI input</h2>
       <div className="midi-controls">
