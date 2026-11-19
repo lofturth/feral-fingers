@@ -18,6 +18,7 @@ function storedBoolean(key: string, fallback: boolean) {
 function storedTempo() {
   try { const raw = localStorage.getItem(tempoKey); const value = raw === null ? 90 : Number(raw); return Number.isFinite(value) && value >= 30 && value <= 240 ? value : 90; } catch { return 90; }
 }
+function errorDetail(error: unknown) { return error instanceof Error ? `${error.name}: ${error.message}` : String(error); }
 function save(key: string, value: string) { try { localStorage.setItem(key, value); } catch { /* Keep the session setting. */ } }
 
 export function usePhrasePlayback() {
@@ -33,37 +34,67 @@ export function usePhrasePlayback() {
   const player = useRef<ReturnType<typeof createPhrasePlayer> | null>(null);
   const exercise = useRef<readonly number[] | null>(null);
   const pending = useRef(false);
-  const resuming = useRef(false);
+  const resumeAttempt = useRef(0);
   const paused = useRef(false);
   const resumePending = useRef(false);
   const delayValue = useRef(delay);
   const playCurrent = useCallback(() => {
     if (paused.current || !exercise.current || (!settings.current.enabled && !settings.current.metronome)) return;
-    if (!context.current || context.current.state !== 'running') { pending.current = true; setAudioError('Interact with the page to enable audio.'); return; }
+    const audio = context.current;
+    if (!audio || audio.state !== 'running') {
+      pending.current = true;
+      setAudioError(audio?.state === 'closed' ? 'Audio context is closed. Select Replay Phrase to reconnect.' : 'Audio context is suspended. Interact with the page to enable audio.');
+      return;
+    }
     pending.current = false;
-    try { player.current?.play(exercise.current, settings.current.tempo, settings.current.enabled, settings.current.metronome); setAudioError(''); }
-    catch { player.current?.stop(); setAudioError('Audio could not be played. Try replaying the phrase.'); }
+    try {
+      if (!player.current) throw new Error('Audio player is unavailable');
+      if (!player.current.play(exercise.current, settings.current.tempo, settings.current.enabled, settings.current.metronome)) throw new Error('Audio context is not running');
+      setAudioError('');
+    } catch (error) {
+      player.current?.stop();
+      setAudioError(`Audio playback failed: ${errorDetail(error)}`);
+    }
   }, []);
   const delayTimer = useRef(createPlaybackDelay(() => playCurrent()));
   const activate = useCallback(() => {
     if (paused.current || (!settings.current.enabled && !settings.current.metronome)) return;
     try {
       const AudioClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioClass) { setAudioError('Web Audio is unavailable.'); return; }
-      if (!context.current) { context.current = new AudioClass(); player.current = createPhrasePlayer(context.current); player.current.setVolumes(settings.current.phraseVolume, settings.current.metronomeVolume); }
+      if (!AudioClass) { setAudioError('Web Audio is unavailable in this browser.'); return; }
+      if (context.current?.state === 'closed') {
+        player.current?.dispose(); player.current = null; context.current = null;
+      }
+      if (!context.current) {
+        const audio = new AudioClass();
+        try {
+          const nextPlayer = createPhrasePlayer(audio);
+          nextPlayer.setVolumes(settings.current.phraseVolume, settings.current.metronomeVolume);
+          context.current = audio; player.current = nextPlayer;
+        } catch (error) {
+          void audio.close().catch(() => {});
+          throw error;
+        }
+      }
       const audio = context.current;
-      if (audio.state === 'suspended') {
-        if (resuming.current) return;
-        resuming.current = true;
-        void audio.resume().then(() => {
-          if (pending.current && audio.state === 'running') playCurrent();
-        }).catch((error: unknown) => {
-          if (audio.state === 'running' || !pending.current) return;
-          if (error instanceof DOMException && error.name === 'NotAllowedError') setAudioError('Interact with the page to enable audio.');
-          else { pending.current = false; setAudioError('Audio could not be started. Try replaying the phrase.'); }
-        }).finally(() => { resuming.current = false; });
-      } else if (pending.current && audio.state === 'running') playCurrent();
-    } catch { setAudioError('Audio could not be started.'); }
+      if (audio.state === 'running') { if (pending.current) playCurrent(); else setAudioError(''); return; }
+      // Some browsers leave resume() pending until another user activation. Each
+      // gesture may retry; a single pending playback is consumed at most once.
+      const attempt = ++resumeAttempt.current;
+      setAudioError('Audio context is suspended. Select Replay Phrase to retry.');
+      void audio.resume().then(() => {
+        if (context.current !== audio) return;
+        if (audio.state === 'running') { if (pending.current) playCurrent(); else setAudioError(''); }
+        else if (attempt === resumeAttempt.current) setAudioError(`Audio context remains ${audio.state}. Select Replay Phrase to retry.`);
+      }).catch((error: unknown) => {
+        if (context.current !== audio || attempt !== resumeAttempt.current || audio.state === 'running') return;
+        pending.current = false;
+        setAudioError(`Audio resume was rejected: ${errorDetail(error)}. Select Replay Phrase to retry.`);
+      });
+    } catch (error) {
+      pending.current = false;
+      setAudioError(`Audio initialization failed: ${errorDetail(error)}. Select Replay Phrase to retry.`);
+    }
   }, [playCurrent]);
   const stop = useCallback(() => { delayTimer.current.reset(); paused.current = false; resumePending.current = false; pending.current = false; exercise.current = null; player.current?.stop(); }, []);
   const setExercise = useCallback((notes: readonly number[] | null, delayed = false) => {
@@ -106,14 +137,19 @@ export function usePhrasePlayback() {
     player.current?.setVolumes(settings.current.phraseVolume, settings.current.metronomeVolume);
   }, []);
   useEffect(() => {
-    window.addEventListener('pointerdown', activate);
-    window.addEventListener('keydown', activate);
-    return () => { window.removeEventListener('pointerdown', activate); window.removeEventListener('keydown', activate); };
+    const unlock = (event?: Event) => {
+      if (event && event.target instanceof Element && event.target.closest('[data-audio-replay]')) return;
+      activate();
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); };
   }, [activate]);
   useEffect(() => () => {
     stop();
     player.current?.dispose();
-    if (context.current && context.current.state !== 'closed') void context.current.close().catch(() => {});
+    const audio = context.current; context.current = null; player.current = null; ++resumeAttempt.current;
+    if (audio && audio.state !== 'closed') void audio.close().catch(() => {});
   }, [stop]);
   return { delay, setDelay, setPaused, enabled, setEnabled, metronome, setMetronome, tempo, setTempo, phraseVolume, metronomeVolume, setVolume, audioError, replay, setExercise, stop };
 }

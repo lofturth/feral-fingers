@@ -183,7 +183,7 @@ test('failed playback does not retry on ordinary gestures and a successful repla
     const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
     const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
     playback.setExercise([60]); listeners.get('pointerdown')();
-    assert.match(messages.at(-1), /could not be played/);
+    assert.match(messages.at(-1), /playback failed: Error: device failure/);
     listeners.get('pointerdown')(); listeners.get('keydown')();
     assert.equal(contexts[0].oscillators.length, 0);
     playback.replay(); assert.equal(contexts[0].oscillators.length, 3); assert.equal(messages.at(-1), '');
@@ -204,7 +204,7 @@ test('concurrent unlock gestures initialize audio once and play the pending sele
     const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
     const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
     playback.setExercise([60]); listeners.get('pointerdown')(); listeners.get('keydown')();
-    assert.equal(contexts.length, 1); assert.equal(contexts[0].resumeCalls, 1);
+    assert.equal(contexts.length, 1); assert.equal(contexts[0].resumeCalls, 2);
     resolveResume(); await Promise.resolve(); await Promise.resolve();
     assert.equal(contexts[0].oscillators.length, 3);
     listeners.get('pointerdown')(); assert.equal(contexts[0].oscillators.length, 3);
@@ -247,4 +247,85 @@ test('next phrase delay persists without starting playback', () => {
     playback.setDelay(2.75); assert.equal(stored.get('piano-trainer.next-phrase-delay'), '2.75');
     assert.equal(usePhrasePlayback().delay, 2.75);
   } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('closed audio context is replaced and explicit replay restores playback', async () => {
+  const hooks = fakeHooks(), listeners = new Map(), contexts = [], messages = [];
+  hooks.useState = initial => [typeof initial === 'function' ? initial() : initial, value => { if (typeof value === 'string') messages.push(value); }];
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock { constructor() { super(); contexts.push(this); } }
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
+  global.localStorage = { getItem: () => null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60]); listeners.get('pointerdown')();
+    assert.equal(contexts[0].oscillators.length, 3);
+    await contexts[0].close(); playback.setExercise([62]);
+    assert.match(messages.at(-1), /context is closed/);
+    playback.replay(); assert.equal(contexts.length, 2); assert.equal(contexts[1].oscillators.length, 3); assert.equal(messages.at(-1), '');
+    listeners.get('keydown')(); assert.equal(contexts[1].oscillators.length, 3);
+    cleanups.forEach(cleanup => cleanup?.()); assert.equal(contexts[1].state, 'closed');
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('rejected resume is reported, clears the request, and manual replay can recover', async () => {
+  const hooks = fakeHooks(), listeners = new Map(), contexts = [], messages = [];
+  hooks.useState = initial => [typeof initial === 'function' ? initial() : initial, value => { if (typeof value === 'string') messages.push(value); }];
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock {
+    constructor() { super(); this.state = 'suspended'; this.fail = true; contexts.push(this); }
+    resume() { if (this.fail) { this.fail = false; return Promise.reject(new Error('activation denied')); } this.state = 'running'; return Promise.resolve(); }
+  }
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
+  global.localStorage = { getItem: () => null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60]); listeners.get('pointerdown')(); await Promise.resolve(); await Promise.resolve();
+    assert.match(messages.at(-1), /resume was rejected.*activation denied/);
+    listeners.get('keydown')(); await Promise.resolve();
+    assert.equal(contexts[0].oscillators.length, 0); assert.equal(messages.at(-1), '');
+    playback.replay(); assert.equal(contexts[0].oscillators.length, 3);
+    playback.setExercise([64]); assert.equal(contexts[0].oscillators.length, 6);
+    cleanups.forEach(cleanup => cleanup?.());
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('an unresolved resume can be retried by a later interaction without duplicate playback', async () => {
+  const hooks = fakeHooks(), listeners = new Map(), contexts = []; let resolveFirst;
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock {
+    constructor() { super(); this.state = 'suspended'; this.calls = 0; contexts.push(this); }
+    resume() { this.calls++; if (this.calls === 1) return new Promise(resolve => { resolveFirst = resolve; }); this.state = 'running'; return Promise.resolve(); }
+  }
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
+  global.localStorage = { getItem: () => null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60]); listeners.get('pointerdown')();
+    assert.equal(contexts[0].oscillators.length, 0);
+    playback.replay(); await Promise.resolve();
+    assert.equal(contexts[0].calls, 2); assert.equal(contexts[0].oscillators.length, 3);
+    resolveFirst(); await Promise.resolve(); assert.equal(contexts[0].oscillators.length, 3);
+    cleanups.forEach(cleanup => cleanup?.());
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('replay button gesture unlocks only through replay, avoiding duplicate initial playback', () => {
+  const hooks = fakeHooks(), listeners = new Map(), contexts = [];
+  const oldWindow = global.window, oldStorage = global.localStorage, oldElement = global.Element;
+  class ElementMock { closest(selector) { return selector === '[data-audio-replay]' ? this : null; } }
+  class AudioClass extends AudioContextMock { constructor() { super(); contexts.push(this); } }
+  global.Element = ElementMock;
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) };
+  global.localStorage = { getItem: () => null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60]); listeners.get('pointerdown')({ target: new ElementMock() });
+    assert.equal(contexts.length, 0); playback.replay(); assert.equal(contexts[0].oscillators.length, 3);
+    cleanups.forEach(cleanup => cleanup?.());
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; global.Element = oldElement; }
 });

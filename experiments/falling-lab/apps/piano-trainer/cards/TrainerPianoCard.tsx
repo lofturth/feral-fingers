@@ -75,6 +75,6 @@ export function TrainerPianoCard({ exercise, active, paused, practice, replay, p
   return <div className="trainer-card">
     <PianoCard title={exercise.label} notes={exercise.notes.map(noteName)} heldNotes={practice.heldNotes}/>
     <p>{paused ? 'Paused.' : !active ? 'Session complete.' : score === null ? 'Press Esc to finish an incomplete attempt.' : `Result: ${score}%`}</p>
-    <div><span>{practice.status}</span> <button type="button" onClick={practice.connect}>Connect MIDI</button> <button type="button" onClick={replay} disabled={!playbackEnabled || !active}>Replay Phrase</button></div>
+    <div><span>{practice.status}</span> <button type="button" onClick={practice.connect}>Connect MIDI</button> <button type="button" data-audio-replay onClick={replay} disabled={!playbackEnabled || !active}>Replay Phrase</button></div>
   </div>;
 }
