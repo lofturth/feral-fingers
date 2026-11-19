@@ -16,7 +16,7 @@ export function CardProjection({ projection, onFinish }: { projection: Projectio
     return () => { animation.onfinish = null; animation.cancel(); };
   }, [projection, onFinish]);
   const { start } = projection;
-  return <div ref={node} aria-hidden="true" className="card-projection" style={{ left: start.left, top: start.top, width: start.width, height: start.height }}>
+  return <div ref={node} aria-hidden="true" className="card-projection" style={{ left: start.left + window.scrollX, top: start.top + window.scrollY, width: start.width, height: start.height }}>
     <span>{projection.label}</span><span>{projection.notes}</span>
   </div>;
 }

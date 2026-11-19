@@ -16,3 +16,5 @@ Version 1 format:
 ```
 
 Deck and exercise IDs and labels must be non-empty strings. Exercise IDs must be unique within the deck. The exercises array and every notes array must be non-empty; notes are integer MIDI pitches from 0 through 127. Invalid files leave the current session intact.
+
+Phrase Playback plays each selected exercise at the chosen tempo. Use **Replay Phrase** or MIDI C6 (pitch 84) to replay it; C6 is reserved for this control and cannot be entered as an exercise note. The metronome can be enabled independently. Audio may require a click or key press before the browser permits playback. Playback, metronome, and tempo preferences are saved locally.

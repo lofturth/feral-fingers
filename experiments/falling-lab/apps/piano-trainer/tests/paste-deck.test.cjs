@@ -21,13 +21,13 @@ function createHost() {
   const component = new Module(filename, module);
   component.filename = filename;
   component.paths = Module._nodeModulePaths(path.dirname(filename));
-  const sound = { enabled: false, setEnabled() {}, stopAll() { stops++; }, onMidiEvent() {}, audioError: '' };
+  const playback = { enabled: true, setEnabled() {}, metronome: false, setMetronome() {}, tempo: 90, setTempo() {}, stop() { stops++; }, replay() {}, setExercise() {}, audioError: '' };
   const originalRequire = component.require.bind(component);
   component.require = request => {
     if (request === 'react') return hooks;
     if (request === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'fragment' };
     if (request === 'react-dom/client') return { createRoot: () => ({ render: element => { root = element; } }) };
-    if (request === './audio/usePianoSound') return { usePianoSound: () => sound };
+    if (request === './audio/usePhrasePlayback') return { usePhrasePlayback: () => playback };
     if (request === './decks/sample.json?raw') return { default: fs.readFileSync(path.join(__dirname, '../decks/sample.json'), 'utf8') };
     if (request.endsWith('.css')) return {};
     if (['../../core/physics.ts', './view/FallingView', './view/CardProjection', './view/EventLog', './midi/useMidi', './cards/TrainerPianoCard', './trainingSession'].includes(request)) return {};

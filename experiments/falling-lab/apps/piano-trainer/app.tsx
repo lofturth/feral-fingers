@@ -11,11 +11,11 @@ import type { SessionSnapshot } from '../../core/physics';
 import { TrainerPianoCard, usePianoPractice } from './cards/TrainerPianoCard';
 import { createTrainingSession } from './trainingSession';
 import { parseDeck, type PianoDeck } from './deck';
-import { usePianoSound } from './audio/usePianoSound';
+import { usePhrasePlayback } from './audio/usePhrasePlayback';
 import sampleDeckJson from './decks/sample.json?raw';
 import './style.css';
 
-function PracticeSession({ deck, onLog, nextAttemptId, sound }: { deck: PianoDeck; onLog: LogEvent; nextAttemptId: () => number; sound: ReturnType<typeof usePianoSound> }) {
+function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: PianoDeck; onLog: LogEvent; nextAttemptId: () => number; playback: ReturnType<typeof usePhrasePlayback> }) {
   const [overlayOpacity, setOverlayOpacity] = useState(() => {
     try {
       const saved = localStorage.getItem('piano-trainer.overlay-opacity');
@@ -37,6 +37,13 @@ function PracticeSession({ deck, onLog, nextAttemptId, sound }: { deck: PianoDec
   const fieldRef = useRef<FieldHandle>(null);
   const overlayRef = useRef<HTMLElement>(null);
   const lastSelected = useRef<string | null>(null);
+  const lastPlaybackSelection = useRef<string | null>(null);
+  const selectPlayback = useCallback((snapshot: SessionSnapshot) => {
+    const selected = !snapshot.paused && !snapshot.complete ? deck.exercises[snapshot.selectedIndex] : undefined;
+    lastPlaybackSelection.current = selected?.id ?? null;
+    playback.setExercise(selected?.notes ?? null);
+  }, [deck, playback.setExercise]);
+  useEffect(() => () => playback.stop(), [playback.stop]);
   const projectionId = useRef(0);
   const [projection, setProjection] = useState<Projection | null>(null);
   useEffect(() => {
@@ -63,6 +70,7 @@ function PracticeSession({ deck, onLog, nextAttemptId, sound }: { deck: PianoDec
         trainer.advanceTo(time);
         const snapshot = session.getState(), value = session.getProgress();
         if (snapshot.selectedCardId !== lastSelected.current) projectSelection(snapshot);
+        if ((snapshot.paused || snapshot.complete ? null : snapshot.selectedCardId) !== lastPlaybackSelection.current) selectPlayback(snapshot);
         setState(snapshot); setProgress(value);
         if (snapshot.time >= nextSample) { setHistory(previous => [...previous, { time: snapshot.time, progress: value }]); nextSample = snapshot.time + .25; }
       }
@@ -71,13 +79,14 @@ function PracticeSession({ deck, onLog, nextAttemptId, sound }: { deck: PianoDec
     document.addEventListener('visibilitychange', visibility);
     frame = requestAnimationFrame(tick);
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', visibility); };
-  }, [session, trainer, projectSelection]);
+  }, [session, trainer, projectSelection, selectPlayback]);
   const refresh = useCallback(() => {
     const snapshot = session.getState(), value = session.getProgress();
     setState(snapshot); setProgress(value);
     setHistory(previous => [...previous, { time: snapshot.time, progress: value }]);
     projectSelection(snapshot);
-  }, [session, projectSelection]);
+    selectPlayback(snapshot);
+  }, [session, projectSelection, selectPlayback]);
   const complete = useCallback((cardId: string, score: 50 | 100, time: number, attemptId: number) => {
     let before = '';
     const result = trainer.complete(cardId, score, time, id => { before = id; });
@@ -94,24 +103,25 @@ function PracticeSession({ deck, onLog, nextAttemptId, sound }: { deck: PianoDec
   }, [session, trainer, refresh, onLog]);
   const getSelectedId = useCallback(() => { const current = session.getState(); return current.paused || current.complete ? null : current.selectedCardId; }, [session]);
   const getExercise = useCallback((id: string) => deck.exercises.find(exercise => exercise.id === id), [deck]);
-  const practice = usePianoPractice({ selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId, onSoundEvent: sound.onMidiEvent, stopSound: sound.stopAll });
+  const practice = usePianoPractice({ selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId, replay: playback.replay });
   const selected = deck.exercises[state.selectedIndex] ?? deck.exercises[0];
   return <>
     <div className="readouts"><span className="status"><i/>{state.complete ? 'COMPLETE' : 'LIVE'}</span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
-    <section className="instrument" aria-label="Piano phrase field">
+    <section className="instrument trainer-field" aria-label="Piano phrase field">
       <div className="chart-heading"><span>{deck.title}</span><div className="legend"><span className="magenta">▥ ITEM DEPTH</span><span className="cyan">∿ OVERALL PROGRESS</span></div></div>
       <FallingView ref={fieldRef} state={state} progress={progress} history={history} exercises={deck.exercises}/>
+      <aside ref={overlayRef} className="active-card-overlay" aria-label="Active piano exercise" style={{ backgroundColor: `rgba(11, 18, 32, ${overlayOpacity / 100})` }}>
+        <label className="overlay-opacity">Background <input type="range" min="0" max="100" step="1" value={overlayOpacity} onChange={event => changeOpacity(Number(event.target.value))} aria-label="Overlay background opacity"/> <span>{overlayOpacity}%</span></label>
+        <TrainerPianoCard exercise={selected} active={!state.paused && !state.complete} practice={practice} replay={playback.replay} playbackEnabled={playback.enabled}/>
+      </aside>
       <div className="chart-foot"><span>SLOTS: FIXED POSITIONS <span className="divider">/</span> TRACE: SESSION TIME →</span><span>FULL SESSION <span className="divider">/</span> PROGRESS HISTORY</span></div>
     </section>
-    <aside ref={overlayRef} className="active-card-overlay" aria-label="Active piano exercise" style={{ backgroundColor: `rgba(11, 18, 32, ${overlayOpacity / 100})` }}>
-      <label className="overlay-opacity">Background <input type="range" min="0" max="100" step="1" value={overlayOpacity} onChange={event => changeOpacity(Number(event.target.value))} aria-label="Overlay background opacity"/> <span>{overlayOpacity}%</span></label>
-      <TrainerPianoCard exercise={selected} active={!state.paused && !state.complete} practice={practice}/>
-    </aside>
     {projection && <CardProjection key={projection.id} projection={projection} onFinish={finishProjection}/>}
   </>;
 }
 function App() {
-  const sound = usePianoSound();
+  const playback = usePhrasePlayback();
+  const [tempoDraft, setTempoDraft] = useState(() => String(playback.tempo));
   const [deck, setDeck] = useState(() => parseDeck(JSON.parse(sampleDeckJson)));
   const [generation, setGeneration] = useState(0);
   const [error, setError] = useState('');
@@ -136,7 +146,7 @@ function App() {
   }, [loadedNotice, generation]);
   function applyDeckText(text: string) {
     const next = parseDeck(JSON.parse(text));
-    sound.stopAll();
+    playback.stop();
     setDeck(next); setGeneration(value => value + 1); setError(''); setLoadedNotice(true);
   }
   function loadPastedDeck() {
@@ -166,8 +176,12 @@ function App() {
   }
   return <main>
     <header><div className="identity"><h1>FALLING LAB<span>_</span></h1><span className="edition">PIANO TRAINER / 01</span><a href="../../">Launcher</a></div><div className="deck-controls">
-      <button type="button" aria-pressed={sound.enabled} onClick={() => sound.setEnabled(!sound.enabled)}>Sound {sound.enabled ? 'On' : 'Off'}</button>
-      {sound.audioError && <span role="status">{sound.audioError}</span>}
+      <div className="playback-controls">
+        <button type="button" aria-pressed={playback.enabled} onClick={() => playback.setEnabled(!playback.enabled)}>Phrase Playback {playback.enabled ? 'On' : 'Off'}</button>
+        <button type="button" aria-pressed={playback.metronome} onClick={() => playback.setMetronome(!playback.metronome)}>Metronome {playback.metronome ? 'On' : 'Off'}</button>
+        <label>Tempo <input type="number" min="30" max="240" step="1" value={tempoDraft} onChange={event => { const text = event.target.value; setTempoDraft(text); playback.setTempo(Number(text)); }} onBlur={() => setTempoDraft(String(playback.tempo))}/> BPM</label>
+      </div>
+      {playback.audioError && <span role="status">{playback.audioError}</span>}
       <div className="deck-load-actions">
         <label>Load Deck <input type="file" accept=".json,application/json" onChange={loadDeck}/></label>
         <button type="button" onClick={() => { setPasteError(''); pasteDialog.current?.showModal(); }}>Paste JSON</button>
@@ -185,7 +199,7 @@ function App() {
         <button type="button" onClick={() => pasteDialog.current?.close()}>Cancel</button>
       </div>
     </dialog>
-    <PracticeSession key={generation} deck={deck} onLog={log} nextAttemptId={nextAttemptId} sound={sound}/>
+    <PracticeSession key={generation} deck={deck} onLog={log} nextAttemptId={nextAttemptId} playback={playback}/>
     <EventLog entries={entries} clear={clearLog}/>
   </main>;
 }
