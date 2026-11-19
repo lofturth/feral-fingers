@@ -1,7 +1,10 @@
 type Timer = ReturnType<typeof setTimeout>;
 
 // Schedule audio against the audio clock, never the learning-session clock.
-export function createPhrasePlayer(context: AudioContext, timers = { setTimeout, clearTimeout }) {
+export function createPhrasePlayer(context: AudioContext, timers = {
+  setTimeout: (callback: () => void, delay: number) => globalThis.setTimeout(callback, delay),
+  clearTimeout: (id: Timer) => globalThis.clearTimeout(id)
+}) {
   const phraseGain = context.createGain(), clickGain = context.createGain();
   phraseGain.gain.value = .8; clickGain.gain.value = .7;
   phraseGain.connect(context.destination); clickGain.connect(context.destination);

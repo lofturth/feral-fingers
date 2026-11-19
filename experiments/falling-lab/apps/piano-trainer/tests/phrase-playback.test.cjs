@@ -329,3 +329,24 @@ test('replay button gesture unlocks only through replay, avoiding duplicate init
     cleanups.forEach(cleanup => cleanup?.());
   } finally { global.window = oldWindow; global.localStorage = oldStorage; global.Element = oldElement; }
 });
+
+test('metronome schedules and clears browser timers with their required global receiver', () => {
+  const oldSetTimeout = globalThis.setTimeout, oldClearTimeout = globalThis.clearTimeout;
+  let scheduled = 0, cleared = 0;
+  globalThis.setTimeout = function(callback, delay) {
+    if (this !== globalThis) throw new TypeError('Illegal invocation: Window.setTimeout');
+    assert.equal(delay, 25); scheduled++; return 123;
+  };
+  globalThis.clearTimeout = function(id) {
+    if (this !== globalThis) throw new TypeError('Illegal invocation: Window.clearTimeout');
+    assert.equal(id, 123); cleared++;
+  };
+  try {
+    const audio = new AudioContextMock(), player = createPhrasePlayer(audio);
+    assert.equal(player.play([60, 64, 67], 90, true, true), true);
+    assert.equal(scheduled, 1);
+    player.play([60], 90, true, true);
+    assert.equal(cleared, 1); assert.equal(scheduled, 2);
+    player.stop(); assert.equal(cleared, 2);
+  } finally { globalThis.setTimeout = oldSetTimeout; globalThis.clearTimeout = oldClearTimeout; }
+});
