@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PianoCard, type PianoCardState } from '../../shared/piano/PianoCard';
 import './style.css';
@@ -13,10 +13,6 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [recordedCount, setRecordedCount] = useState(0);
   const [eventLog, setEventLog] = useState<AttemptMidiEvent[]>([]);
-  const logPanel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (logPanel.current) logPanel.current.scrollTop = logPanel.current.scrollHeight;
-  }, [eventLog]);
   const recording = useRef(createAttemptRecording());
   const [attempt, setAttempt] = useState<'active' | 'success' | 'error'>('active');
   const attemptRef = useRef({ progress: 0, status: 'active' as 'active' | 'success' | 'error' });
@@ -58,24 +54,6 @@ function App() {
     <h1>Card Lab</h1>
     <p className="intro">Play the phrase on your MIDI keyboard.</p>
     <PianoCard {...phrase} state={state} playedCount={playedCount} heldNotes={midi.heldNotes} />
-    <details className="event-log" onToggle={event => {
-      if (event.currentTarget.open && logPanel.current) logPanel.current.scrollTop = logPanel.current.scrollHeight;
-    }}>
-      <summary>MIDI Event Log</summary>
-      <button type="button" onClick={() => setEventLog([])}>Clear Log</button>
-      <div className="event-log__panel" ref={logPanel} tabIndex={0} aria-label="MIDI event log">
-        {eventLog.length ? <ol className="event-log__list">
-          {eventLog.map((event, index) => <li key={index}>{event.type === 'note-on' ? 'Note on' : 'Note off'} · {noteName(event.pitch)} · velocity {event.velocity} · channel {event.channel} · {event.timestamp.toFixed(1)} ms</li>)}
-        </ol> : <p>No MIDI events yet.</p>}
-      </div>
-      <p className="event-log__hint">Timestamps are milliseconds on the browser’s performance clock.</p>
-    </details>
-    <section className="recognition" aria-labelledby="recognition-title">
-      <h2 id="recognition-title">Phrase practice</h2>
-      <p role="status">{attempt === 'success' ? 'Phrase complete!' : attempt === 'error' ? 'Incorrect or extra note. Try again.' : `Progress: ${progress} / ${phrase.notes.length} notes`}</p>
-      <button type="button" onClick={retry}>Retry phrase</button>
-      <p>Events recorded this attempt: {recordedCount}</p>
-    </section>
     <section className="midi" aria-labelledby="midi-title">
       <h2 id="midi-title">MIDI input</h2>
       <div className="midi-controls">
@@ -88,6 +66,16 @@ function App() {
       </div>
       <p role="status">{midi.status}</p>
     </section>
+    <details className="event-log">
+      <summary>MIDI Event Log</summary>
+      <button type="button" onClick={() => setEventLog([])}>Clear Log</button>
+      <div className="event-log__panel" aria-label="MIDI event log">
+        {eventLog.length ? <ol className="event-log__list">
+          {eventLog.map((event, index) => <li key={index}>{event.type === 'note-on' ? 'Note on' : 'Note off'} · {noteName(event.pitch)} · velocity {event.velocity} · channel {event.channel} · {event.timestamp.toFixed(1)} ms</li>)}
+        </ol> : <p>No MIDI events yet.</p>}
+      </div>
+      <p className="event-log__hint">Timestamps are milliseconds on the browser’s performance clock.</p>
+    </details>
   </main>;
 }
 
