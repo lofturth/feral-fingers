@@ -55,7 +55,13 @@ function App() {
   const [deck, setDeck] = useState(() => parseDeck(JSON.parse(sampleDeckJson)));
   const [generation, setGeneration] = useState(0);
   const [error, setError] = useState('');
+  const [loadedNotice, setLoadedNotice] = useState(false);
   const loadId = useRef(0);
+  useEffect(() => {
+    if (!loadedNotice) return;
+    const timeout = window.setTimeout(() => setLoadedNotice(false), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [loadedNotice, generation]);
   async function loadDeck(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -64,15 +70,19 @@ function App() {
     try {
       const next = parseDeck(JSON.parse(await file.text()));
       if (request !== loadId.current) return;
-      setDeck(next); setGeneration(value => value + 1); setError('');
+      setDeck(next); setGeneration(value => value + 1); setError(''); setLoadedNotice(true);
     } catch (reason) {
       if (request !== loadId.current) return;
+      setLoadedNotice(false);
       setError(`Could not load deck: ${reason instanceof Error ? reason.message : String(reason)}`);
     }
   }
   return <main>
-    <header><div className="identity"><h1>FALLING LAB<span>_</span></h1><span className="edition">PIANO TRAINER / 01</span><a href="../../">Launcher</a></div><label>Load Deck <input type="file" accept=".json,application/json" onChange={loadDeck}/></label></header>
-    {error && <p role="alert">{error}</p>}
+    <header><div className="identity"><h1>FALLING LAB<span>_</span></h1><span className="edition">PIANO TRAINER / 01</span><a href="../../">Launcher</a></div><div className="deck-controls">
+      <label>Load Deck <input type="file" accept=".json,application/json" onChange={loadDeck}/></label>
+      <div className="deck-info"><span>{deck.title} · {deck.exercises.length} {deck.exercises.length === 1 ? 'exercise' : 'exercises'}</span><span role="status">{loadedNotice ? 'Deck loaded' : ''}</span></div>
+      {error && <p className="deck-error" role="alert">{error}</p>}
+    </div></header>
     <PracticeSession key={generation} deck={deck}/>
   </main>;
 }

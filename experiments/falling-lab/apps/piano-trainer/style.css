@@ -4,3 +4,8 @@
 .trainer-card .piano-card__note { width: 50px; height: 46px; font-size: 15px; }
 .trainer-card p { margin: 5px 0; }
 .trainer-card button { padding: 4px 8px; }
+
+.deck-controls { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.deck-info { display: flex; flex-wrap: wrap; gap: 10px; color: var(--text); font-size: 11px; }
+.deck-info [role="status"] { color: var(--cyan); }
+.deck-error { margin: 0; color: #ff9ca9; font-size: 11px; }
