@@ -4,7 +4,7 @@ import type { AttemptMidiEvent } from './attemptRecording';
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 export const noteName = (pitch: number) => `${noteNames[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
 
-export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void, onInputReset?: () => void, onRawMidi?: (data: number[], timestamp: number, device: { id: string; name: string }) => void) {
+export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void | false, onInputReset?: () => void, onRawMidi?: (data: number[], timestamp: number, device: { id: string; name: string }) => void) {
   const onRawMidiRef = useRef(onRawMidi);
   onRawMidiRef.current = onRawMidi;
   const onInputResetRef = useRef(onInputReset);
@@ -47,7 +47,7 @@ export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void, onInputR
       const on = command === 0x90 && velocity > 0;
       if (!on && command !== 0x80 && !(command === 0x90 && velocity === 0)) return;
       const channel = (statusByte & 0x0f) + 1;
-      onMidiEventRef.current({ type: on ? 'note-on' : 'note-off', pitch, velocity, channel, timestamp: event.timeStamp, device: { id: input.id, name: input.name || 'MIDI input' } });
+      if (onMidiEventRef.current({ type: on ? 'note-on' : 'note-off', pitch, velocity, channel, timestamp: event.timeStamp, device: { id: input.id, name: input.name || 'MIDI input' } }) === false) return;
       const key = `${channel}:${pitch}`;
       if (on) heldRef.current.set(key, pitch);
       else heldRef.current.delete(key);
@@ -110,5 +110,6 @@ export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void, onInputR
     };
   }, []);
 
-  return { devices, selectedId, status, heldNotes, connect, selectInput: (id: string) => { reconnectId.current = ''; selectInput(id); } };
+  const clearHeldNotes = () => { heldRef.current.clear(); setHeldNotes([]); };
+  return { devices, selectedId, status, heldNotes, clearHeldNotes, connect, selectInput: (id: string) => { reconnectId.current = ''; selectInput(id); } };
 }

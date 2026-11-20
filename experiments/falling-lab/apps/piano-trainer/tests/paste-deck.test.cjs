@@ -100,3 +100,55 @@ test('file picker uses the same load path and allows reselecting the same file',
   }
   assert.equal(host.stops, 2);
 });
+
+test('settings panel opens and closes without removing its controls', () => {
+  const host = createHost();
+  let tree = host.render();
+  const panel = () => host.find(tree, node => node.props?.id === 'trainer-settings');
+  assert.equal(panel().props.hidden, true);
+  host.find(tree, node => node.type === 'button' && node.props.children === 'Settings').props.onClick();
+  tree = host.render();
+  assert.equal(panel().props.hidden, false);
+  for (const title of ['Playback & Tempo', 'Audio & Metronome', 'Learning Physics', 'Deck Management']) host.find(panel(), node => node.type === 'h2' && node.props.children === title);
+  assert.ok(host.find(tree, node => node.type === 'input' && node.props.type === 'file'));
+  host.find(tree, node => node.type === 'button' && node.props.children === 'Settings').props.onClick();
+  tree = host.render();
+  assert.equal(panel().props.hidden, true);
+});
+
+test('header switches between start and finish while pause stays separate', async () => {
+  const host = createHost();
+  let tree = host.render(), starts = 0;
+  let session = host.find(tree, node => typeof node.type === 'function' && node.type.name === 'PracticeSession');
+  session.props.startRef.current = () => { starts++; };
+  host.find(tree, node => node.type === 'button' && node.props.children === 'Start Practice').props.onClick();
+  assert.equal(starts, 1);
+  session.props.onHeaderUpdate({ status: 'PLAYING', progress: '1.0', paused: false, canPause: true, started: true });
+  tree = host.render();
+  assert.ok(host.find(tree, node => node.type === 'button' && node.props.children === 'Finish Practice'));
+  assert.equal(host.find(tree, node => node.type === 'button' && node.props.children === 'Pause').props.disabled, false);
+  await host.find(tree, node => node.type === 'button' && node.props.children === 'Finish Practice').props.onClick();
+  await Promise.resolve();
+  tree = host.render();
+  assert.ok(host.find(tree, node => typeof node.type === 'function' && node.type.name === 'MyDecks'));
+});
+
+test('header separates status and progress, and event log sits outside the practice viewport', () => {
+  const host = createHost();
+  const tree = host.render();
+  const viewport = host.find(tree, node => node.props?.className === 'practice-viewport');
+  const settings = host.find(viewport, node => node.props?.id === 'trainer-settings');
+  assert.equal(host.find(settings, node => node.type === 'a' && node.props.children === 'Launcher').props.href, '../../');
+  const progress = host.find(viewport, node => node.type === 'progress');
+  assert.equal(progress.props['aria-label'], 'Learning progress');
+  assert.equal(progress.props.value, 0);
+  const top = host.find(viewport, node => node.props?.className === 'header-top');
+  const bottom = host.find(viewport, node => node.props?.className === 'header-bottom');
+  assert.equal(host.find(top, node => node.type === 'h1').props.children, 'Piano Starter');
+  assert.equal(host.find(top, node => node.type === 'button' && node.props.children === 'Settings').props.children, 'Settings');
+  assert.equal(host.find(bottom, node => node.type === 'button' && node.props.children === 'Start Practice').props.children, 'Start Practice');
+  function all(node) { return !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(all) : [node, ...all(node.props?.children)]; }
+  const log = all(tree).find(node => Array.isArray(node.props?.entries) && typeof node.props.clear === 'function');
+  assert.ok(log);
+  assert.equal(all(viewport).includes(log), false);
+});

@@ -27,7 +27,7 @@
 .trainer-card .piano-card__header { color: #fff; font-size: 1rem; }
 .trainer-card .piano-card__notes { margin: 20px 0 10px; }
 .trainer-card .piano-card__header > span:first-child { min-width: 0; overflow-wrap: anywhere; }
-.trainer-gravity-group { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.trainer-gravity-group { margin-left: auto; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .trainer-gravity-history { display: flex; gap: 4px; min-width: 0; overflow-x: auto; font-size: .6rem; color: #aabbd0; white-space: nowrap; }
 .trainer-gravity-history [data-direction='decrease'] { color: #4ade80; }
 .trainer-gravity-history [data-direction='increase'] { color: #fb923c; }
@@ -93,3 +93,197 @@
 .my-decks-session-wrap { position: relative; display: flex; flex: 0 0 auto; align-items: flex-start; }
 .my-decks-delete { position: absolute; top: 2px; right: 2px; padding: 0 4px; font-size: 14px; opacity: 0; pointer-events: none; }
 .my-decks-session-wrap:hover .my-decks-delete, .my-decks-session-wrap:focus-within .my-decks-delete { opacity: 1; pointer-events: auto; }
+
+/* Piano Trainer light theme; the shared Falling Lab stylesheet remains unchanged. */
+:root { color-scheme: light; --bg: #f7f4ed; --text: #282c2d; --muted: #6c716d; --line: #e2ddd4; --cyan: #247c83; --pink: #b45d78; }
+body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; }
+header { border-color: var(--line); }
+a { color: #246f78; }
+button, input, select, textarea { font-family: inherit; }
+button { border: 1px solid #d7d2c8; border-radius: 7px; background: #fffdf9; color: #303536; box-shadow: 0 2px 5px #5246340a; }
+button:hover { border-color: #5b9799; background: #f0f8f6; color: #155e65; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #247c83; outline-offset: 2px; }
+button:disabled { color: #92958f; background: #efede7; cursor: default; }
+input[type='number'], select, textarea { border: 1px solid #d4d0c7; border-radius: 6px; padding: 5px 7px; background: #fffdf9; color: #282c2d; }
+input[type='range'] { accent-color: #247c83; }
+label, .audio-output { color: #59615e; }
+.deck-error { color: #a6393c; }
+.readouts { color: #6c716d; }
+.readouts b, .readouts #score { color: #225f65; }
+.status i { background: #247c83; }
+.trainer-field { background: #fffdf9; border: 1px solid #e5e0d7; border-radius: 16px; padding: 24px 18px 0; box-shadow: 0 8px 28px #5146340a; }
+.chart-heading, .chart-foot { color: #777b76; }
+.magenta { color: #a4516c; }
+.cyan { color: #247c83; }
+.divider { color: #b5b1aa; }
+.active-card-overlay { background: #fffdf9; border-color: #d8d2c8; box-shadow: 0 16px 48px #40372726, 0 2px 8px #40372712; }
+.trainer-card { color: #282c2d; }
+.trainer-card .piano-card__header { color: #282c2d; }
+.trainer-card .piano-card__note { border-color: #746c64; }
+.trainer-gravity, .trainer-gravity-history { color: #656c68; }
+.trainer-gravity-history [data-direction='decrease'] { color: #24733f; }
+.trainer-gravity-history [data-direction='increase'] { color: #a25014; }
+.start-practice { border-color: #216e75; background: #247c83; color: #fff; }
+.start-practice:hover { background: #1a666c; color: #fff; }
+.card-projection { background: #fffdf9; color: #303536; border-color: #78a6a5; box-shadow: 0 4px 16px #51463420; }
+.trainer-event-log { border-color: #e2ddd4; color: #626965; }
+.trainer-event-log summary, .trainer-event-log__entries strong { color: #303536; }
+.trainer-event-log__entries { border-color: #e2ddd4; background: #fffdf9; }
+.paste-deck-dialog { border-color: #ded8ce; background: #fffdf9; color: #282c2d; box-shadow: 0 20px 60px #40372730; }
+.paste-deck-dialog::backdrop { background: #38312766; }
+.paste-deck-dialog textarea { border-color: #d4d0c7; background: #fbf9f4; color: #282c2d; }
+.my-decks, .session-details { color: #282c2d; }
+.my-decks-heading p, .my-decks-note, .my-decks-info span, .my-decks-empty, .my-decks-session span, .session-details-meta dt, .session-details-totals span, .session-details-card span { color: #626965; }
+.my-decks-row, .session-details-card { background: #fffdf9; border-color: #e2ddd4; box-shadow: 0 4px 16px #5146340a; }
+.my-decks-session { background: #f9f7f1; border-color: #e2ddd4; color: #303536; box-shadow: none; }
+.session-details-totals b { color: #282c2d; }
+
+/* Practice layout */
+.trainer-header { padding: 0 0 16px; gap: 16px; }
+.trainer-header .identity { gap: 16px; }
+.trainer-header h1 { font-size: 18px; letter-spacing: -.03em; }
+.header-deck { display: block; margin-top: 3px; color: #6c716d; font-size: 11px; }
+.header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
+.header-progress { color: #626965; font-size: 11px; white-space: nowrap; }
+.header-progress b { color: #225f65; }
+.trainer-settings { margin: 12px 0; padding: 16px; border: 1px solid #e2ddd4; border-radius: 12px; background: #fffdf9; }
+.trainer-settings[hidden] { display: none; }
+.trainer-settings .deck-controls { gap: 12px; }
+.trainer-settings .playback-controls { gap: 10px; }
+.trainer-field { flex: none; margin-top: 16px; }
+.trainer-field .chart-wrap { height: clamp(260px, 36vh, 440px); min-height: 260px; margin: 12px 0 6px; }
+.trainer-field svg#chart { height: 100%; min-height: 0; max-height: none; }
+.trainer-field .chart-foot { padding-bottom: 12px; }
+.active-exercise { margin-top: 12px; }
+.active-exercise .active-card-overlay { position: relative; left: auto; top: auto; transform: none; width: 100%; max-height: none; box-shadow: 0 4px 18px #51463412; }
+.keyboard-section { margin-top: 12px; padding: 12px 18px; border: 1px solid #e5e0d7; border-radius: 12px; background: #fffdf9; }
+.keyboard-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: #6c716d; font-size: 10px; letter-spacing: .08em; }
+.keyboard-heading button { padding: 7px 10px; }
+.keyboard-section .visual-keyboard { margin: 12px 0 0; }
+@media (max-width: 700px) { .trainer-header, .trainer-header .identity { align-items: flex-start; } .header-actions { justify-content: flex-start; } .trainer-field { padding: 16px 10px 0; } }
+
+/* Keep the practice workspace within the visible viewport. */
+main.practice-screen { height: 100dvh; min-height: 0; padding: 10px 24px; overflow: hidden; }
+.practice-screen .trainer-header { flex: 0 0 auto; padding-bottom: 8px; gap: 8px; }
+.practice-screen .trainer-header button { padding: 7px 10px; }
+.practice-layout { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.practice-layout .trainer-field { display: flex; flex: 1 1 0; min-height: 0; margin-top: 8px; padding: 8px 12px 0; }
+.practice-layout .trainer-field .chart-wrap { flex: 1 1 0; height: auto; min-height: 0; margin: 2px 0; }
+.practice-layout .trainer-field svg#chart { min-height: 0; height: 100%; max-height: none; }
+.practice-layout .chart-foot { padding-bottom: 5px; }
+.practice-layout .active-exercise { flex: 0 0 auto; margin-top: 6px; min-width: 0; }
+.practice-layout .active-card-overlay { display: flex; align-items: center; gap: 8px; padding: 6px 10px; overflow: hidden; }
+.practice-layout .start-practice { flex: 0 0 auto; margin: 0 4px; padding: 9px 14px; }
+.practice-layout .trainer-card { flex: 1 1 auto; min-width: 0; }
+.practice-layout .trainer-card .piano-card { max-width: none; padding: 3px 8px; }
+.practice-layout .trainer-card .piano-card__notes { flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin: 6px 0 2px; padding: 3px 1px; }
+.practice-layout .trainer-card .piano-card__note { flex: 0 0 45px; width: 45px; height: 44px; font-size: 1rem; }
+.practice-layout .keyboard-section { flex: 0 0 auto; margin-top: 6px; padding: 6px 12px; }
+.practice-layout .keyboard-heading button { padding: 3px 8px; }
+.practice-layout .keyboard-section .visual-keyboard { height: clamp(35px, 8vh, 58px); margin-top: 4px; }
+.practice-layout .trainer-event-log { flex: 0 0 auto; margin: 4px 0 0; padding-top: 3px; }
+.practice-layout .trainer-event-log[open] { position: fixed; z-index: 20; right: 24px; bottom: 10px; width: min(520px, calc(100vw - 48px)); margin: 0; padding: 10px; border: 1px solid #e2ddd4; border-radius: 8px; background: #fffdf9; box-shadow: 0 8px 30px #40372726; }
+.practice-layout .trainer-event-log__entries { height: min(220px, 35vh); }
+.practice-screen .trainer-settings:not([hidden]) { position: absolute; z-index: 30; top: 62px; right: 24px; width: min(800px, calc(100vw - 48px)); max-height: calc(100dvh - 72px); overflow: auto; box-shadow: 0 12px 32px #40372725; }
+@media (max-width: 700px) {
+  main.practice-screen { padding: 6px 10px; }
+  .practice-screen .trainer-header .identity { gap: 8px; }
+  .practice-screen .header-actions { gap: 4px; }
+  .practice-screen .trainer-header button { padding: 5px 7px; }
+  .practice-layout .active-card-overlay { flex-wrap: wrap; }
+  .practice-layout .start-practice { padding: 6px 10px; }
+  .practice-screen .trainer-settings:not([hidden]) { right: 10px; width: calc(100vw - 20px); }
+}
+@media (max-height: 600px) {
+  main.practice-screen { padding-top: 4px; padding-bottom: 4px; }
+  .practice-screen .trainer-header { padding-bottom: 4px; }
+  .practice-layout .trainer-field, .practice-layout .active-exercise, .practice-layout .keyboard-section { margin-top: 4px; }
+  .practice-layout .trainer-card .piano-card__note { flex-basis: 38px; width: 38px; height: 34px; font-size: .85rem; }
+  .practice-layout .keyboard-section .visual-keyboard { height: 35px; }
+  .practice-layout .start-practice { padding: 6px 10px; }
+}
+
+/* Protect the exercise and let the field absorb viewport changes. */
+main.practice-screen { height: auto; min-height: 100dvh; overflow: visible; }
+.practice-layout { min-height: min-content; }
+.practice-layout .trainer-field { order: 0; flex: 1 1 0; min-height: 160px; }
+.practice-layout .active-exercise { order: 1; flex: 0 0 auto; min-height: 124px; }
+.practice-layout .active-card-overlay { min-height: 124px; }
+.practice-layout .trainer-card .piano-card__note { flex: 0 0 60px; width: 60px; height: 60px; font-size: 1rem; }
+.practice-layout .trainer-event-log { order: 2; }
+.practice-layout .keyboard-section { order: 3; flex: 0 0 auto; margin-top: 4px; padding: 0 12px 8px; }
+.practice-layout .keyboard-heading { justify-content: center; }
+.practice-layout .keyboard-heading button { padding: 3px 12px; }
+.practice-layout .keyboard-section .visual-keyboard { height: clamp(70px, calc(15dvh - 32px), 150px); }
+.practice-layout .keyboard-section:has(#practice-keyboard[hidden]) { padding-bottom: 0; border-color: transparent; background: transparent; }
+
+/* Grouped settings */
+.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.settings-group { min-width: 0; padding: 12px; border: 1px solid #e7e1d8; border-radius: 9px; background: #faf8f3; }
+.settings-group h2 { margin: 0 0 10px; color: #303b39; font-size: 13px; font-weight: 700; }
+.settings-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; align-items: center; }
+.settings-controls label, .settings-group .deck-load-actions label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; margin: 0; color: #59615e; font-size: 11px; }
+.settings-controls label > span { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.settings-controls input[type='number'] { width: 62px; }
+.settings-controls input[type='range'] { width: clamp(55px, 8vw, 100px); }
+.settings-controls select { min-width: 0; max-width: 65%; }
+.settings-controls button, .settings-group button { padding: 7px 9px; font-size: 11px; }
+.settings-wide { grid-column: 1 / -1; }
+.settings-group .deck-info { margin-bottom: 10px; }
+.settings-group .deck-load-actions { gap: 8px; }
+.settings-group input[type='file'] { max-width: 100%; font-size: 11px; }
+.settings-group [role='status'] { color: #626965; font-size: 11px; }
+@media (max-width: 700px) { .settings-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 420px) { .settings-controls { grid-template-columns: minmax(0, 1fr); } .settings-wide { grid-column: auto; } }
+.trainer-header .practice-action { font-weight: 700; white-space: nowrap; }
+.trainer-header .practice-action.start { background: #247c83; border-color: #216e75; color: #fff; }
+.trainer-header .practice-action.start:hover { background: #1a666c; color: #fff; }
+.trainer-header .practice-action.finish { background: #aa5457; border-color: #98484b; color: #fff; }
+.trainer-header .practice-action.finish:hover { background: #8e4145; color: #fff; }
+
+/* Header readouts and event log sit outside the practice sizing calculation. */
+main.practice-screen { display: block; min-height: 0; padding: 0; }
+.practice-viewport { display: flex; flex-direction: column; min-height: max(100dvh, 520px); padding: 10px 24px; }
+.header-status { color: #65716d; font-size: 10px; font-weight: 700; letter-spacing: .05em; }
+.header-progress { display: flex; align-items: center; gap: 5px; color: #6c716d; font-size: 10px; font-variant-numeric: tabular-nums; }
+.header-progress progress { width: 72px; height: 5px; border: 0; border-radius: 5px; overflow: hidden; accent-color: #70aaa4; }
+.header-progress progress::-webkit-progress-bar { background: #e7e5dd; border-radius: 5px; }
+.header-progress progress::-webkit-progress-value { background: #70aaa4; border-radius: 5px; }
+.header-progress progress::-moz-progress-bar { background: #70aaa4; border-radius: 5px; }
+.settings-launcher { display: inline-block; margin-top: 12px; font-size: 11px; }
+.practice-screen > .trainer-event-log { margin: 0 24px 20px; padding: 12px 0; }
+.practice-screen > .trainer-event-log .trainer-event-log__entries { height: 220px; }
+@media (max-width: 700px) { .practice-viewport { padding: 6px 10px; } .practice-screen > .trainer-event-log { margin-right: 10px; margin-left: 10px; } }
+
+/* A single, size-stable border marks a held note in the practice overlay. */
+.practice-layout .active-exercise, .practice-layout .active-card-overlay { min-height: 108px; }
+.practice-layout .active-card-overlay { box-shadow: 0 2px 10px #5146340d; }
+.practice-layout .trainer-card .piano-card__note { box-sizing: border-box; border: 2px solid #d2c9bc; transition: border-color .15s; }
+.practice-layout .trainer-card .piano-card__note.is-played { border-color: #247c83; outline: none; box-shadow: none; transform: none; }
+
+/* Compact two-row practice header */
+.trainer-header { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 7px; border-bottom: 0; }
+.header-top, .header-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.header-identity { min-width: 0; }
+.header-kicker { display: block; color: #7a837e; font-size: 9px; font-weight: 700; letter-spacing: .1em; }
+.trainer-header .header-deck { margin: 2px 0 0; color: #282c2d; font-size: 19px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+.header-actions, .header-practice-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }
+.trainer-header button { padding: 7px 10px; font-size: 11px; }
+.header-progress { flex: 0 0 auto; }
+.practice-screen .trainer-settings:not([hidden]) { top: 100%; right: 0; margin-top: 6px; max-height: calc(100dvh - 120px); }
+@media (max-width: 520px) {
+  .header-top { align-items: flex-start; }
+  .trainer-header .header-deck { font-size: 16px; }
+  .header-actions, .header-practice-controls { gap: 4px; }
+  .practice-screen .trainer-header button { padding: 6px 7px; font-size: 10px; }
+  .header-progress progress { width: 52px; }
+  .practice-screen .trainer-settings:not([hidden]) { right: 0; width: min(800px, calc(100vw - 20px)); }
+}
+
+.active-card-overlay[data-paused='true'] .overlay-flash { animation-play-state: paused; }
+.pause-overlay { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(30, 40, 38, .35); }
+.pause-card { padding: 24px 32px; border: 1px solid #e2ddd4; border-radius: 14px; background: #fffdf9; box-shadow: 0 18px 55px #26332d38; text-align: center; }
+.pause-card h2 { margin: 0 0 16px; color: #282c2d; font-size: 24px; }
+.pause-card button { padding: 10px 18px; border-color: #216e75; background: #247c83; color: white; font-size: 13px; font-weight: 700; }
+.pause-card button:hover { background: #1a666c; color: white; }
+.practice-viewport:has(.pause-overlay) * { animation-play-state: paused !important; transition: none !important; }

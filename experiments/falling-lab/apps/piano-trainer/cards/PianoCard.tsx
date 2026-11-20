@@ -12,6 +12,7 @@ export interface PianoCardProps {
   heldNotes?: readonly string[];
   showStatus?: boolean;
   headerDetail?: ReactNode;
+  showTitle?: boolean;
 }
 
 const messages: Record<PianoCardState, string> = {
@@ -21,10 +22,10 @@ const messages: Record<PianoCardState, string> = {
   incorrect: 'Incorrect attempt'
 };
 
-export function PianoCard({ title, notes, state = 'waiting', playedCount = 0, heldNotes = [], showStatus = true, headerDetail }: PianoCardProps) {
+export function PianoCard({ title, notes, state = 'waiting', playedCount = 0, heldNotes = [], showStatus = true, headerDetail, showTitle = true }: PianoCardProps) {
   return <article className="piano-card" data-state={state}>
     <div className="piano-card__header">
-      <span>{title}</span>
+      {showTitle && <span>{title}</span>}
       {headerDetail ?? (showStatus && <span className="piano-card__status">{messages[state]}</span>)}
     </div>
     <div className="piano-card__notes" aria-label={`Phrase: ${notes.join(', ')}`}>

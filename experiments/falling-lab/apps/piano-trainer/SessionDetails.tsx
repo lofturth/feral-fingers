@@ -21,7 +21,7 @@ export function SessionDetails({ session, decks, onBack }: { session: SessionSum
     <dl className="session-details-meta">
       <div><dt>Date</dt><dd><time dateTime={session.startTime}>{new Date(session.startTime).toLocaleString()}</time></dd></div>
       <div><dt>Duration</dt><dd>{seconds === null ? 'Unavailable' : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s recorded`}</dd></div>
-      <div><dt>Deck revision</dt><dd>{revision ? `Revision ${revision.number} · saved ${new Date(revision.createdAt).toLocaleDateString()}` : 'Unavailable'}</dd></div>
+      <div><dt>Deck revision</dt><dd>{revision ? revision.createdAt ? `Revision ${revision.number} · saved ${new Date(revision.createdAt).toLocaleDateString()}` : 'Built-in'  : 'Unavailable'}</dd></div>
     </dl>
     <p className="my-decks-note">Duration is measured through the last recorded event.</p>
     {error && <p role="status">{error}</p>}

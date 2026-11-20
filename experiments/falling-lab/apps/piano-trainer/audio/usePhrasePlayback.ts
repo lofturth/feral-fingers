@@ -120,9 +120,15 @@ export function usePhrasePlayback(onAudioContext?: (context: AudioContext) => vo
   }, [activate, playCurrent]);
   const replay = useCallback(() => { if (!paused.current && settings.current.enabled && exercise.current) { delayTimer.current.cancel(); pending.current = true; activate(); } }, [activate]);
   const setPaused = useCallback((value: boolean) => {
+    if (paused.current === value) return;
     paused.current = value;
     if (value) { delayTimer.current.pause(); resumePending.current = pending.current; pending.current = false; player.current?.stop(); }
-    else { delayTimer.current.resume(); if (resumePending.current) { resumePending.current = false; pending.current = true; activate(); } }
+    else {
+      const hadDelay = delayTimer.current.isPending(), hadPending = resumePending.current;
+      delayTimer.current.resume();
+      if (hadPending) { resumePending.current = false; pending.current = true; activate(); }
+      else if (!hadDelay && settings.current.metronome && exercise.current && context.current?.state === 'running') player.current?.setMetronome(true);
+    }
   }, [activate]);
   const setDelay = useCallback((value: number) => { if (value >= 0 && value <= 1 && Number.isFinite(value)) { delayValue.current = value; setDelayState(value); save(delayKey, String(value)); } }, []);
   const setEnabled = useCallback((value: boolean) => {

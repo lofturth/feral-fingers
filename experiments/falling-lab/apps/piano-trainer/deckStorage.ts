@@ -6,6 +6,7 @@ export type SavedDeck = {
   revision: string;
   createdAt: string;
   content: unknown;
+  builtIn?: boolean;
 };
 
 // JSON object key order does not change a deck's identity; array order does.

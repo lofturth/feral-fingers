@@ -86,3 +86,19 @@ test('deleting a session removes only its events in one transaction', async () =
   delete global.IDBKeyRange;
   delete global.indexedDB;
 });
+
+test('pause markers and raw MIDI during a pause persist with the same session', async () => {
+  const idb = fakeIndexedDB(); global.indexedDB = idb;
+  try {
+    const recorder = createSessionRecorder({ id: 'deck' });
+    recorder.start(100, {});
+    recorder.record({ type: 'midi', timestamp: 100, data: [144, 60, 90], device: { id: 'k', name: 'Keys' } });
+    recorder.record({ type: 'pause', timestamp: 200 });
+    recorder.record({ type: 'midi', timestamp: 400, data: [144, 61, 90], device: { id: 'k', name: 'Keys' } });
+    recorder.record({ type: 'resume', timestamp: 700 });
+    await recorder.finish('interrupted');
+    const id = recorder.getRecord().sessionId;
+    assert.deepEqual([...idb.stores.events.values()].filter(entry => entry.sessionId === id).map(entry => entry.event.type), ['midi', 'pause', 'midi', 'resume']);
+    assert.equal(idb.stores.events.get(`${id}:2`).event.data[1], 61);
+  } finally { delete global.indexedDB; }
+});

@@ -428,3 +428,25 @@ test('explicit exercise start waits for a suspended audio context without duplic
     for (const cleanup of cleanups) cleanup?.();
   } finally { global.window = oldWindow; global.localStorage = oldStorage; }
 });
+
+test('pause silences notes and clicks, resumes only the metronome, and is idempotent', () => {
+  const hooks = fakeHooks(), contexts = [];
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock { constructor() { super(); contexts.push(this); } }
+  global.window = { AudioContext: AudioClass, addEventListener() {}, removeEventListener() {} };
+  global.localStorage = { getItem: key => key === 'piano-trainer.metronome-enabled' ? 'true' : null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60, 64], false, true);
+    const audio = contexts[0], notes = audio.oscillators.filter(osc => osc.frequency.value !== 1600);
+    playback.setPaused(true); playback.setPaused(true);
+    assert.ok(notes.every(osc => osc.stops.at(-1) === audio.currentTime));
+    const count = audio.oscillators.length;
+    playback.replay(); assert.equal(audio.oscillators.length, count);
+    playback.setPaused(false); playback.setPaused(false);
+    assert.equal(audio.oscillators.filter(osc => osc.frequency.value !== 1600).length, notes.length);
+    assert.equal(audio.oscillators.filter(osc => osc.frequency.value === 1600).length, 2);
+    for (const cleanup of cleanups) cleanup?.();
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});

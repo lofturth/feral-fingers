@@ -2,6 +2,7 @@ import { createPracticeStorage } from './practiceStorage';
 import type { Fluency } from './fluency';
 
 export type SessionEvent =
+  | { type: 'pause' | 'resume'; time: number }
   | { type: 'midi'; time: number; data: number[]; device: { id: string; name: string } }
   | { type: 'selection'; time: number; previous: string | null; next: string | null; cause: string }
   | { type: 'demonstration'; time: number; exerciseId: string; tempo: number; notesPerBeat: 1 | 2 | 4 }

@@ -10,12 +10,15 @@ import type { SessionRecorder } from '../sessionRecorder';
 import { measureFluency, type DemonstrationTiming } from '../fluency';
 import { attemptColor, type AttemptColor } from '../visualFluency';
 import type { GravityHistoryEntry } from '../gravityHistory';
+import { createPracticeClock } from '../practiceClock';
+import { createPlaybackDelay } from '../audio/playbackDelay';
 
 type PracticeOptions = {
   recorder: SessionRecorder;
   startRecording: (timestamp: number) => boolean;
   getTiming: () => { tempo: number; notesPerBeat: 1 | 2 | 4 };
   getDemonstrationTiming: (id: string) => DemonstrationTiming | null;
+  paused: boolean;
   selectedId: string;
   getSelectedId: () => string | null;
   getExercise: (id: string) => PianoExercise | undefined;
@@ -28,12 +31,13 @@ type PracticeOptions = {
 };
 
 // Mounted once per session, so switching cards does not create MIDI connections.
-export function usePianoPractice({ recorder, startRecording, getTiming, getDemonstrationTiming, selectedId, getSelectedId, getExercise, onComplete, onSkip, onLog, nextAttemptId, replay, togglePause }: PracticeOptions) {
+export function usePianoPractice({ recorder, startRecording, getTiming, getDemonstrationTiming, paused, selectedId, getSelectedId, getExercise, onComplete, onSkip, onLog, nextAttemptId, replay, togglePause }: PracticeOptions) {
   const recordedAttempt = useRef<{ id: string; attemptId: number; expected: readonly number[]; played: { pitch: number; timestamp: number }[]; demonstration: DemonstrationTiming | null; color: AttemptColor } | null>(null);
   const [feedback, setFeedback] = useState<{ id: string; color: AttemptColor } | null>(null);
   const [flash, setFlash] = useState<{ id: string; color: AttemptColor; sequence: number } | null>(null);
   const flashSequence = useRef(0);
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashTimer = useRef(createPlaybackDelay(() => setFlash(null)));
+  const practiceClock = useRef(createPracticeClock());
   function endRecordedAttempt(timestamp: number, reason: 'completed' | 'skipped' | 'interrupted') {
     const current = recordedAttempt.current;
     if (current) {
@@ -64,8 +68,9 @@ export function usePianoPractice({ recorder, startRecording, getTiming, getDemon
   const midi = useMidi(event => {
     if (replayControl.current.handle(event)) {
       onLog({ timestamp: event.timestamp, type: `MIDI ${event.type}`, detail: `pitch ${event.pitch} (control); velocity ${event.velocity}; channel ${event.channel}; input ${event.device.name} [${event.device.id}]` });
-      return;
+      return practiceClock.current.isPaused() ? false : undefined;
     }
+    if (practiceClock.current.isPaused()) return false;
     const id = getSelectedId();
     const selected = id && getExercise(id);
     const attemptId = diagnostic.current.midi(event, selected || null);
@@ -74,8 +79,9 @@ export function usePianoPractice({ recorder, startRecording, getTiming, getDemon
       startRecordedAttempt(id, attemptId, event.timestamp);
       const current = recordedAttempt.current;
       if (current) {
-        current.played.push({ pitch: event.pitch, timestamp: event.timestamp });
-        current.color = attemptColor(current.color, current.expected, current.played, current.demonstration, event.timestamp);
+        const activeTime = practiceClock.current.time(event.timestamp);
+        current.played.push({ pitch: event.pitch, timestamp: activeTime });
+        current.color = attemptColor(current.color, current.expected, current.played, current.demonstration, activeTime);
         setFeedback({ id, color: current.color });
       }
     }
@@ -88,15 +94,14 @@ export function usePianoPractice({ recorder, startRecording, getTiming, getDemon
       const color = recordedAttempt.current?.color;
       const fluent = endRecordedAttempt(event.timestamp, 'completed');
       if (color) {
-        if (flashTimer.current !== null) clearTimeout(flashTimer.current);
         setFlash({ id, color, sequence: ++flashSequence.current });
-        flashTimer.current = setTimeout(() => { setFlash(null); flashTimer.current = null; }, 150);
+        flashTimer.current.schedule(150);
       }
       setResult({ id, score });
       onComplete(id, score, event.timestamp, attemptId, fluent);
     }
   }, () => replayControl.current.reset(), (data, timestamp, device) => {
-    const firstNote = data.length >= 3 && (data[0] & 0xf0) === 0x90 && data[2] > 0 && startRecording(timestamp);
+    const firstNote = !practiceClock.current.isPaused() && data.length >= 3 && (data[0] & 0xf0) === 0x90 && data[2] > 0 && startRecording(timestamp);
     recorder.record({ type: 'midi', timestamp, data, device });
     if (firstNote) recorder.record({ type: 'selection', timestamp, previous: null, next: getSelectedId(), cause: 'session start' });
   });
@@ -107,16 +112,16 @@ export function usePianoPractice({ recorder, startRecording, getTiming, getDemon
     if (attempt.current && attempt.current.id !== selectedId) attempt.current = null;
   }, [selectedId]);
   useEffect(() => {
-    if (!feedback || feedback.color !== 'blue') return;
+    if (paused || !feedback || feedback.color !== 'blue') return;
     const timer = setInterval(() => {
       const current = recordedAttempt.current;
       if (!current) return;
-      const color = attemptColor(current.color, current.expected, current.played, current.demonstration, performance.now());
+      const color = attemptColor(current.color, current.expected, current.played, current.demonstration, practiceClock.current.time(performance.now()));
       if (color !== current.color) { current.color = color; setFeedback({ id: current.id, color }); }
     }, 50);
     return () => clearInterval(timer);
-  }, [feedback]);
-  useEffect(() => () => { endRecordedAttempt(performance.now(), 'interrupted'); if (flashTimer.current !== null) clearTimeout(flashTimer.current); }, []);
+  }, [feedback, paused]);
+  useEffect(() => () => { endRecordedAttempt(performance.now(), 'interrupted'); flashTimer.current.reset(); }, []);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.repeat) return;
@@ -133,15 +138,28 @@ export function usePianoPractice({ recorder, startRecording, getTiming, getDemon
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [getSelectedId, getExercise, onSkip, onLog, nextAttemptId]);
+  function setPracticePaused(value: boolean, timestamp: number) {
+    if (value === practiceClock.current.isPaused()) return;
+    if (value) { practiceClock.current.pause(timestamp); flashTimer.current.pause(); midi.clearHeldNotes(); }
+    else { practiceClock.current.resume(timestamp); flashTimer.current.resume(); }
+  }
   function resetAttempt() { attempt.current = null; const now = performance.now(); diagnostic.current.reset(now); endRecordedAttempt(now, 'interrupted'); setResult(null); }
-  return { ...midi, result, resetAttempt, feedback, flash };
+  return { ...midi, result, resetAttempt, setPracticePaused, feedback, flash };
 }
 
 type CardProps = { exercise: PianoExercise; gravity: number; history: readonly GravityHistoryEntry[]; practice: ReturnType<typeof usePianoPractice> };
+function isNoteSequenceLabel(label: string, notes: readonly string[]) {
+  const parts = label.trim().split(/[\s,·]+/).map(part => part.replace(/#/g, '♯').toUpperCase());
+  return parts.length === notes.length && parts.every((part, i) => {
+    const note = notes[i].toUpperCase();
+    return part === note || part === note.replace(/-?\d+$/, '');
+  });
+}
 export function TrainerPianoCard({ exercise, gravity, history, practice }: CardProps) {
   const historyRef = useRef<HTMLSpanElement>(null);
   useEffect(() => { if (historyRef.current) historyRef.current.scrollLeft = historyRef.current.scrollWidth; }, [history]);
+  const noteNames = exercise.notes.map(noteName);
   return <div className="trainer-card">
-    <PianoCard title={exercise.label} notes={exercise.notes.map(noteName)} heldNotes={practice.heldNotes} showStatus={false} headerDetail={<span className="trainer-gravity-group"><span ref={historyRef} className="trainer-gravity-history" aria-label="Gravity history, oldest to newest">{history.map((entry, index) => <span key={index} data-direction={entry.direction}>{entry.value.toFixed(2)}×</span>)}</span><span className="trainer-gravity" aria-label={`Gravity ${gravity.toFixed(2)} times`}>{gravity.toFixed(2)}×</span></span>}/>
+    <PianoCard title={exercise.label} notes={noteNames} showTitle={!isNoteSequenceLabel(exercise.label, noteNames)} heldNotes={practice.heldNotes} showStatus={false} headerDetail={<span className="trainer-gravity-group"><span ref={historyRef} className="trainer-gravity-history" aria-label="Gravity history, oldest to newest">{history.map((entry, index) => <span key={index} data-direction={entry.direction}>{entry.value.toFixed(2)}×</span>)}</span><span className="trainer-gravity" aria-label={`Gravity ${gravity.toFixed(2)} times`}>{gravity.toFixed(2)}×</span></span>}/>
   </div>;
 }
