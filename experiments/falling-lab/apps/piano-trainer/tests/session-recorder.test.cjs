@@ -1,0 +1,35 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('../card-lab/node_modules/typescript');
+require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, filename);
+const { createSessionRecorder } = require('../sessionRecorder.ts');
+
+test('session record snapshots the complete deck and preserves raw MIDI and linked events', () => {
+  const deck = { id: 'deck', metadata: { author: 'test' }, exercises: [{ id: 'a', notes: [60] }] };
+  const recorder = createSessionRecorder(deck);
+  assert.equal(recorder.getRecord(), null);
+  recorder.record({ type: 'selection', timestamp: 90, previous: null, next: 'a', cause: 'start' });
+  assert.equal(recorder.getRecord(), null);
+  assert.equal(recorder.start(110.5, { tempo: 90 }), true);
+  deck.exercises[0].notes[0] = 61;
+  const device = { id: 'midi', name: 'Keyboard' };
+  recorder.record({ type: 'midi', timestamp: 110.5, data: [0x92, 61, 73], device });
+  recorder.record({ type: 'midi', timestamp: 111, data: [0xb2, 64, 127], device });
+  recorder.record({ type: 'attempt-start', timestamp: 110.5, exerciseId: 'a', attemptId: 1 });
+  recorder.record({ type: 'result', timestamp: 120, exerciseId: 'a', attemptId: 1, score: 50 });
+  recorder.record({ type: 'attempt-end', timestamp: 120, exerciseId: 'a', attemptId: 1, reason: 'completed' });
+  recorder.record({ type: 'reward', timestamp: 120, exerciseId: 'a', attemptId: 1, magnitude: .5, applied: true });
+  const record = recorder.getRecord();
+  assert.equal(record.schemaVersion, 1);
+  assert.ok(record.sessionId);
+  assert.ok(!Number.isNaN(Date.parse(record.startTime)));
+  assert.deepEqual(record.settings, { tempo: 90 });
+  assert.deepEqual(record.deck.exercises[0].notes, [60]);
+  assert.equal(record.deck.metadata.author, 'test');
+  assert.deepEqual(record.events[0], { type: 'midi', time: 0, data: [0x92, 61, 73], device });
+  assert.deepEqual(record.events[1].data, [0xb2, 64, 127]);
+  record.events[0].data[0] = 0;
+  assert.equal(recorder.getRecord().events[0].data[0], 0x92);
+});

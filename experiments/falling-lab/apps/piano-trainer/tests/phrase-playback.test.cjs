@@ -243,9 +243,12 @@ test('next phrase delay persists without starting playback', () => {
   global.localStorage = { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) };
   try {
     const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
-    const playback = usePhrasePlayback(); assert.equal(playback.delay, 1.5);
-    playback.setDelay(2.75); assert.equal(stored.get('piano-trainer.next-phrase-delay'), '2.75');
-    assert.equal(usePhrasePlayback().delay, 2.75);
+    const playback = usePhrasePlayback(); assert.equal(playback.delay, .5);
+    playback.setDelay(.35); assert.equal(stored.get('piano-trainer.next-phrase-delay'), '0.35');
+    assert.equal(usePhrasePlayback().delay, .35);
+    stored.set('piano-trainer.next-phrase-delay', '1.5'); assert.equal(usePhrasePlayback().delay, 1);
+    stored.set('piano-trainer.next-phrase-delay', '-1'); assert.equal(usePhrasePlayback().delay, 0);
+    stored.set('piano-trainer.next-phrase-delay', 'invalid'); assert.equal(usePhrasePlayback().delay, .5);
   } finally { global.window = oldWindow; global.localStorage = oldStorage; }
 });
 

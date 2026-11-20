@@ -12,11 +12,15 @@ import type { SessionSnapshot } from '../../core/physics';
 import { TrainerPianoCard, usePianoPractice } from './cards/TrainerPianoCard';
 import { createTrainingSession } from './trainingSession';
 import { parseDeck, type PianoDeck } from './deck';
+import { saveDeck } from './deckStorage';
+import { MyDecks } from './MyDecks.tsx';
 import { usePhrasePlayback } from './audio/usePhrasePlayback';
+import { useAudioOutput } from './audio/useAudioOutput';
+import { createSessionRecorder, type SessionRecorder } from './sessionRecorder';
 import sampleDeckJson from './decks/sample.json?raw';
 import './style.css';
 
-function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: PianoDeck; onLog: LogEvent; nextAttemptId: () => number; playback: ReturnType<typeof usePhrasePlayback> }) {
+function PracticeSession({ deck, recorder, onLog, nextAttemptId, playback, output, exitRef }: { deck: PianoDeck; recorder: SessionRecorder; output: string; exitRef: React.MutableRefObject<() => void>; onLog: LogEvent; nextAttemptId: () => number; playback: ReturnType<typeof usePhrasePlayback> }) {
   const [overlayOpacity, setOverlayOpacity] = useState(() => {
     try {
       const saved = localStorage.getItem('piano-trainer.overlay-opacity');
@@ -30,6 +34,7 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
   }
   const [session] = useState(() => createSession({ holdSelection: true, cards: deck.exercises.map(({ id }) => ({ id })), config: { instantPosition: window.matchMedia('(prefers-reduced-motion: reduce)').matches } }));
   const [trainer] = useState(() => createTrainingSession(session, change => {
+    recorder.record({ type: 'selection', timestamp: change.timestamp, previous: change.previous || null, next: change.next || null, cause: change.cause });
     onLog({ timestamp: change.timestamp, type: 'Core selection', detail: `${change.previous || 'none'} → ${change.next || 'none'}; cause ${change.cause}` });
   }));
   const [state, setState] = useState(() => session.getState());
@@ -48,8 +53,10 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
   const projectionId = useRef(0);
   const [projection, setProjection] = useState<Projection | null>(null);
   useEffect(() => {
-    onLog({ timestamp: performance.now(), type: 'Core selection', detail: `none → ${session.getState().selectedCardId || 'none'}; cause session start` });
-  }, [onLog, session]);
+    const timestamp = performance.now();
+    onLog({ timestamp, type: 'Core selection', detail: `none → ${session.getState().selectedCardId || 'none'}; cause session start` });
+    return () => { queueMicrotask(() => recorder.finish('interrupted')); };
+  }, [onLog, session, recorder]);
   const projectSelection = useCallback((snapshot: SessionSnapshot) => {
     lastSelected.current = snapshot.selectedCardId;
     const exercise = deck.exercises[snapshot.selectedIndex];
@@ -70,6 +77,7 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
       if (!document.hidden) {
         trainer.advanceTo(time);
         const snapshot = session.getState(), value = session.getProgress();
+        if (snapshot.complete) recorder.finish('completed');
         if (snapshot.selectedCardId !== lastSelected.current) projectSelection(snapshot);
         if (!snapshot.paused && (snapshot.complete ? null : snapshot.selectedCardId) !== lastPlaybackSelection.current) selectPlayback(snapshot);
         setState(snapshot); setProgress(value);
@@ -80,7 +88,7 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
     document.addEventListener('visibilitychange', visibility);
     frame = requestAnimationFrame(tick);
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', visibility); };
-  }, [session, trainer, projectSelection, selectPlayback]);
+  }, [session, trainer, projectSelection, selectPlayback, recorder]);
   const refresh = useCallback(() => {
     const snapshot = session.getState(), value = session.getProgress();
     setState(snapshot); setProgress(value);
@@ -93,15 +101,17 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
     const result = trainer.complete(cardId, score, time, id => { before = id; });
     const after = session.getState().selectedCardId;
     onLog({ timestamp: time, type: 'Core reward', attemptId, detail: `Card ${cardId}; magnitude ${score / 100}; selection before ${before || 'none'} → after ${after || 'none'}; ${result ? 'applied' : 'not applied'}` });
-    if (result) refresh();
-  }, [session, trainer, refresh, onLog]);
+    recorder.record({ type: 'reward', timestamp: time, exerciseId: cardId, attemptId, magnitude: score / 100, applied: !!result });
+    if (result) { if (session.getState().complete) recorder.finish('completed'); refresh(); }
+  }, [session, trainer, refresh, onLog, recorder]);
   const skip = useCallback((cardId: string, time: number, attemptId: number) => {
     let before = '';
     const result = trainer.skip(cardId, time, id => { before = id; });
     const after = session.getState().selectedCardId;
     onLog({ timestamp: time, type: 'Core skip', attemptId, detail: `Card ${cardId}; selection before ${before || 'none'} → after ${after || 'none'}; ${result ? 'applied' : 'not applied'}` });
-    if (result) refresh();
-  }, [session, trainer, refresh, onLog]);
+    recorder.record({ type: 'skip', timestamp: time, exerciseId: cardId, attemptId, applied: !!result });
+    if (result) { if (session.getState().complete) recorder.finish('completed'); refresh(); }
+  }, [session, trainer, refresh, onLog, recorder]);
   const getSelectedId = useCallback(() => { const current = session.getState(); return current.paused || current.complete ? null : current.selectedCardId; }, [session]);
   const getExercise = useCallback((id: string) => deck.exercises.find(exercise => exercise.id === id), [deck]);
   const resetAttemptRef = useRef<() => void>(() => {});
@@ -116,8 +126,10 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
     resetAttemptRef.current();
     setState(session.getState());
   }, [session, trainer, playback.setPaused]);
-  const practice = usePianoPractice({ selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId, replay: playback.replay, togglePause });
+  const startRecording = (timestamp: number) => recorder.start(timestamp, { phrasePlayback: playback.enabled, metronome: playback.metronome, tempo: playback.tempo, phraseVolume: playback.phraseVolume, metronomeVolume: playback.metronomeVolume, nextPhraseDelay: playback.delay, audioOutput: output, overlayOpacity });
+  const practice = usePianoPractice({ recorder, startRecording, selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId, replay: playback.replay, togglePause });
   resetAttemptRef.current = practice.resetAttempt;
+  exitRef.current = practice.resetAttempt;
   const selected = deck.exercises[state.selectedIndex] ?? deck.exercises[0];
   return <>
     <div className="readouts"><span className="status"><i/>{state.complete ? 'COMPLETE' : state.paused ? 'PAUSED' : 'PLAYING'} <button type="button" onClick={togglePause} disabled={state.complete}>{state.paused ? 'Resume' : 'Pause'}</button></span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
@@ -135,11 +147,18 @@ function PracticeSession({ deck, onLog, nextAttemptId, playback }: { deck: Piano
   </>;
 }
 function App() {
-  const playback = usePhrasePlayback();
+  const audioOutput = useAudioOutput();
+  const playback = usePhrasePlayback(audioOutput.setContext);
   const [tempoDraft, setTempoDraft] = useState(() => String(playback.tempo));
-  const [deck, setDeck] = useState(() => parseDeck(JSON.parse(sampleDeckJson)));
+  const [initialDeck] = useState(() => JSON.parse(sampleDeckJson));
+  const [deck, setDeck] = useState(() => parseDeck(initialDeck));
+  const [recorder, setRecorder] = useState(() => createSessionRecorder(initialDeck));
+  const deckSource = useRef(initialDeck);
+  const exitRef = useRef<() => void>(() => {});
   const [generation, setGeneration] = useState(0);
   const [error, setError] = useState('');
+  const [storageError, setStorageError] = useState('');
+  const [showDecks, setShowDecks] = useState(false);
   const [entries, setEntries] = useState<(DiagnosticEvent & { sequence: number })[]>([]);
   const entrySequence = useRef(0);
   const attemptSequence = useRef(0);
@@ -160,9 +179,28 @@ function App() {
     return () => window.clearTimeout(timeout);
   }, [loadedNotice, generation]);
   function applyDeckText(text: string) {
-    const next = parseDeck(JSON.parse(text));
+    const source = JSON.parse(text);
+    const next = parseDeck(source);
+    exitRef.current();
+    void recorder.finish('interrupted');
+    const nextRecorder = createSessionRecorder(source);
+    deckSource.current = source;
+    setStorageError('');
+    void saveDeck(source).catch(() => setStorageError('Could not save this deck to the library.'));
+    setRecorder(nextRecorder);
     playback.stop();
     setDeck(next); setGeneration(value => value + 1); setError(''); setLoadedNotice(true);
+  }
+  async function leavePractice() {
+    exitRef.current();
+    playback.stop();
+    await recorder.finish('interrupted');
+    setShowDecks(true);
+  }
+  function returnToPractice() {
+    setRecorder(createSessionRecorder(deckSource.current));
+    setGeneration(value => value + 1);
+    setShowDecks(false);
   }
   function loadPastedDeck() {
     ++loadId.current;
@@ -190,22 +228,33 @@ function App() {
     }
   }
   return <main>
-    <header><div className="identity"><h1>FALLING LAB<span>_</span></h1><span className="edition">PIANO TRAINER / 01</span><a href="../../">Launcher</a></div><div className="deck-controls">
+    <header><div className="identity"><h1>FALLING LAB<span>_</span></h1><span className="edition">PIANO TRAINER / 01</span><a href="../../" onClick={() => { exitRef.current(); void recorder.finish('interrupted'); }}>Launcher</a></div><div className="deck-controls">
       <div className="playback-controls">
         <button type="button" aria-pressed={playback.enabled} onClick={() => playback.setEnabled(!playback.enabled)}>Phrase Playback {playback.enabled ? 'On' : 'Off'}</button>
         <button type="button" aria-pressed={playback.metronome} onClick={() => playback.setMetronome(!playback.metronome)}>Metronome {playback.metronome ? 'On' : 'Off'}</button>
         <label>Phrase Volume <input type="range" min="0" max="100" value={playback.phraseVolume} onChange={event => playback.setVolume('phraseVolume', Number(event.target.value))}/> {playback.phraseVolume}%</label>
         <label>Metronome Volume <input type="range" min="0" max="100" value={playback.metronomeVolume} onChange={event => playback.setVolume('metronomeVolume', Number(event.target.value))}/> {playback.metronomeVolume}%</label>
-        <label>Next Phrase Delay <input type="range" min="0" max="5" step="0.25" value={playback.delay} onChange={event => playback.setDelay(Number(event.target.value))}/> {playback.delay} s</label>
+        <label>Next Phrase Delay <input type="range" min="0" max="1" step="0.01" value={playback.delay} onChange={event => playback.setDelay(Number(event.target.value))}/> {playback.delay.toFixed(2)} s</label>
         <label>Tempo <input type="number" min="30" max="240" step="1" value={tempoDraft} onChange={event => { const text = event.target.value; setTempoDraft(text); playback.setTempo(Number(text)); }} onBlur={() => setTempoDraft(String(playback.tempo))}/> BPM</label>
       </div>
+      <label className="audio-output">Audio output: <select value={audioOutput.supported ? audioOutput.selected : ''} disabled={!audioOutput.supported} onChange={event => audioOutput.select(event.target.value)}>
+        <option value="">System default</option>
+        {audioOutput.selected && !audioOutput.devices.some(device => device.deviceId === audioOutput.selected) && <option value={audioOutput.selected}>Saved output (availability unknown)</option>}
+        {audioOutput.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Audio output ${index + 1}`}</option>)}
+      </select></label>
+      {audioOutput.supported && <button type="button" onClick={audioOutput.allowDevices}>Allow microphone access to list outputs</button>}
+      {!audioOutput.supported && <span role="status">This browser uses the system default audio output.</span>}
+      {audioOutput.message && <span role="status">{audioOutput.message}</span>}
       {playback.audioError && <span role="status">{playback.audioError}</span>}
       <div className="deck-load-actions">
+        <button type="button" onClick={() => void leavePractice()}>My Decks</button>
+        <button type="button" onClick={() => void leavePractice()}>Finish Practice</button>
         <label>Load Deck <input type="file" accept=".json,application/json" onChange={loadDeck}/></label>
         <button type="button" onClick={() => { setPasteError(''); pasteDialog.current?.showModal(); }}>Paste JSON</button>
       </div>
       <div className="deck-info"><span>{deck.title} · {deck.exercises.length} {deck.exercises.length === 1 ? 'exercise' : 'exercises'}</span><span role="status">{loadedNotice ? 'Deck loaded' : ''}</span></div>
       {error && <p className="deck-error" role="alert">{error}</p>}
+      {storageError && <p className="deck-error" role="status">{storageError}</p>}
     </div></header>
     <dialog ref={pasteDialog} className="paste-deck-dialog" aria-labelledby="paste-deck-title" onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); }}>
       <h2 id="paste-deck-title">Paste JSON deck</h2>
@@ -217,8 +266,15 @@ function App() {
         <button type="button" onClick={() => pasteDialog.current?.close()}>Cancel</button>
       </div>
     </dialog>
-    <PracticeSession key={generation} deck={deck} onLog={log} nextAttemptId={nextAttemptId} playback={playback}/>
-    <EventLog entries={entries} clear={clearLog}/>
+    {showDecks && <MyDecks onBack={returnToPractice} onPractice={saved => {
+      ++loadId.current;
+      try { applyDeckText(JSON.stringify(saved.content)); setShowDecks(false); }
+      catch (reason) { setError(`Could not load deck: ${reason instanceof Error ? reason.message : String(reason)}`); setShowDecks(false); }
+    }}/>} 
+    {!showDecks && <div>
+      <PracticeSession key={generation} deck={deck} recorder={recorder} output={audioOutput.selected} exitRef={exitRef} onLog={log} nextAttemptId={nextAttemptId} playback={playback}/>
+      <EventLog entries={entries} clear={clearLog}/>
+    </div>}
   </main>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);

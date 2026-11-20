@@ -41,3 +41,36 @@
 .visual-key.white { height: 100%; background: #f3f4f6; color: #162031; }
 .visual-key.black { z-index: 1; height: 62%; background: #202a3b; color: #fff; border-color: #0b1220; }
 .visual-key.held { color: #101828; box-shadow: inset 0 0 0 2px #fff; }
+
+.audio-output { color: #aabbd0; font-size: 11px; }
+
+.my-decks { margin: 28px 0; color: #e3e8ef; }
+.my-decks-heading { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: center; }
+.my-decks-heading h2 { margin: 0 0 4px; }
+.my-decks-heading p, .my-decks-note { margin: 0; color: #aabbd0; font-size: 12px; }
+.my-decks-sort { display: block; margin: 20px 0 12px; font-size: 12px; }
+.my-decks-list { display: grid; gap: 10px; }
+.my-decks-row { display: flex; gap: 20px; align-items: center; min-width: 0; padding: 16px; border: 1px solid #30394c; border-radius: 8px; background: #101827; }
+.my-decks-info { flex: 0 0 190px; min-width: 0; display: grid; justify-items: start; gap: 8px; }
+.my-decks-info h3 { margin: 0; overflow-wrap: anywhere; }
+.my-decks-info span, .my-decks-empty, .my-decks-session span { color: #aabbd0; font-size: 12px; }
+.my-decks-sessions { display: flex; flex: 1; gap: 8px; min-width: 0; overflow-x: auto; padding-bottom: 4px; }
+.my-decks-session { display: grid; flex: 0 0 auto; gap: 6px; padding: 10px 12px; border: 1px solid #43536a; border-radius: 6px; font-size: 12px; }
+.my-decks-note { margin-top: 14px; }
+@media (max-width: 600px) { .my-decks-row { align-items: stretch; flex-direction: column; gap: 12px; } .my-decks-info { flex: auto; } }
+
+.my-decks-session { text-align: left; color: inherit; background: transparent; cursor: pointer; }
+.session-details { margin: 28px 0; color: #e3e8ef; }
+.session-details-meta { display: flex; flex-wrap: wrap; gap: 18px 36px; margin: 24px 0 8px; }
+.session-details-meta dt { color: #aabbd0; font-size: 12px; }
+.session-details-meta dd { margin: 5px 0 0; }
+.session-details-totals { display: flex; flex-wrap: wrap; gap: 20px; margin: 24px 0 10px; }
+.session-details-totals span { display: grid; gap: 5px; color: #aabbd0; font-size: 12px; }
+.session-details-totals b { color: #e3e8ef; font-size: 20px; }
+.session-details-cards { display: grid; gap: 8px; }
+.session-details-card { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; padding: 12px; border: 1px solid #30394c; border-radius: 6px; }
+.session-details-card strong { flex: 1 1 180px; overflow-wrap: anywhere; }
+.session-details-card span { color: #aabbd0; font-size: 12px; }
+.my-decks-session-wrap { position: relative; display: flex; flex: 0 0 auto; align-items: flex-start; }
+.my-decks-delete { position: absolute; top: 2px; right: 2px; padding: 0 4px; font-size: 14px; opacity: 0; pointer-events: none; }
+.my-decks-session-wrap:hover .my-decks-delete, .my-decks-session-wrap:focus-within .my-decks-delete { opacity: 1; pointer-events: auto; }

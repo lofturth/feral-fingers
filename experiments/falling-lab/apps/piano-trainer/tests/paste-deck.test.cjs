@@ -21,12 +21,14 @@ function createHost() {
   const component = new Module(filename, module);
   component.filename = filename;
   component.paths = Module._nodeModulePaths(path.dirname(filename));
-  const playback = { enabled: true, setEnabled() {}, metronome: false, setMetronome() {}, tempo: 90, setTempo() {}, stop() { stops++; }, replay() {}, setExercise() {}, audioError: '' };
+  const playback = { delay: .5, setDelay() {}, enabled: true, setEnabled() {}, metronome: false, setMetronome() {}, tempo: 90, setTempo() {}, stop() { stops++; }, replay() {}, setExercise() {}, audioError: '' };
   const originalRequire = component.require.bind(component);
   component.require = request => {
     if (request === 'react') return hooks;
     if (request === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'fragment' };
     if (request === 'react-dom/client') return { createRoot: () => ({ render: element => { root = element; } }) };
+    if (request === './MyDecks.tsx') return { MyDecks: () => null };
+    if (request === './audio/useAudioOutput') return { useAudioOutput: () => ({ selected: '', devices: [], message: '', supported: true, select() {}, setContext() {} }) };
     if (request === './audio/usePhrasePlayback') return { usePhrasePlayback: () => playback };
     if (request === './decks/sample.json?raw') return { default: fs.readFileSync(path.join(__dirname, '../decks/sample.json'), 'utf8') };
     if (request.endsWith('.css')) return {};
@@ -39,7 +41,7 @@ function createHost() {
     component._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX } }).outputText, filename);
   } finally { global.document = oldDocument; }
   function render() { cursor = 0; return root.type(root.props); }
-  function all(element) { if (!element || typeof element !== 'object') return []; return [element, ...[].concat(element.props?.children || []).flatMap(all)]; }
+  function all(element) { if (Array.isArray(element)) return element.flatMap(all); if (!element || typeof element !== 'object') return []; return [element, ...[].concat(element.props?.children || []).flatMap(all)]; }
   function find(tree, predicate) { const element = all(tree).find(predicate); assert.ok(element, 'expected element not found'); return element; }
   return { render, find, get stops() { return stops; } };
 }

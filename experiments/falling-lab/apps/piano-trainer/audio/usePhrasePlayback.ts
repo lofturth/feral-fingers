@@ -6,7 +6,7 @@ const phraseKey = 'piano-trainer.phrase-playback-enabled';
 const metroKey = 'piano-trainer.metronome-enabled';
 const tempoKey = 'piano-trainer.tempo-bpm';
 const delayKey = 'piano-trainer.next-phrase-delay';
-function storedDelay() { try { const raw = localStorage.getItem(delayKey); const value = raw === null ? 1.5 : Number(raw); return Number.isFinite(value) && value >= 0 && value <= 5 ? value : 1.5; } catch { return 1.5; } }
+function storedDelay() { try { const raw = localStorage.getItem(delayKey); const value = raw === null ? .5 : Number(raw); return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : .5; } catch { return .5; } }
 const phraseVolumeKey = 'piano-trainer.phrase-volume';
 const metronomeVolumeKey = 'piano-trainer.metronome-volume';
 function storedVolume(key: string, fallback: number) {
@@ -21,7 +21,7 @@ function storedTempo() {
 function errorDetail(error: unknown) { return error instanceof Error ? `${error.name}: ${error.message}` : String(error); }
 function save(key: string, value: string) { try { localStorage.setItem(key, value); } catch { /* Keep the session setting. */ } }
 
-export function usePhrasePlayback() {
+export function usePhrasePlayback(onAudioContext?: (context: AudioContext) => void) {
   const [enabled, setEnabledState] = useState(() => storedBoolean(phraseKey, storedBoolean('piano-trainer.sound-enabled', true)));
   const [metronome, setMetronomeState] = useState(() => storedBoolean(metroKey, false));
   const [tempo, setTempoState] = useState(storedTempo);
@@ -70,7 +70,7 @@ export function usePhrasePlayback() {
         try {
           const nextPlayer = createPhrasePlayer(audio);
           nextPlayer.setVolumes(settings.current.phraseVolume, settings.current.metronomeVolume);
-          context.current = audio; player.current = nextPlayer;
+          context.current = audio; player.current = nextPlayer; onAudioContext?.(audio);
         } catch (error) {
           void audio.close().catch(() => {});
           throw error;
@@ -95,7 +95,7 @@ export function usePhrasePlayback() {
       pending.current = false;
       setAudioError(`Audio initialization failed: ${errorDetail(error)}. Select Replay Phrase to retry.`);
     }
-  }, [playCurrent]);
+  }, [playCurrent, onAudioContext]);
   const stop = useCallback(() => { delayTimer.current.reset(); paused.current = false; resumePending.current = false; pending.current = false; exercise.current = null; player.current?.stop(); }, []);
   const setExercise = useCallback((notes: readonly number[] | null, delayed = false) => {
     player.current?.stop();
@@ -111,7 +111,7 @@ export function usePhrasePlayback() {
     if (value) { delayTimer.current.pause(); resumePending.current = pending.current; pending.current = false; player.current?.stop(); }
     else { delayTimer.current.resume(); if (resumePending.current) { resumePending.current = false; pending.current = true; activate(); } }
   }, [activate]);
-  const setDelay = useCallback((value: number) => { if (value >= 0 && value <= 5 && Number.isFinite(value)) { delayValue.current = value; setDelayState(value); save(delayKey, String(value)); } }, []);
+  const setDelay = useCallback((value: number) => { if (value >= 0 && value <= 1 && Number.isFinite(value)) { delayValue.current = value; setDelayState(value); save(delayKey, String(value)); } }, []);
   const setEnabled = useCallback((value: boolean) => {
     settings.current.enabled = value; setEnabledState(value); save(phraseKey, String(value));
     if (value) { if (!paused.current && !delayTimer.current.isPending()) { pending.current = !!exercise.current; activate(); } }

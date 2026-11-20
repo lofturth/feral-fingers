@@ -4,7 +4,9 @@ import type { AttemptMidiEvent } from './attemptRecording';
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 export const noteName = (pitch: number) => `${noteNames[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
 
-export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void, onInputReset?: () => void) {
+export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void, onInputReset?: () => void, onRawMidi?: (data: number[], timestamp: number, device: { id: string; name: string }) => void) {
+  const onRawMidiRef = useRef(onRawMidi);
+  onRawMidiRef.current = onRawMidi;
   const onInputResetRef = useRef(onInputReset);
   onInputResetRef.current = onInputReset;
   const onMidiEventRef = useRef(onMidiEvent);
@@ -38,6 +40,7 @@ export function useMidi(onMidiEvent: (event: AttemptMidiEvent) => void, onInputR
     }
     inputRef.current = input;
     input.onmidimessage = event => {
+      if (event.data) onRawMidiRef.current?.(Array.from(event.data), event.timeStamp, { id: input.id, name: input.name || 'MIDI input' });
       if (!event.data || event.data.length < 3) return;
       const [statusByte, pitch, velocity] = event.data;
       const command = statusByte & 0xf0;
