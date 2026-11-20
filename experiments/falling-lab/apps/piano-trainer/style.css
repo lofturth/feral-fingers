@@ -9,10 +9,29 @@
 .deck-error { margin: 0; color: #ff9ca9; font-size: 11px; }
 
 .trainer-field { position: relative; }
-.active-card-overlay { position: absolute; z-index: 10; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px)); max-height: min(75vh, 560px); overflow: auto; padding: 16px; border: 1px solid #43536a; border-radius: 16px; box-shadow: 0 20px 70px #000b; }
-
-.overlay-opacity { display: flex; justify-content: flex-end; gap: 6px; margin: 0 0 8px; font-size: 10px; color: #aabbd0; }
-.overlay-opacity input { width: 90px; accent-color: #43E6ED; }
+.active-card-overlay { position: absolute; z-index: 10; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px)); max-height: min(75vh, 560px); overflow: auto; padding: 16px; border: 1px solid #43536a; border-radius: 16px; background: #0b1220; box-shadow: 0 20px 70px #000b; }
+.active-card-overlay[data-feedback]::before { content: ''; z-index: 1; position: absolute; top: 0; bottom: 0; left: 0; width: 6px; }
+.active-card-overlay[data-feedback='blue']::before { background: #3b82f6; }
+.active-card-overlay[data-feedback='green']::before { background: #22c55e; }
+.active-card-overlay[data-feedback='orange']::before { background: #f59e0b; }
+.overlay-flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; animation: overlay-pulse 150ms linear both; }
+.overlay-flash[data-color='blue'] { background: #3b82f6; }
+.overlay-flash[data-color='green'] { background: #22c55e; }
+.overlay-flash[data-color='orange'] { background: #f59e0b; }
+@keyframes overlay-pulse { 0% { opacity: 0; } 16%, 36% { opacity: .58; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .overlay-flash { animation: none; opacity: .3; } }
+.start-practice { position: relative; display: block; margin: 4px 12px 12px; padding: 12px 20px; border-color: #43e6ed; background: #43e6ed; color: #0b1220; font-size: 14px; font-weight: 700; }
+.start-practice:hover { background: #b4f6f7; color: #0b1220; }
+.trainer-card { position: relative; }
+.trainer-card .piano-card { border: 0; padding: 12px; }
+.trainer-card .piano-card__header { color: #fff; font-size: 1rem; }
+.trainer-card .piano-card__notes { margin: 20px 0 10px; }
+.trainer-card .piano-card__header > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.trainer-gravity-group { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.trainer-gravity-history { display: flex; gap: 4px; min-width: 0; overflow-x: auto; font-size: .6rem; color: #aabbd0; white-space: nowrap; }
+.trainer-gravity-history [data-direction='decrease'] { color: #4ade80; }
+.trainer-gravity-history [data-direction='increase'] { color: #fb923c; }
+.trainer-gravity { flex: 0 0 auto; color: #cbd5e1; font-size: .75rem; font-weight: 700; }
 
 .card-projection { position: absolute; z-index: 9; pointer-events: none; transform-origin: top left; display: flex; justify-content: center; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; border: 1px solid #43e6ed; border-radius: 3px; background: #141e30; color: #e3e8ef; font: 9px system-ui, sans-serif; box-shadow: 0 0 12px #43e6ed55; }
 

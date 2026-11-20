@@ -32,12 +32,15 @@ test('sessions and events are written incrementally and completed sessions stop 
   const id = recorder.getRecord().sessionId;
   assert.equal(idb.stores.sessions.get(id).status, 'interrupted');
   assert.deepEqual(idb.stores.events.get(`${id}:0`).event.data, [144, 60, 80]);
+  recorder.record({ type: 'fluency', timestamp: 120, exerciseId: 'a', attemptId: 1, demonstrationTempo: 120, demonstrationNotesPerBeat: 2, accuracy: 'clean', executionTime: .25, referenceTime: .25, speedRatio: 1, fluent: true });
   recorder.record({ type: 'skip', timestamp: 120, exerciseId: 'a', attemptId: 1, applied: true });
   recorder.finish('completed');
   recorder.record({ type: 'midi', timestamp: 130, data: [128, 60, 0], device: { id: 'x', name: 'keys' } });
   await flush();
   assert.equal(idb.stores.sessions.get(id).status, 'completed');
-  assert.equal(idb.stores.events.size, 2);
+  assert.equal(idb.stores.events.size, 3);
+  assert.equal(idb.stores.events.get(`${id}:1`).event.speedRatio, 1);
+  assert.equal(idb.stores.events.get(`${id}:1`).event.demonstrationTempo, 120);
   assert.equal(idb.stores.sessions.get(id).schemaVersion, 1);
   delete global.indexedDB;
 });

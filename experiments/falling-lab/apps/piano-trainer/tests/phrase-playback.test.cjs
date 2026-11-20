@@ -353,3 +353,78 @@ test('metronome schedules and clears browser timers with their required global r
     player.stop(); assert.equal(cleared, 2);
   } finally { globalThis.setTimeout = oldSetTimeout; globalThis.clearTimeout = oldClearTimeout; }
 });
+
+test('subdivisions change phrase spacing while clicks stay on the shared beat', () => {
+  for (const subdivision of [1, 2, 4]) {
+    const audio = new AudioContextMock(), clock = timers(), player = createPhrasePlayer(audio, clock);
+    player.play([60, 62, 64], 120, true, true, subdivision);
+    const notes = audio.oscillators.filter(osc => osc.frequency.value !== 1600);
+    const firstClick = audio.oscillators.find(osc => osc.frequency.value === 1600);
+    assert.equal(firstClick.starts[0], notes[0].starts[0]);
+    assert.ok(Math.abs(notes[3].starts[0] - notes[0].starts[0] - .5 / subdivision) < 1e-9);
+    assert.ok(Math.abs(notes[6].starts[0] - notes[0].starts[0] - 1 / subdivision) < 1e-9);
+    audio.currentTime = 1.5;
+    [...clock.pending.values()][0]();
+    const clicks = audio.oscillators.filter(osc => osc.frequency.value === 1600);
+    assert.ok(Math.abs(clicks[1].starts[0] - clicks[0].starts[0] - .5) < 1e-9);
+    player.dispose();
+  }
+});
+
+test('subdivision persists and demonstrations capture the actual timing settings', () => {
+  const hooks = fakeHooks(), listeners = new Map(), stored = new Map(), demonstrations = [];
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  global.window = { AudioContext: AudioContextMock, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener() {} };
+  global.localStorage = { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(undefined, timing => demonstrations.push(timing));
+    assert.equal(playback.notesPerBeat, 1);
+    const cleanups = hooks.effects.map(effect => effect());
+    playback.setNotesPerBeat(4); playback.setTempo(120);
+    assert.equal(stored.get('piano-trainer.notes-per-beat'), '4');
+    playback.setExercise([60, 62]); listeners.get('pointerdown')();
+    assert.equal(demonstrations.length, 1);
+    assert.equal(demonstrations[0].tempo, 120); assert.equal(demonstrations[0].notesPerBeat, 4);
+    assert.equal(usePhrasePlayback().notesPerBeat, 4);
+    for (const cleanup of cleanups) cleanup?.();
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('explicit exercise start unlocks audio and schedules the first phrase once', async () => {
+  const hooks = fakeHooks(), listeners = new Map(), contexts = [];
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock { constructor() { super(); contexts.push(this); } }
+  global.window = { AudioContext: AudioClass, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener() {} };
+  global.localStorage = { getItem: () => null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    assert.equal(contexts.length, 0);
+    playback.setExercise([60, 64], false, true);
+    assert.equal(contexts.length, 1);
+    assert.equal(contexts[0].oscillators.length, 6);
+    listeners.get('pointerdown')();
+    assert.equal(contexts[0].oscillators.length, 6);
+    playback.setExercise([62]);
+    assert.equal(contexts[0].oscillators.length, 9);
+    for (const cleanup of cleanups) cleanup?.();
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});
+
+test('explicit exercise start waits for a suspended audio context without duplicate playback', async () => {
+  const hooks = fakeHooks(), contexts = [];
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  class AudioClass extends AudioContextMock { constructor() { super(); this.state = 'suspended'; contexts.push(this); } }
+  global.window = { AudioContext: AudioClass, addEventListener() {}, removeEventListener() {} };
+  global.localStorage = { getItem: () => null, setItem() {} };
+  try {
+    const { usePhrasePlayback } = importWithHooks('../audio/usePhrasePlayback.ts', hooks);
+    const playback = usePhrasePlayback(), cleanups = hooks.effects.map(effect => effect());
+    playback.setExercise([60, 64], false, true);
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(contexts.length, 1);
+    assert.equal(contexts[0].oscillators.length, 6);
+    for (const cleanup of cleanups) cleanup?.();
+  } finally { global.window = oldWindow; global.localStorage = oldStorage; }
+});

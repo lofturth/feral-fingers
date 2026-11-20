@@ -19,12 +19,16 @@ export function createTrainingSession(session: PhysicsSession, onSelectionChange
   return {
     advanceTo,
     resetClock() { lastTime = null; },
-    complete(cardId: string, score: 50 | 100, time: number, observeSelection?: (id: string) => void) {
+    complete(cardId: string, score: 50 | 100, time: number, observeSelection?: (id: string) => void, fluent: boolean | null = null) {
       advanceTo(time);
       const state = session.getState();
       observeSelection?.(state.selectedCardId);
       if (state.paused || state.complete || state.selectedCardId !== cardId) return null;
       const result = session.applyReward(cardId, score / 100);
+      if (result && (score === 50 || fluent === true)) {
+        const card = session.getCard(cardId);
+        if (card) session.setCardGravityMultiplier(cardId, Math.min(1, Math.max(.2, card.gravityMultiplier * (score === 50 ? 1.03 : .9))));
+      }
       reportSelection(state.selectedCardId, 'reward', Math.max(time, lastTime ?? time));
       return result;
     },

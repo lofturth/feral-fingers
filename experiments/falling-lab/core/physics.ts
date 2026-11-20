@@ -54,6 +54,7 @@ export type CardId = string;
 export interface CardState {
   readonly id: CardId;
   streak: number;
+  gravityMultiplier: number;
   unlocked: boolean;
   initialDepth: number;
   depth: number;
@@ -154,6 +155,7 @@ export interface PhysicsSession {
   getCard(cardIdentifier: CardId | number): CardState | undefined;
   isComplete(): boolean;
   setPaused(value: boolean): void;
+  setCardGravityMultiplier(cardIdentifier: CardId | number, multiplier: number): void;
   configure(patch?: PhysicsConfigPatch, options?: ConfigureOptions): TransitionResult;
 }
 
@@ -193,7 +195,7 @@ export const DEFAULTS: Readonly<PhysicsConfig> = Object.freeze({
     topFallingSpeed: 1,
     kickHeightPercent: 25,
     bottomToTopMultiplier: 5,
-    gravityReductionPercent: 5
+    gravityReductionPercent: 0
   }),
   unlock: Object.freeze({ threshold: 50 }),
   finish: Object.freeze({ threshold: 90 }),
@@ -422,6 +424,7 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
       return {
         id,
         streak: 0,
+        gravityMultiplier: 1,
         unlocked: i === 0,
         initialDepth: config.bounds.bottom,
         depth: config.bounds.bottom,
@@ -436,6 +439,7 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
     cards = Array.from({ length: count }, (_, i) => ({
       id: `card-${i + 1}`,
       streak: 0,
+      gravityMultiplier: 1,
       unlocked: i === 0,
       initialDepth: config.bounds.bottom,
       depth: config.bounds.bottom,
@@ -556,7 +560,7 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
       const activeCount = unlockedCount();
       for (const card of state.cards) {
         if (!card.unlocked) continue;
-        card.depth = fallingDepth(card.depth, dt, config, activeCount);
+        card.depth = fallingDepth(card.depth, dt * card.gravityMultiplier, config, activeCount);
         card.shown = config.instantPosition
           ? card.depth
           : card.shown + (card.depth - card.shown) * (1 - Math.exp(-15 * dt));
@@ -689,6 +693,13 @@ export function createSession(options: CreateSessionOptions = {}): PhysicsSessio
 
     isComplete(): boolean {
       return state.complete;
+    },
+
+    setCardGravityMultiplier(cardIdentifier: CardId | number, multiplier: number): void {
+      if (!Number.isFinite(multiplier) || multiplier < 0) throw new RangeError('Card gravity multiplier must be finite and nonnegative');
+      const index = typeof cardIdentifier === 'number' ? cardIdentifier : state.cards.findIndex(card => card.id === cardIdentifier);
+      if (!Number.isInteger(index) || index < 0 || index >= state.cards.length) throw new RangeError('Unknown card');
+      state.cards[index]!.gravityMultiplier = multiplier;
     },
 
     setPaused(value: boolean): void {

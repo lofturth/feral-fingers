@@ -237,14 +237,14 @@ test('ended prompt graph hides on retrieval/skip, resets for the next prompt, an
 
 test('Tune effective gravity updates on unlocking, parameter edits and Reset',()=>{
  const h=host();assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 100.00%');
- assert.equal(h.run("tuningInputs.find(v=>v.key==='gravityReductionPercent').input.value"),'5');
+ assert.equal(h.run("tuningInputs.find(v=>v.key==='gravityReductionPercent').input.value"),'0');
  h.run('{const state=testState(session);state.cards[0].depth=51;state.cards[0].shown=51;}');
  h.advance(.01);assert.equal(h.run('session.getState().unlockedCardCount'),2);
- assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 95.00%');
+ assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 100.00%');
  h.settings('gravityReductionPercent',5,'MOTION');assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 95.00%');
  h.settings('gravityReductionPercent',0,'MOTION');assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 100.00%');
  h.settings('gravityReductionPercent',10.1,'MOTION');assert.equal(h.run('session.getState().config.motion.gravityReductionPercent'),0);
- h.click('tuning-defaults');assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 95.00%');
+ h.click('tuning-defaults');assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 100.00%');
  h.click('reset');assert.equal(h.elements.get('effective-gravity').textContent,'EFFECTIVE GRAVITY 100.00%');
 });
 
@@ -276,7 +276,7 @@ for(const size of [1,10,30])test(`Total words ${size}: reset, progress, sequenti
   h.run('testState(session).cards.forEach(w=>{if(w.unlocked){w.depth=51;w.shown=51;}});acceptTransition(session.advance(0));render(0);');
   assert.equal(h.run('words.filter(w=>w.unlocked).length'),i+1);
   assert.equal(h.run(`words[${i}].depth`),0);
-  compare(h.run('session.getState().gravityMultiplier'),.95**i);
+  compare(h.run('session.getState().gravityMultiplier'),1);
   assert.equal(h.run('sessionComplete'),false);
  }
  h.run('testState(session).cards.forEach(w=>{w.depth=90;w.shown=90;});acceptTransition(session.advance(0));render(0);');

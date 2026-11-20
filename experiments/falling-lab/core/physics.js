@@ -48,7 +48,7 @@
           topFallingSpeed: 1,
           kickHeightPercent: 25,
           bottomToTopMultiplier: 5,
-          gravityReductionPercent: 5
+          gravityReductionPercent: 0
       }),
       unlock: Object.freeze({ threshold: 50 }),
       finish: Object.freeze({ threshold: 90 }),
@@ -209,6 +209,7 @@
               return {
                   id,
                   streak: 0,
+                  gravityMultiplier: 1,
                   unlocked: i === 0,
                   initialDepth: config.bounds.bottom,
                   depth: config.bounds.bottom,
@@ -224,6 +225,7 @@
           cards = Array.from({ length: count }, (_, i) => ({
               id: `card-${i + 1}`,
               streak: 0,
+              gravityMultiplier: 1,
               unlocked: i === 0,
               initialDepth: config.bounds.bottom,
               depth: config.bounds.bottom,
@@ -329,7 +331,7 @@
               for (const card of state.cards) {
                   if (!card.unlocked)
                       continue;
-                  card.depth = fallingDepth(card.depth, dt, config, activeCount);
+                  card.depth = fallingDepth(card.depth, dt * card.gravityMultiplier, config, activeCount);
                   card.shown = config.instantPosition
                       ? card.depth
                       : card.shown + (card.depth - card.shown) * (1 - Math.exp(-15 * dt));
@@ -450,6 +452,14 @@
           },
           isComplete() {
               return state.complete;
+          },
+          setCardGravityMultiplier(cardIdentifier, multiplier) {
+              if (!Number.isFinite(multiplier) || multiplier < 0)
+                  throw new RangeError('Card gravity multiplier must be finite and nonnegative');
+              const index = typeof cardIdentifier === 'number' ? cardIdentifier : state.cards.findIndex(card => card.id === cardIdentifier);
+              if (!Number.isInteger(index) || index < 0 || index >= state.cards.length)
+                  throw new RangeError('Unknown card');
+              state.cards[index].gravityMultiplier = multiplier;
           },
           setPaused(value) {
               if (typeof value !== 'boolean') {

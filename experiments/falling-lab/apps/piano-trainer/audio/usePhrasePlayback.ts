@@ -5,6 +5,9 @@ import { createPlaybackDelay } from './playbackDelay';
 const phraseKey = 'piano-trainer.phrase-playback-enabled';
 const metroKey = 'piano-trainer.metronome-enabled';
 const tempoKey = 'piano-trainer.tempo-bpm';
+const subdivisionKey = 'piano-trainer.notes-per-beat';
+export type NotesPerBeat = 1 | 2 | 4;
+function storedSubdivision(): NotesPerBeat { try { const value = Number(localStorage.getItem(subdivisionKey)); return value === 2 || value === 4 ? value : 1; } catch { return 1; } }
 const delayKey = 'piano-trainer.next-phrase-delay';
 function storedDelay() { try { const raw = localStorage.getItem(delayKey); const value = raw === null ? .5 : Number(raw); return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : .5; } catch { return .5; } }
 const phraseVolumeKey = 'piano-trainer.phrase-volume';
@@ -21,15 +24,18 @@ function storedTempo() {
 function errorDetail(error: unknown) { return error instanceof Error ? `${error.name}: ${error.message}` : String(error); }
 function save(key: string, value: string) { try { localStorage.setItem(key, value); } catch { /* Keep the session setting. */ } }
 
-export function usePhrasePlayback(onAudioContext?: (context: AudioContext) => void) {
+export function usePhrasePlayback(onAudioContext?: (context: AudioContext) => void, onDemonstration?: (timing: { timestamp: number; tempo: number; notesPerBeat: NotesPerBeat }) => void) {
   const [enabled, setEnabledState] = useState(() => storedBoolean(phraseKey, storedBoolean('piano-trainer.sound-enabled', true)));
   const [metronome, setMetronomeState] = useState(() => storedBoolean(metroKey, false));
   const [tempo, setTempoState] = useState(storedTempo);
+  const [notesPerBeat, setNotesPerBeatState] = useState(storedSubdivision);
+  const demonstrationRef = useRef(onDemonstration);
+  demonstrationRef.current = onDemonstration;
   const [delay, setDelayState] = useState(storedDelay);
   const [phraseVolume, setPhraseVolumeState] = useState(() => storedVolume(phraseVolumeKey, 80));
   const [metronomeVolume, setMetronomeVolumeState] = useState(() => storedVolume(metronomeVolumeKey, 70));
   const [audioError, setAudioError] = useState('');
-  const settings = useRef({ enabled, metronome, tempo, phraseVolume, metronomeVolume });
+  const settings = useRef({ enabled, metronome, tempo, notesPerBeat, phraseVolume, metronomeVolume });
   const context = useRef<AudioContext | null>(null);
   const player = useRef<ReturnType<typeof createPhrasePlayer> | null>(null);
   const exercise = useRef<readonly number[] | null>(null);
@@ -49,7 +55,10 @@ export function usePhrasePlayback(onAudioContext?: (context: AudioContext) => vo
     pending.current = false;
     try {
       if (!player.current) throw new Error('Audio player is unavailable');
-      if (!player.current.play(exercise.current, settings.current.tempo, settings.current.enabled, settings.current.metronome)) throw new Error('Audio context is not running');
+      if (!player.current.play(exercise.current, settings.current.tempo, settings.current.enabled, settings.current.metronome, settings.current.notesPerBeat)) throw new Error('Audio context is not running');
+      if (settings.current.enabled) {
+        try { demonstrationRef.current?.({ timestamp: performance.now(), tempo: settings.current.tempo, notesPerBeat: settings.current.notesPerBeat }); } catch { /* Recording must not interrupt playback. */ }
+      }
       setAudioError('');
     } catch (error) {
       player.current?.stop();
@@ -97,14 +106,18 @@ export function usePhrasePlayback(onAudioContext?: (context: AudioContext) => vo
     }
   }, [playCurrent, onAudioContext]);
   const stop = useCallback(() => { delayTimer.current.reset(); paused.current = false; resumePending.current = false; pending.current = false; exercise.current = null; player.current?.stop(); }, []);
-  const setExercise = useCallback((notes: readonly number[] | null, delayed = false) => {
+  const setExercise = useCallback((notes: readonly number[] | null, delayed = false, activateNow = false) => {
     player.current?.stop();
     exercise.current = notes;
     resumePending.current = false;
     pending.current = false;
     delayTimer.current.cancel();
-    if (notes) { if (delayed) delayTimer.current.schedule(delayValue.current * 1000); else playCurrent(); }
-  }, [playCurrent]);
+    if (notes) {
+      if (activateNow) { pending.current = true; activate(); }
+      else if (delayed) delayTimer.current.schedule(delayValue.current * 1000);
+      else playCurrent();
+    }
+  }, [activate, playCurrent]);
   const replay = useCallback(() => { if (!paused.current && settings.current.enabled && exercise.current) { delayTimer.current.cancel(); pending.current = true; activate(); } }, [activate]);
   const setPaused = useCallback((value: boolean) => {
     paused.current = value;
@@ -129,6 +142,10 @@ export function usePhrasePlayback(onAudioContext?: (context: AudioContext) => vo
     settings.current.tempo = value; setTempoState(value); save(tempoKey, String(value));
     player.current?.setTempo(value);
   }, []);
+  const setNotesPerBeat = useCallback((value: NotesPerBeat) => {
+    if (value !== 1 && value !== 2 && value !== 4) return;
+    settings.current.notesPerBeat = value; setNotesPerBeatState(value); save(subdivisionKey, String(value));
+  }, []);
   const setVolume = useCallback((kind: 'phraseVolume' | 'metronomeVolume', value: number) => {
     if (!Number.isFinite(value) || value < 0 || value > 100) return;
     settings.current[kind] = value;
@@ -151,5 +168,5 @@ export function usePhrasePlayback(onAudioContext?: (context: AudioContext) => vo
     const audio = context.current; context.current = null; player.current = null; ++resumeAttempt.current;
     if (audio && audio.state !== 'closed') void audio.close().catch(() => {});
   }, [stop]);
-  return { delay, setDelay, setPaused, enabled, setEnabled, metronome, setMetronome, tempo, setTempo, phraseVolume, metronomeVolume, setVolume, audioError, replay, setExercise, stop };
+  return { delay, setDelay, setPaused, enabled, setEnabled, metronome, setMetronome, tempo, setTempo, notesPerBeat, setNotesPerBeat, phraseVolume, metronomeVolume, setVolume, audioError, replay, setExercise, stop };
 }

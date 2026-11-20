@@ -128,7 +128,7 @@ test('rejects invalid configurations and multipliers and supports the three new 
  for(const bottomToTopMultiplier of [0,-1,.9,NaN])assert.throws(()=>s.configure({motion:{bottomToTopMultiplier}}),RangeError);
  for(const dt of [-1,NaN,Infinity])assert.throws(()=>s.advance(dt),RangeError);
  assert.throws(()=>s.configure({gravity:{maxSpeed:9}}),RangeError);assert.throws(()=>P.createSession({cardCount:0}),RangeError);
- s.configure({motion:{kickHeightPercent:25,topFallingSpeed:.5,bottomToTopMultiplier:2}});assert.deepEqual(s.getState().config.motion,{kickHeightPercent:25,topFallingSpeed:.5,bottomToTopMultiplier:2,gravityReductionPercent:5});
+ s.configure({motion:{kickHeightPercent:25,topFallingSpeed:.5,bottomToTopMultiplier:2}});assert.deepEqual(s.getState().config.motion,{kickHeightPercent:25,topFallingSpeed:.5,bottomToTopMultiplier:2,gravityReductionPercent:0});
 });
 
 test('compensation controls derive speeds and kicks without independent overrides',()=>{
@@ -260,7 +260,8 @@ test('R changes recalculate field time and baseline while preserving reference h
 });
 
 test('unlocked-card gravity follows the multiplicative rule and excludes locked cards',()=>{
- assert.equal(P.DEFAULTS.motion.gravityReductionPercent,5);
+ assert.equal(P.DEFAULTS.motion.gravityReductionPercent,0);
+ for (const n of [1, 2, 10, 30]) assert.equal(P.gravityMultiplier(P.DEFAULTS,n),1);
  const c=P.createSession({config:{motion:{gravityReductionPercent:2}}}).getState().config;
  for(const n of [1,5,10,20,30]){
   near(P.gravityMultiplier(c,n),Math.pow(.98,n-1));
@@ -286,7 +287,7 @@ test('zero reduction preserves original falling and kicks, including many active
 });
 
 test('unlock immediately updates effective gravity and the next falling update uses it',()=>{
- const s=P.createSession({cardCount:5,config:{instantPosition:true}});setPositions(s,[51,0,0,0,0]);
+ const s=P.createSession({cardCount:5,config:{instantPosition:true,motion:{gravityReductionPercent:5}}});setPositions(s,[51,0,0,0,0]);
  const transition=s.advance(0),after=s.getState();assert.equal(transition.unlockedIndex,1);
  assert.equal(after.unlockedCardCount,2);near(after.gravityMultiplier,.95);
  near(after.fieldFallTime,P.fieldFallTime(after.config,1)/.95);
@@ -408,4 +409,41 @@ test('applyReward supplies a generic magnitude and applies canonical time-coordi
  assert.throws(()=>s.applyReward('bad',1),TypeError);
  assert.throws(()=>s.applyReward(99,1),RangeError);
  assert.throws(()=>s.applyReward(0,-1),RangeError);
+});
+
+test('per-card gravity changes descent independently and may be updated during a session',()=>{
+ const s=sessionWithUnlocked({cardCount:3,config:{instantPosition:true,unlock:{initialCount:2},motion:{gravityReductionPercent:5}}});
+ assert.deepEqual(s.getState().cards.map(card=>card.gravityMultiplier),[1,1,1]);
+ setPositions(s,[80,80,0]);
+ s.setCardGravityMultiplier('card-1',2);
+ s.setCardGravityMultiplier(1,.5);
+ s.setCardGravityMultiplier(2,3);
+ const config=s.getState().config;
+ s.advance(1);
+ let cards=s.getState().cards;
+ near(cards[0].depth,P.fallingDepth(80,2,config,2));
+ near(cards[1].depth,P.fallingDepth(80,.5,config,2));
+ assert.equal(cards[2].depth,0);
+ s.setCardGravityMultiplier('card-1',0);
+ const before=cards[0].depth;
+ s.advance(1);
+ cards=s.getState().cards;
+ near(cards[0].depth,before);
+ assert.equal(s.getCard('card-1').gravityMultiplier,0);
+ assert.throws(()=>s.setCardGravityMultiplier('missing',1),RangeError);
+ assert.throws(()=>s.setCardGravityMultiplier(4,1),RangeError);
+ for(const value of [-1,NaN,Infinity])assert.throws(()=>s.setCardGravityMultiplier(0,value),RangeError);
+ assert.equal(s.getCard('card-1').gravityMultiplier,0);
+});
+
+test('card gravity does not change upward reward or the default descent',()=>{
+ const normal=P.createSession({cards:['a'],config:{instantPosition:true}});
+ const fast=P.createSession({cards:['a'],config:{instantPosition:true}});
+ setPositions(normal,[40]);setPositions(fast,[40]);
+ fast.setCardGravityMultiplier('a',3);
+ const a=normal.applyReward('a',1),b=fast.applyReward('a',1);
+ near(a.lift,b.lift);near(a.kickTime,b.kickTime);near(a.newDepth,b.newDepth);
+ fast.setCardGravityMultiplier('a',1);
+ normal.advance(2);fast.advance(2);
+ near(normal.getCard('a').depth,fast.getCard('a').depth);
 });

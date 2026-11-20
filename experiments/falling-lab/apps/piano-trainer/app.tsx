@@ -14,40 +14,60 @@ import { createTrainingSession } from './trainingSession';
 import { parseDeck, type PianoDeck } from './deck';
 import { saveDeck } from './deckStorage';
 import { MyDecks } from './MyDecks.tsx';
-import { usePhrasePlayback } from './audio/usePhrasePlayback';
+import { usePhrasePlayback, type NotesPerBeat } from './audio/usePhrasePlayback';
 import { useAudioOutput } from './audio/useAudioOutput';
 import { createSessionRecorder, type SessionRecorder } from './sessionRecorder';
+import { appendGravityHistory, type GravityHistoryEntry } from './gravityHistory';
+import { DEFAULT_PHYSICS_SETTINGS, loadPhysicsSettings, physicsPatch, savePhysicsSettings, validPhysicsSettings, type PhysicsSettings } from './physicsSettings';
 import sampleDeckJson from './decks/sample.json?raw';
 import './style.css';
 
-function PracticeSession({ deck, recorder, onLog, nextAttemptId, playback, output, exitRef }: { deck: PianoDeck; recorder: SessionRecorder; output: string; exitRef: React.MutableRefObject<() => void>; onLog: LogEvent; nextAttemptId: () => number; playback: ReturnType<typeof usePhrasePlayback> }) {
-  const [overlayOpacity, setOverlayOpacity] = useState(() => {
-    try {
-      const saved = localStorage.getItem('piano-trainer.overlay-opacity');
-      const value = saved === null ? 90 : Number(saved);
-      return Number.isFinite(value) && value >= 0 && value <= 100 ? value : 90;
-    } catch { return 90; }
-  });
-  function changeOpacity(value: number) {
-    setOverlayOpacity(value);
-    try { localStorage.setItem('piano-trainer.overlay-opacity', String(value)); } catch { /* Keep the setting for this session. */ }
-  }
-  const [session] = useState(() => createSession({ holdSelection: true, cards: deck.exercises.map(({ id }) => ({ id })), config: { instantPosition: window.matchMedia('(prefers-reduced-motion: reduce)').matches } }));
+function PracticeSession({ deck, recorder, onLog, nextAttemptId, playback, output, exitRef, physics, demonstrationRef }: { demonstrationRef: React.MutableRefObject<((timing: { timestamp: number; tempo: number; notesPerBeat: NotesPerBeat }) => void) | null>; physics: PhysicsSettings; deck: PianoDeck; recorder: SessionRecorder; output: string; exitRef: React.MutableRefObject<() => void>; onLog: LogEvent; nextAttemptId: () => number; playback: ReturnType<typeof usePhrasePlayback> }) {
+  const [practiceStarted, setPracticeStarted] = useState(false);
+  const startedRef = useRef(false);
+  const [session] = useState(() => createSession({ holdSelection: true, cards: deck.exercises.map(({ id }) => ({ id })), config: { ...physicsPatch(physics), instantPosition: window.matchMedia('(prefers-reduced-motion: reduce)').matches } }));
   const [trainer] = useState(() => createTrainingSession(session, change => {
     recorder.record({ type: 'selection', timestamp: change.timestamp, previous: change.previous || null, next: change.next || null, cause: change.cause });
     onLog({ timestamp: change.timestamp, type: 'Core selection', detail: `${change.previous || 'none'} → ${change.next || 'none'}; cause ${change.cause}` });
   }));
   const [state, setState] = useState(() => session.getState());
+  const [gravityHistory, setGravityHistory] = useState<Record<string, GravityHistoryEntry[]>>(() => Object.fromEntries(session.getState().cards.map(card => [card.id, appendGravityHistory([], card.gravityMultiplier)])));
+  const recordGravity = useCallback((cardId: string) => {
+    const card = session.getCard(cardId);
+    if (card) setGravityHistory(previous => ({ ...previous, [cardId]: appendGravityHistory(previous[cardId] ?? [], card.gravityMultiplier) }));
+  }, [session]);
+  const appliedPhysics = useRef(physics);
+  useEffect(() => {
+    if (appliedPhysics.current === physics) return;
+    if (startedRef.current) trainer.advanceTo(performance.now());
+    session.configure(physicsPatch(physics));
+    appliedPhysics.current = physics;
+    setState(session.getState());
+  }, [physics, session, trainer]);
   const [progress, setProgress] = useState(() => session.getProgress());
   const [history, setHistory] = useState([{ time: 0, progress: 0 }]);
   const fieldRef = useRef<FieldHandle>(null);
   const overlayRef = useRef<HTMLElement>(null);
   const lastSelected = useRef<string | null>(null);
   const lastPlaybackSelection = useRef<string | null>(null);
-  const selectPlayback = useCallback((snapshot: SessionSnapshot, delayed = false) => {
+  const latestDemonstrations = useRef(new Map<string, { tempo: number; notesPerBeat: NotesPerBeat }>());
+  const pendingDemonstrations = useRef<{ timestamp: number; exerciseId: string; tempo: number; notesPerBeat: NotesPerBeat }[]>([]);
+  const recordingStarted = useRef(false);
+  useEffect(() => {
+    demonstrationRef.current = timing => {
+      const exerciseId = lastPlaybackSelection.current;
+      if (!exerciseId) return;
+      const event = { ...timing, exerciseId };
+      latestDemonstrations.current.set(exerciseId, { tempo: timing.tempo, notesPerBeat: timing.notesPerBeat });
+      if (recordingStarted.current) recorder.record({ type: 'demonstration', ...event });
+      else pendingDemonstrations.current.push(event);
+    };
+    return () => { demonstrationRef.current = null; };
+  }, [demonstrationRef, recorder]);
+  const selectPlayback = useCallback((snapshot: SessionSnapshot, delayed = false, activateNow = false) => {
     const selected = !snapshot.paused && !snapshot.complete ? deck.exercises[snapshot.selectedIndex] : undefined;
     lastPlaybackSelection.current = selected?.id ?? null;
-    playback.setExercise(selected?.notes ?? null, delayed);
+    playback.setExercise(selected?.notes ?? null, delayed, activateNow);
   }, [deck, playback.setExercise]);
   useEffect(() => () => playback.stop(), [playback.stop]);
   const projectionId = useRef(0);
@@ -74,7 +94,7 @@ function PracticeSession({ deck, recorder, onLog, nextAttemptId, playback, outpu
     let nextSample = .25, frame = 0;
     const visibility = () => { trainer.resetClock(); };
     const tick = (time: number) => {
-      if (!document.hidden) {
+      if (!document.hidden && startedRef.current) {
         trainer.advanceTo(time);
         const snapshot = session.getState(), value = session.getProgress();
         if (snapshot.complete) recorder.finish('completed');
@@ -96,28 +116,28 @@ function PracticeSession({ deck, recorder, onLog, nextAttemptId, playback, outpu
     projectSelection(snapshot);
     selectPlayback(snapshot, true);
   }, [session, projectSelection, selectPlayback]);
-  const complete = useCallback((cardId: string, score: 50 | 100, time: number, attemptId: number) => {
+  const complete = useCallback((cardId: string, score: 50 | 100, time: number, attemptId: number, fluent: boolean | null) => {
     let before = '';
-    const result = trainer.complete(cardId, score, time, id => { before = id; });
+    const result = trainer.complete(cardId, score, time, id => { before = id; }, fluent);
     const after = session.getState().selectedCardId;
     onLog({ timestamp: time, type: 'Core reward', attemptId, detail: `Card ${cardId}; magnitude ${score / 100}; selection before ${before || 'none'} → after ${after || 'none'}; ${result ? 'applied' : 'not applied'}` });
     recorder.record({ type: 'reward', timestamp: time, exerciseId: cardId, attemptId, magnitude: score / 100, applied: !!result });
-    if (result) { if (session.getState().complete) recorder.finish('completed'); refresh(); }
-  }, [session, trainer, refresh, onLog, recorder]);
+    if (result) { recordGravity(cardId); if (session.getState().complete) recorder.finish('completed'); refresh(); }
+  }, [session, trainer, refresh, onLog, recorder, recordGravity]);
   const skip = useCallback((cardId: string, time: number, attemptId: number) => {
     let before = '';
     const result = trainer.skip(cardId, time, id => { before = id; });
     const after = session.getState().selectedCardId;
     onLog({ timestamp: time, type: 'Core skip', attemptId, detail: `Card ${cardId}; selection before ${before || 'none'} → after ${after || 'none'}; ${result ? 'applied' : 'not applied'}` });
     recorder.record({ type: 'skip', timestamp: time, exerciseId: cardId, attemptId, applied: !!result });
-    if (result) { if (session.getState().complete) recorder.finish('completed'); refresh(); }
-  }, [session, trainer, refresh, onLog, recorder]);
-  const getSelectedId = useCallback(() => { const current = session.getState(); return current.paused || current.complete ? null : current.selectedCardId; }, [session]);
+    if (result) { recordGravity(cardId); if (session.getState().complete) recorder.finish('completed'); refresh(); }
+  }, [session, trainer, refresh, onLog, recorder, recordGravity]);
+  const getSelectedId = useCallback(() => { const current = session.getState(); return !startedRef.current || current.paused || current.complete ? null : current.selectedCardId; }, [session]);
   const getExercise = useCallback((id: string) => deck.exercises.find(exercise => exercise.id === id), [deck]);
   const resetAttemptRef = useRef<() => void>(() => {});
   const togglePause = useCallback(() => {
     const current = session.getState();
-    if (current.complete) return;
+    if (!startedRef.current || current.complete) return;
     const now = performance.now();
     trainer.advanceTo(now);
     session.setPaused(!current.paused);
@@ -126,19 +146,37 @@ function PracticeSession({ deck, recorder, onLog, nextAttemptId, playback, outpu
     resetAttemptRef.current();
     setState(session.getState());
   }, [session, trainer, playback.setPaused]);
-  const startRecording = (timestamp: number) => recorder.start(timestamp, { phrasePlayback: playback.enabled, metronome: playback.metronome, tempo: playback.tempo, phraseVolume: playback.phraseVolume, metronomeVolume: playback.metronomeVolume, nextPhraseDelay: playback.delay, audioOutput: output, overlayOpacity });
-  const practice = usePianoPractice({ recorder, startRecording, selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId, replay: playback.replay, togglePause });
+  const startRecording = (timestamp: number) => {
+    if (!startedRef.current) return false;
+    const started = recorder.start(timestamp, { phrasePlayback: playback.enabled, metronome: playback.metronome, tempo: playback.tempo, phraseVolume: playback.phraseVolume, metronomeVolume: playback.metronomeVolume, nextPhraseDelay: playback.delay, audioOutput: output, physics, notesPerBeat: playback.notesPerBeat });
+    if (started) {
+      recordingStarted.current = true;
+      for (const event of pendingDemonstrations.current) recorder.record({ type: 'demonstration', ...event });
+      pendingDemonstrations.current = [];
+    }
+    return started;
+  };
+  const practice = usePianoPractice({ recorder, startRecording, getTiming: () => ({ tempo: playback.tempo, notesPerBeat: playback.notesPerBeat }), getDemonstrationTiming: id => latestDemonstrations.current.get(id) ?? null, selectedId: state.selectedCardId, getSelectedId, getExercise, onComplete: complete, onSkip: skip, onLog, nextAttemptId, replay: playback.replay, togglePause });
   resetAttemptRef.current = practice.resetAttempt;
   exitRef.current = practice.resetAttempt;
+  const startPractice = () => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    trainer.resetClock();
+    setPracticeStarted(true);
+    selectPlayback(session.getState(), false, true);
+  };
   const selected = deck.exercises[state.selectedIndex] ?? deck.exercises[0];
+  const overlayFeedback = practice.flash?.color ?? (practice.feedback?.id === state.selectedCardId ? practice.feedback.color : practiceStarted && !state.paused && !state.complete ? 'blue' : undefined);
   return <>
-    <div className="readouts"><span className="status"><i/>{state.complete ? 'COMPLETE' : state.paused ? 'PAUSED' : 'PLAYING'} <button type="button" onClick={togglePause} disabled={state.complete}>{state.paused ? 'Resume' : 'Pause'}</button></span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
+    <div className="readouts"><span className="status"><i/>{!practiceStarted ? 'READY' : state.complete ? 'COMPLETE' : state.paused ? 'PAUSED' : 'PLAYING'} <button type="button" onClick={togglePause} disabled={!practiceStarted || state.complete}>{state.paused ? 'Resume' : 'Pause'}</button></span><span>PROGRESS <b id="score">{progress.toFixed(1)}</b><small>%</small></span></div>
     <section className="instrument trainer-field" aria-label="Piano phrase field">
       <div className="chart-heading"><span>{deck.title}</span><div className="legend"><span className="magenta">▥ ITEM DEPTH</span><span className="cyan">∿ OVERALL PROGRESS</span></div></div>
       <FallingView ref={fieldRef} state={state} progress={progress} history={history} exercises={deck.exercises}/>
-      <aside ref={overlayRef} className="active-card-overlay" aria-label="Active piano exercise" style={{ backgroundColor: `rgba(11, 18, 32, ${overlayOpacity / 100})` }}>
-        <label className="overlay-opacity">Background <input type="range" min="0" max="100" step="1" value={overlayOpacity} onChange={event => changeOpacity(Number(event.target.value))} aria-label="Overlay background opacity"/> <span>{overlayOpacity}%</span></label>
-        <TrainerPianoCard exercise={selected} active={!state.paused && !state.complete} paused={state.paused && !state.complete} practice={practice} replay={playback.replay} playbackEnabled={playback.enabled}/>
+      <aside ref={overlayRef} className="active-card-overlay" data-feedback={overlayFeedback} data-flash={practice.flash ? 'true' : undefined} aria-label={overlayFeedback ? `Active piano exercise, ${overlayFeedback} feedback` : 'Active piano exercise'}>
+        {practice.flash && <span key={practice.flash.sequence} className="overlay-flash" data-color={practice.flash.color} aria-hidden="true"/>}
+        {!practiceStarted && <button className="start-practice" type="button" onClick={startPractice}>Start Practice</button>}
+        <TrainerPianoCard exercise={selected} gravity={state.cards[state.selectedIndex]?.gravityMultiplier ?? 1} history={gravityHistory[state.selectedCardId] ?? []} practice={practice}/>
       </aside>
       <div className="chart-foot"><span>SLOTS: FIXED POSITIONS <span className="divider">/</span> TRACE: SESSION TIME →</span><span>FULL SESSION <span className="divider">/</span> PROGRESS HISTORY</span></div>
     </section>
@@ -146,9 +184,21 @@ function PracticeSession({ deck, recorder, onLog, nextAttemptId, playback, outpu
     {projection && <CardProjection key={projection.id} projection={projection} onFinish={finishProjection}/>}
   </>;
 }
+function PhysicsInput({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max?: number; step: number; onChange: (value: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  return <label>{label} <input type="number" min={min} max={max} step={step} value={draft} onChange={event => { setDraft(event.target.value); onChange(event.target.valueAsNumber); }} onBlur={() => setDraft(String(value))}/></label>;
+}
 function App() {
   const audioOutput = useAudioOutput();
-  const playback = usePhrasePlayback(audioOutput.setContext);
+  const demonstrationRef = useRef<((timing: { timestamp: number; tempo: number; notesPerBeat: NotesPerBeat }) => void) | null>(null);
+  const onDemonstration = useCallback((timing: { timestamp: number; tempo: number; notesPerBeat: NotesPerBeat }) => demonstrationRef.current?.(timing), []);
+  const playback = usePhrasePlayback(audioOutput.setContext, onDemonstration);
+  const [physics, setPhysics] = useState(loadPhysicsSettings);
+  function updatePhysics(next: PhysicsSettings) {
+    if (!validPhysicsSettings(next)) return;
+    setPhysics(next); savePhysicsSettings(next);
+  }
   const [tempoDraft, setTempoDraft] = useState(() => String(playback.tempo));
   const [initialDeck] = useState(() => JSON.parse(sampleDeckJson));
   const [deck, setDeck] = useState(() => parseDeck(initialDeck));
@@ -235,7 +285,15 @@ function App() {
         <label>Phrase Volume <input type="range" min="0" max="100" value={playback.phraseVolume} onChange={event => playback.setVolume('phraseVolume', Number(event.target.value))}/> {playback.phraseVolume}%</label>
         <label>Metronome Volume <input type="range" min="0" max="100" value={playback.metronomeVolume} onChange={event => playback.setVolume('metronomeVolume', Number(event.target.value))}/> {playback.metronomeVolume}%</label>
         <label>Next Phrase Delay <input type="range" min="0" max="1" step="0.01" value={playback.delay} onChange={event => playback.setDelay(Number(event.target.value))}/> {playback.delay.toFixed(2)} s</label>
+        <label>Notes per Beat <select value={playback.notesPerBeat} onChange={event => playback.setNotesPerBeat(Number(event.target.value) as NotesPerBeat)}><option value={1}>1</option><option value={2}>2</option><option value={4}>4</option></select></label>
         <label>Tempo <input type="number" min="30" max="240" step="1" value={tempoDraft} onChange={event => { const text = event.target.value; setTempoDraft(text); playback.setTempo(Number(text)); }} onBlur={() => setTempoDraft(String(playback.tempo))}/> BPM</label>
+      </div>
+      <div className="playback-controls" aria-label="Physics settings">
+        <PhysicsInput label="Falling speed" min={0.01} step={0.1} value={physics.fallingSpeed} onChange={value => updatePhysics({ ...physics, fallingSpeed: value })}/>
+        <PhysicsInput label="Reward strength" min={1} max={100} step={1} value={physics.rewardStrength} onChange={value => updatePhysics({ ...physics, rewardStrength: value })}/>
+        <PhysicsInput label="Unlock threshold" min={1} max={99} step={1} value={physics.unlockThreshold} onChange={value => updatePhysics({ ...physics, unlockThreshold: value })}/>
+        <PhysicsInput label="Completion threshold" min={1} max={99} step={1} value={physics.completionThreshold} onChange={value => updatePhysics({ ...physics, completionThreshold: value })}/>
+        <button type="button" onClick={() => updatePhysics({ ...DEFAULT_PHYSICS_SETTINGS })}>Reset to Defaults</button>
       </div>
       <label className="audio-output">Audio output: <select value={audioOutput.supported ? audioOutput.selected : ''} disabled={!audioOutput.supported} onChange={event => audioOutput.select(event.target.value)}>
         <option value="">System default</option>
@@ -272,7 +330,7 @@ function App() {
       catch (reason) { setError(`Could not load deck: ${reason instanceof Error ? reason.message : String(reason)}`); setShowDecks(false); }
     }}/>} 
     {!showDecks && <div>
-      <PracticeSession key={generation} deck={deck} recorder={recorder} output={audioOutput.selected} exitRef={exitRef} onLog={log} nextAttemptId={nextAttemptId} playback={playback}/>
+      <PracticeSession key={generation} deck={deck} recorder={recorder} demonstrationRef={demonstrationRef} physics={physics} output={audioOutput.selected} exitRef={exitRef} onLog={log} nextAttemptId={nextAttemptId} playback={playback}/>
       <EventLog entries={entries} clear={clearLog}/>
     </div>}
   </main>;

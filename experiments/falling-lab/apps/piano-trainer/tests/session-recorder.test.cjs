@@ -17,7 +17,8 @@ test('session record snapshots the complete deck and preserves raw MIDI and link
   const device = { id: 'midi', name: 'Keyboard' };
   recorder.record({ type: 'midi', timestamp: 110.5, data: [0x92, 61, 73], device });
   recorder.record({ type: 'midi', timestamp: 111, data: [0xb2, 64, 127], device });
-  recorder.record({ type: 'attempt-start', timestamp: 110.5, exerciseId: 'a', attemptId: 1 });
+  recorder.record({ type: 'demonstration', timestamp: 100, exerciseId: 'a', tempo: 90, notesPerBeat: 2 });
+  recorder.record({ type: 'attempt-start', timestamp: 110.5, exerciseId: 'a', attemptId: 1, tempo: 120, notesPerBeat: 4 });
   recorder.record({ type: 'result', timestamp: 120, exerciseId: 'a', attemptId: 1, score: 50 });
   recorder.record({ type: 'attempt-end', timestamp: 120, exerciseId: 'a', attemptId: 1, reason: 'completed' });
   recorder.record({ type: 'reward', timestamp: 120, exerciseId: 'a', attemptId: 1, magnitude: .5, applied: true });
@@ -30,6 +31,8 @@ test('session record snapshots the complete deck and preserves raw MIDI and link
   assert.equal(record.deck.metadata.author, 'test');
   assert.deepEqual(record.events[0], { type: 'midi', time: 0, data: [0x92, 61, 73], device });
   assert.deepEqual(record.events[1].data, [0xb2, 64, 127]);
+  assert.deepEqual(record.events[2], { type: 'demonstration', time: -10.5, exerciseId: 'a', tempo: 90, notesPerBeat: 2 });
+  assert.deepEqual(record.events[3], { type: 'attempt-start', time: 0, exerciseId: 'a', attemptId: 1, tempo: 120, notesPerBeat: 4 });
   record.events[0].data[0] = 0;
   assert.equal(recorder.getRecord().events[0].data[0], 0x92);
 });

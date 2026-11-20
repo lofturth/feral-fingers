@@ -97,3 +97,49 @@ test('pause freezes simulation and resetting the trainer clock prevents a resume
   session.setPaused(false); trainer.resetClock(); trainer.advanceTo(10000); trainer.advanceTo(10250);
   assert.equal(session.getState().time, before.time + .25);
 });
+
+test('only accepted fluent attempts reduce the practiced card gravity to the floor', () => {
+  const session = createSession({ cards: ['a', 'b'], config: { instantPosition: true, motion: { kickHeightPercent: 1 } } });
+  const trainer = createTrainingSession(session);
+  const untouched = session.getCard('b');
+  assert.equal(session.getCard('a').gravityMultiplier, 1);
+  assert.equal(trainer.complete('b', 100, 0, undefined, true), null);
+  assert.equal(session.getCard('b').gravityMultiplier, untouched.gravityMultiplier);
+  trainer.complete('a', 100, 0, undefined, true);
+  assert.equal(session.getCard('a').gravityMultiplier, .9);
+  trainer.complete('a', 100, 0, undefined, false);
+  trainer.complete('a', 100, 0, undefined, null);
+  assert.equal(session.getCard('a').gravityMultiplier, .9);
+  trainer.skip('a', 0);
+  assert.equal(session.getCard('a').gravityMultiplier, .9);
+  for (let i = 0; i < 30; i++) trainer.complete('a', 100, 0, undefined, true);
+  assert.equal(session.getCard('a').gravityMultiplier, .2);
+  assert.equal(session.getCard('b').gravityMultiplier, 1);
+});
+
+test('fluent gravity changes do not alter the current upward reward', () => {
+  const options = { cards: ['a'], config: { instantPosition: true, motion: { kickHeightPercent: 1 } } };
+  const fluent = createSession(options), normal = createSession(options);
+  const a = createTrainingSession(fluent), b = createTrainingSession(normal);
+  const fluentResult = a.complete('a', 100, 0, undefined, true);
+  const normalResult = b.complete('a', 100, 0, undefined, false);
+  assert.equal(fluentResult.lift, normalResult.lift);
+  assert.equal(fluentResult.newDepth, normalResult.newDepth);
+  assert.equal(fluent.getCard('a').gravityMultiplier, .9);
+  assert.equal(normal.getCard('a').gravityMultiplier, 1);
+});
+
+
+test('mistakes increase only the practiced card gravity and clamp at one', () => {
+  const session = createSession({ cards: ['a', 'b'], config: { instantPosition: true, motion: { kickHeightPercent: 1 } } });
+  const trainer = createTrainingSession(session);
+  trainer.complete('a', 100, 0, undefined, true);
+  trainer.complete('a', 50, 0, undefined, false);
+  assert.ok(Math.abs(session.getCard('a').gravityMultiplier - .927) < 1e-12);
+  const before = session.getCard('a').gravityMultiplier;
+  trainer.complete('a', 100, 0, undefined, false);
+  assert.equal(session.getCard('a').gravityMultiplier, before);
+  for (let i = 0; i < 20; i++) trainer.complete('a', 50, 0, undefined, false);
+  assert.equal(session.getCard('a').gravityMultiplier, 1);
+  assert.equal(session.getCard('b').gravityMultiplier, 1);
+});

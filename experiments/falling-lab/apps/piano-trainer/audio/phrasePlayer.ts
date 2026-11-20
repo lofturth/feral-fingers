@@ -61,14 +61,15 @@ export function createPhrasePlayer(context: AudioContext, timers = {
     clickEnabled = true;
     scheduleClicks(clickGeneration);
   }
-  function play(pitches: readonly number[], bpm: number, playNotes: boolean, metronome: boolean) {
+  function play(pitches: readonly number[], bpm: number, playNotes: boolean, metronome: boolean, notesPerBeat = 1) {
     stop();
     if (context.state !== 'running') return false;
     beat = 60 / bpm;
     origin = context.currentTime + .03;
+    const noteInterval = beat / notesPerBeat;
     if (playNotes) pitches.forEach((pitch, i) => {
       const frequency = 440 * 2 ** ((pitch - 69) / 12);
-      [1, .22, .07].forEach((strength, harmonic) => voice(frequency * (harmonic + 1), origin + i * beat, Math.min(.45, beat * .8), .22 * strength, notes));
+      [1, .22, .07].forEach((strength, harmonic) => voice(frequency * (harmonic + 1), origin + i * noteInterval, Math.min(.45, noteInterval * .8), .22 * strength, notes));
     });
     setMetronome(metronome);
     return true;

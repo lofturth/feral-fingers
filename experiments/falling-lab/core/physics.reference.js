@@ -16,7 +16,7 @@
   // Falling speeds are positive magnitudes in percentage points per second.
   const DEFAULTS = Object.freeze({
     bounds: Object.freeze({ top:100, bottom:0 }),
-    motion: Object.freeze({ topFallingSpeed:1, kickHeightPercent:25, bottomToTopMultiplier:5, gravityReductionPercent:5 }),
+    motion: Object.freeze({ topFallingSpeed:1, kickHeightPercent:25, bottomToTopMultiplier:5, gravityReductionPercent:0 }),
     unlock: Object.freeze({ threshold:50 }),
     finish: Object.freeze({ threshold:90 }),
     instantPosition:false

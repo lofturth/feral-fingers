@@ -1,9 +1,12 @@
 import { createPracticeStorage } from './practiceStorage';
+import type { Fluency } from './fluency';
 
 export type SessionEvent =
   | { type: 'midi'; time: number; data: number[]; device: { id: string; name: string } }
   | { type: 'selection'; time: number; previous: string | null; next: string | null; cause: string }
-  | { type: 'attempt-start'; time: number; exerciseId: string; attemptId: number }
+  | { type: 'demonstration'; time: number; exerciseId: string; tempo: number; notesPerBeat: 1 | 2 | 4 }
+  | { type: 'attempt-start'; time: number; exerciseId: string; attemptId: number; tempo?: number; notesPerBeat?: 1 | 2 | 4 }
+  | ({ type: 'fluency'; time: number; exerciseId: string; attemptId: number; demonstrationTempo: number | null; demonstrationNotesPerBeat: 1 | 2 | 4 | null } & Fluency)
   | { type: 'attempt-end'; time: number; exerciseId: string; attemptId: number; reason: 'completed' | 'skipped' | 'interrupted' }
   | { type: 'result'; time: number; exerciseId: string; attemptId: number; score: number }
   | { type: 'reward'; time: number; exerciseId: string; attemptId: number; magnitude: number; applied: boolean }
